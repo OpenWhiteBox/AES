@@ -1,7 +1,7 @@
 package saes
 
 import (
-	"../../primitives/matrix"
+	"../saes"
 	"../../primitives/number"
 )
 
@@ -26,111 +26,61 @@ var powx = [16]byte{
 }
 
 type Construction struct {
-	Key [16]byte
+	TBox [10][16][256]byte
 }
 
-func (constr *Construction) Encrypt(block [16]byte) [16]byte {
-	roundKeys := constr.stretchedKey()
-
-	for i := 1; i <= 9; i++ {
-		block = constr.shiftRows(block)
-		block = constr.addRoundKey(roundKeys[i-1], block)
-		block = constr.subBytes(block)
-		block = constr.mixColumns(block)
-	}
-
-	block = constr.shiftRows(block)
-	block = constr.addRoundKey(roundKeys[9], block)
-	block = constr.subBytes(block)
-	block = constr.addRoundKey(roundKeys[10], block)
-
-	return block
-}
-
-func rotw(w uint32) uint32 { return w<<8 | w>>24 }
-
-func (constr *Construction) stretchedKey() [11][16]byte {
-	var (
-		i         int            = 0
-		temp      uint32         = 0
-		stretched [4 * 11]uint32 // Stretched key
-		split     [11][16]byte   // Each round key is combined and its uint32s are turned into 4 bytes
-	)
-
-	for ; i < 4; i++ { // First key-length of stretched is the raw key.
-		stretched[i] = (uint32(constr.Key[4*i]) << 24) |
-			(uint32(constr.Key[4*i+1]) << 16) |
-			(uint32(constr.Key[4*i+2]) << 8) |
-			uint32(constr.Key[4*i+3])
-	}
-
-	for ; i < (4 * 11); i++ {
-		temp = stretched[i-1]
-
-		if (i % 4) == 0 {
-			temp = constr.subWord(rotw(temp)) ^ (uint32(powx[i/4-1]) << 24)
-		}
-
-		stretched[i] = stretched[i-4] ^ temp
-	}
-
-	for j := 0; j < 11; j++ {
-		for k := 0; k < 4; k++ {
-			word := stretched[4*j+k]
-
-			split[j][4*k] = byte(word >> 24)
-			split[j][4*k+1] = byte(word >> 16)
-			split[j][4*k+2] = byte(word >> 8)
-			split[j][4*k+3] = byte(word)
-		}
-	}
+func GenerateTables(key [16]byte) (table [10][16][256]byte) {
+	constr := saes.Construction{key}
+	roundKeys := constr.StretchedKey()
 
 	// Apply ShiftRows to round keys 0 to 9.
-	for l := 0; l < 10; l++ {
-		split[l] = constr.shiftRows(split[l])
+	for k := 0; k < 10; k++ {
+		roundKeys[k] = constr.ShiftRows(roundKeys[k])
 	}
 
-	return split
-}
+	// Build T-Boxes 1 to 9
+	for round := 1; round < 10; round++ {
+		table[round] = [16][256]byte{}
 
-func (constr *Construction) addRoundKey(roundKey, block [16]byte) (out [16]byte) {
-	for i := 0; i < 16; i++ {
-		out[i] = roundKey[i] ^ block[i]
+		for place := 0; place < 16; place++ {
+			table[round][place] = [256]byte{}
+
+			for x := 0; x < 256; x++ {
+				table[round][place][x] = constr.SubByte(byte(x) ^ roundKeys[round - 1][place])
+			}
+		}
+	}
+
+	// 10th T-Box
+	for place := 0; place < 16; place++ {
+		table[9][place] = [256]byte{}
+
+		for x := 0; x < 256; x++ {
+			table[9][place][x] = constr.SubByte(byte(x) ^ roundKeys[9][place]) ^ roundKeys[10][place]
+		}
 	}
 
 	return
 }
 
-func (constr *Construction) subBytes(block [16]byte) (out [16]byte) {
-	for i, _ := range block {
-		out[i] = constr.subByte(block[i])
+func (constr *Construction) Encrypt(block [16]byte) [16]byte {
+	for i := 0; i < 9; i++ {
+		block = constr.shiftRows(block)
+
+		for j := 0; j < 16; j++ {
+			block[j] = constr.TBox[i][j][block[j]]
+		}
+
+		block = constr.mixColumns(block)
 	}
 
-	return out
-}
+	block = constr.shiftRows(block)
 
-func (constr *Construction) subWord(w uint32) uint32 {
-	return (uint32(constr.subByte(byte(w>>24))) << 24) |
-		(uint32(constr.subByte(byte(w>>16))) << 16) |
-		(uint32(constr.subByte(byte(w>>8))) << 8) |
-		uint32(constr.subByte(byte(w)))
-}
-
-func (constr *Construction) subByte(e byte) byte {
-	// AES S-Box
-	m := matrix.ByteMatrix{ // Linear component.
-		0xF1, // 0b11110001
-		0xE3, // 0b11100011
-		0xC7, // 0b11000111
-		0x8F, // 0b10001111
-		0x1F, // 0b00011111
-		0x3E, // 0b00111110
-		0x7C, // 0b01111100
-		0xF8, // 0b11111000
+	for j := 0; j < 16; j++ {
+		block[j] = constr.TBox[9][j][block[j]]
 	}
-	a := byte(0x63) // 0b01100011 - Affine component.
 
-	return m.Mul(byte(number.ByteFieldElem(e).Invert())) ^ a
+	return block
 }
 
 func (constr *Construction) shiftRows(block [16]byte) [16]byte {
