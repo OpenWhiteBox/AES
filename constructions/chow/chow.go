@@ -1,29 +1,9 @@
-package saes
+package chow
 
 import (
-	"../saes"
 	"../../primitives/number"
+	"../saes"
 )
-
-// Powers of x mod M(x).
-var powx = [16]byte{
-	0x01,
-	0x02,
-	0x04,
-	0x08,
-	0x10,
-	0x20,
-	0x40,
-	0x80,
-	0x1b,
-	0x36,
-	0x6c,
-	0xd8,
-	0xab,
-	0x4d,
-	0x9a,
-	0x2f,
-}
 
 type Construction struct {
 	TBox [10][16][256]byte
@@ -39,14 +19,14 @@ func GenerateTables(key [16]byte) (table [10][16][256]byte) {
 	}
 
 	// Build T-Boxes 1 to 9
-	for round := 1; round < 10; round++ {
+	for round := 0; round < 9; round++ {
 		table[round] = [16][256]byte{}
 
 		for place := 0; place < 16; place++ {
 			table[round][place] = [256]byte{}
 
 			for x := 0; x < 256; x++ {
-				table[round][place][x] = constr.SubByte(byte(x) ^ roundKeys[round - 1][place])
+				table[round][place][x] = constr.SubByte(byte(x) ^ roundKeys[round][place])
 			}
 		}
 	}
@@ -56,7 +36,7 @@ func GenerateTables(key [16]byte) (table [10][16][256]byte) {
 		table[9][place] = [256]byte{}
 
 		for x := 0; x < 256; x++ {
-			table[9][place][x] = constr.SubByte(byte(x) ^ roundKeys[9][place]) ^ roundKeys[10][place]
+			table[9][place][x] = constr.SubByte(byte(x)^roundKeys[9][place]) ^ roundKeys[10][place]
 		}
 	}
 
@@ -98,7 +78,7 @@ func (constr *Construction) mixColumns(block [16]byte) (out [16]byte) {
 	return out
 }
 
-func (constr *Construction) mixColumn(slice []byte) (out []byte) {
+func (constr *Construction) mixColumn(slice []byte) []byte {
 	column := number.ArrayFieldElem{}
 	for i := 0; i < 4; i++ {
 		column = append(column, number.ByteFieldElem(slice[i]))
@@ -109,9 +89,10 @@ func (constr *Construction) mixColumn(slice []byte) (out []byte) {
 		number.ByteFieldElem(0x01), number.ByteFieldElem(0x03),
 	})
 
-	for i := 0; i < 4; i++ {
-		out = append(out, byte(column[i]))
+	out := make([]byte, 4)
+	for i := 0; i < len(column); i++ {
+		out[i] = byte(column[i])
 	}
 
-	return
+	return out
 }
