@@ -37,7 +37,7 @@ func (constr *Construction) Encrypt(block [16]byte) [16]byte {
 	for i := 1; i <= 9; i++ {
 		block = constr.subBytes(block)
 		block = constr.shiftRows(block)
-		// block = constr.mixColumns(block)
+		block = constr.mixColumns(block)
 		block = constr.addRoundKey(roundKeys[i], block)
 	}
 
@@ -134,4 +134,30 @@ func (constr *Construction) shiftRows(block [16]byte) [16]byte {
 		block[0], block[5], block[10], block[15], block[4], block[9], block[14], block[3], block[8], block[13], block[2],
 		block[7], block[12], block[1], block[6], block[11],
 	}
+}
+
+func (constr *Construction) mixColumns(block [16]byte) (out [16]byte) {
+	for i := 0; i < 4; i++ {
+		copy(out[4*i:4*(i+1)], constr.mixColumn(block[4*i:4*(i+1)]))
+	}
+
+	return out
+}
+
+func (constr *Construction) mixColumn(slice []byte) (out []byte) {
+	column := number.ArrayFieldElem{}
+	for i := 0; i < 4; i++ {
+		column = append(column, number.ByteFieldElem(slice[i]))
+	}
+
+	column = column.Mul(number.ArrayFieldElem{
+		number.ByteFieldElem(0x02), number.ByteFieldElem(0x01),
+		number.ByteFieldElem(0x01), number.ByteFieldElem(0x03),
+	})
+
+	for i := 0; i < 4; i++ {
+		out = append(out, byte(column[i]))
+	}
+
+	return
 }
