@@ -102,7 +102,7 @@ func (constr *Construction) subBytes(block [16]byte) (out [16]byte) {
 		out[i] = constr.subByte(block[i])
 	}
 
-	return block
+	return out
 }
 
 func (constr *Construction) subWord(w uint32) uint32 {
