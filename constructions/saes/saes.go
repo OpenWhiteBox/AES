@@ -70,8 +70,6 @@ func (constr *Construction) stretchedKey() [11][16]byte {
 
 		if (i % 4) == 0 {
 			temp = constr.subWord(rotw(temp)) ^ (uint32(powx[i/4-1]) << 24)
-		} else {
-			temp = constr.subWord(temp)
 		}
 
 		stretched[i] = stretched[i-4] ^ temp
