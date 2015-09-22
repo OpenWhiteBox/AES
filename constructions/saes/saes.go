@@ -155,7 +155,7 @@ func (constr *Construction) MixColumn(slice []byte) (out []byte) {
 		number.ByteFieldElem(0x01), number.ByteFieldElem(0x03),
 	})
 
-	for i := 0; i < 4; i++ {
+	for i := 0; i < len(column); i++ {
 		out = append(out, byte(column[i]))
 	}
 
