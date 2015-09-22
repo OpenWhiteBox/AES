@@ -2,14 +2,25 @@ package chow
 
 import (
 	"../../primitives/number"
+	"../../primitives/table"
 	"../saes"
 )
 
-type Construction struct {
-	TBox [10][16][256]byte
+type TBox struct {
+	Constr   saes.Construction
+	KeyByte1 byte
+	KeyByte2 byte
 }
 
-func GenerateTables(key [16]byte) (table [10][16][256]byte) {
+func (tbox TBox) Get(i byte) byte {
+	return tbox.Constr.SubByte(i^tbox.KeyByte1) ^ tbox.KeyByte2
+}
+
+type Construction struct {
+	TBox [10][16]table.ByteTable
+}
+
+func GenerateTables(key [16]byte) (table [10][16]table.ByteTable) {
 	constr := saes.Construction{key}
 	roundKeys := constr.StretchedKey()
 
@@ -20,24 +31,14 @@ func GenerateTables(key [16]byte) (table [10][16][256]byte) {
 
 	// Build T-Boxes 1 to 9
 	for round := 0; round < 9; round++ {
-		table[round] = [16][256]byte{}
-
 		for place := 0; place < 16; place++ {
-			table[round][place] = [256]byte{}
-
-			for x := 0; x < 256; x++ {
-				table[round][place][x] = constr.SubByte(byte(x) ^ roundKeys[round][place])
-			}
+			table[round][place] = TBox{constr, roundKeys[round][place], 0}
 		}
 	}
 
 	// 10th T-Box
 	for place := 0; place < 16; place++ {
-		table[9][place] = [256]byte{}
-
-		for x := 0; x < 256; x++ {
-			table[9][place][x] = constr.SubByte(byte(x)^roundKeys[9][place]) ^ roundKeys[10][place]
-		}
+		table[9][place] = TBox{constr, roundKeys[9][place], roundKeys[10][place]}
 	}
 
 	return
@@ -48,7 +49,7 @@ func (constr *Construction) Encrypt(block [16]byte) [16]byte {
 		block = constr.shiftRows(block)
 
 		for j := 0; j < 16; j++ {
-			block[j] = constr.TBox[i][j][block[j]]
+			block[j] = constr.TBox[i][j].Get(block[j])
 		}
 
 		block = constr.mixColumns(block)
@@ -57,7 +58,7 @@ func (constr *Construction) Encrypt(block [16]byte) [16]byte {
 	block = constr.shiftRows(block)
 
 	for j := 0; j < 16; j++ {
-		block[j] = constr.TBox[9][j][block[j]]
+		block[j] = constr.TBox[9][j].Get(block[j])
 	}
 
 	return block
