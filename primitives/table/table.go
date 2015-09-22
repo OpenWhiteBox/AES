@@ -13,12 +13,12 @@ type WordTable interface {
 }
 
 type ComposedToWordTable struct {
-	heads ByteTable
-	tails WordTable
+	Heads ByteTable
+	Tails WordTable
 }
 
 func (cwt ComposedToWordTable) Get(i byte) uint32 {
-	return cwt.tails.Get(cwt.heads.Get(i))
+	return cwt.Tails.Get(cwt.Heads.Get(i))
 }
 
 type ComposedSmallTables []ByteTable
