@@ -1,8 +1,8 @@
 package saes
 
 import (
-	"testing"
 	test_vectors "../test/"
+	"testing"
 )
 
 var key = [16]byte{72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33, 33, 33, 33, 33}
@@ -98,5 +98,3 @@ func TestEncrypt(t *testing.T) {
 		}
 	}
 }
-
-// Add the rest of the SAES test vectors

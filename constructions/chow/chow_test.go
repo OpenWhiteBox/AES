@@ -1,6 +1,7 @@
 package chow
 
 import (
+	test_vectors "../test/"
 	"testing"
 )
 
@@ -35,18 +36,15 @@ func TestMixColumns(t *testing.T) {
 }
 
 func TestEncrypt(t *testing.T) {
-	testKey := [16]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
-	table := GenerateTables(testKey)
+	for n, vec := range test_vectors.AESVectors {
+		table := GenerateTables(vec.Key)
+		constr := Construction{table}
+		cand := constr.Encrypt(vec.In)
 
-	in := [16]byte{0, 17, 34, 51, 68, 85, 102, 119, 136, 153, 170, 187, 204, 221, 238, 255}
-	out := [16]byte{105, 196, 224, 216, 106, 123, 4, 48, 216, 205, 183, 128, 112, 180, 197, 90}
-
-	constr := Construction{table}
-	cand := constr.Encrypt(in)
-
-	for i := 0; i < 16; i++ {
-		if out[i] != cand[i] {
-			t.Fatalf("Byte %v is wrong! %v != %v", i, out[i], cand[i])
+		for i := 0; i < 16; i++ {
+			if vec.Out[i] != cand[i] {
+				t.Fatalf("Byte %v is wrong in test vector %v! %v != %v", i, n, vec.Out[i], cand[i])
+			}
 		}
 	}
 }

@@ -1,7 +1,7 @@
 package table
 
 type NibbleTable interface {
-  Get(i byte) byte
+	Get(i byte) byte
 }
 
 type ByteTable interface {
@@ -14,7 +14,7 @@ type WordTable interface {
 
 type ComposedToWordTable struct {
 	heads ByteTable
-	tails  WordTable
+	tails WordTable
 }
 
 func (cwt ComposedToWordTable) Get(i byte) uint32 {
@@ -24,9 +24,9 @@ func (cwt ComposedToWordTable) Get(i byte) uint32 {
 type ComposedSmallTables []ByteTable
 
 func (cst ComposedSmallTables) Get(i byte) byte {
-  for j, _ := range cst {
-    i = cst[j].Get(i)
-  }
+	for j, _ := range cst {
+		i = cst[j].Get(i)
+	}
 
-  return i
+	return i
 }
