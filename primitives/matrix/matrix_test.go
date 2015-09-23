@@ -26,3 +26,17 @@ func TestMatrix(t *testing.T) {
 		t.Fatalf("Substitution value was wrong! 0x10 -> 0xCA")
 	}
 }
+
+func TestInvert(t *testing.T) {
+	m := GenerateRandom()
+	n, _ := m.Invert()
+
+	for i := 0; i < 256; i++ {
+		nm := n.Mul(m.Mul(byte(i)))
+		mn := m.Mul(n.Mul(byte(i)))
+
+		if nm != byte(i) || mn != byte(i) {
+			t.Fatalf("M * M^-1 != M^-1 * M != I")
+		}
+	}
+}
