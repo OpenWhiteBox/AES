@@ -13,7 +13,7 @@ func TestShiftRows(t *testing.T) {
 
 	tboxtyi, tbox, xor := GenerateTables(key)
 	constr := Construction{tboxtyi, tbox, xor}
-	cand := constr.shiftRows(in)
+	cand := constr.ShiftRows(in)
 
 	for i := 0; i < 16; i++ {
 		if out[i] != cand[i] {
