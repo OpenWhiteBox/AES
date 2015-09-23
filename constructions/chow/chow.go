@@ -40,12 +40,12 @@ func (xor XORTable) Get(i byte) (out byte) {
 }
 
 type Construction struct {
-	TBoxTyiTable [9][16]table.WordTable         // [round][position]
-	TBox         [16]table.ByteTable            // [position]
-	XORTable     [9][16][3][2]table.NibbleTable // [round][position][level][side]
+	TBoxTyiTable [9][16]table.Word         // [round][position]
+	TBox         [16]table.Byte            // [position]
+	XORTable     [9][16][3][2]table.Nibble // [round][position][level][side]
 }
 
-func GenerateTables(key [16]byte) (tyi [9][16]table.WordTable, tbox [16]table.ByteTable, xor [9][16][3][2]table.NibbleTable) {
+func GenerateTables(key [16]byte) (tyi [9][16]table.Word, tbox [16]table.Byte, xor [9][16][3][2]table.Nibble) {
 	constr := saes.Construction{key}
 	roundKeys := constr.StretchedKey()
 
@@ -54,12 +54,20 @@ func GenerateTables(key [16]byte) (tyi [9][16]table.WordTable, tbox [16]table.By
 		roundKeys[k] = constr.ShiftRows(roundKeys[k])
 	}
 
-	// Build T-Boxes and Tyi Tables 1 to 9
 	for round := 0; round < 9; round++ {
 		for pos := 0; pos < 16; pos++ {
-			tyi[round][pos] = table.ComposedToWordTable{
+
+			// Build the T-Box and Tyi Table for this round and position in the state matrix.
+			tyi[round][pos] = table.ComposedToWord{
 				TBox{constr, roundKeys[round][pos], 0},
 				TyiTable(pos % 4),
+			}
+
+			// Generate the XOR Tables
+			for level := 0; level < 3; level++ {
+				for side := 0; side < 2; side++ {
+					xor[round][pos][level][side] = XORTable{}
+				}
 			}
 		}
 	}
@@ -67,17 +75,6 @@ func GenerateTables(key [16]byte) (tyi [9][16]table.WordTable, tbox [16]table.By
 	// 10th T-Box
 	for pos := 0; pos < 16; pos++ {
 		tbox[pos] = TBox{constr, roundKeys[9][pos], roundKeys[10][pos]}
-	}
-
-	// Generate XOR Tables
-	for round := 0; round < 9; round++ {
-		for pos := 0; pos < 16; pos++ {
-			for level := 0; level < 3; level++ {
-				for side := 0; side < 2; side++ {
-					xor[round][pos][level][side] = XORTable{}
-				}
-			}
-		}
 	}
 
 	return
@@ -118,7 +115,7 @@ func (constr *Construction) ShiftRows(block [16]byte) [16]byte {
 }
 
 // Expand one word of the state matrix with the T-Boxes composed with Tyi Tables.
-func (constr *Construction) ExpandWord(tboxtyi []table.WordTable, word []byte) [4]uint32 {
+func (constr *Construction) ExpandWord(tboxtyi []table.Word, word []byte) [4]uint32 {
 	return [4]uint32{
 		tboxtyi[0].Get(word[0]),
 		tboxtyi[1].Get(word[1]),
@@ -128,7 +125,7 @@ func (constr *Construction) ExpandWord(tboxtyi []table.WordTable, word []byte) [
 }
 
 // Squash expanded word back into one word with 3 pairwise XORs (calc'd one nibble at a time) -- (a ^ b) ^ (c ^ d)
-func (constr *Construction) SquashWords(xorTable [][3][2]table.NibbleTable, words [4]uint32) (out uint32) {
+func (constr *Construction) SquashWords(xorTable [][3][2]table.Nibble, words [4]uint32) (out uint32) {
 	a, b, c, d := words[0], words[1], words[2], words[3]
 
 	for pos := 0; pos < 4; pos++ {

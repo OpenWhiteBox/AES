@@ -1,31 +1,31 @@
 package table
 
-type NibbleTable interface {
+type Nibble interface {
 	Get(i byte) byte
 }
 
-type ByteTable interface {
+type Byte interface {
 	Get(i byte) byte
 }
 
-type WordTable interface {
+type Word interface {
 	Get(i byte) uint32
 }
 
-type ComposedToWordTable struct {
-	Heads ByteTable
-	Tails WordTable
+type ComposedToWord struct {
+	Heads Byte
+	Tails Word
 }
 
-func (cwt ComposedToWordTable) Get(i byte) uint32 {
-	return cwt.Tails.Get(cwt.Heads.Get(i))
+func (cw ComposedToWord) Get(i byte) uint32 {
+	return cw.Tails.Get(cw.Heads.Get(i))
 }
 
-type ComposedSmallTables []ByteTable
+type ComposedSmalls []Byte
 
-func (cst ComposedSmallTables) Get(i byte) byte {
-	for j, _ := range cst {
-		i = cst[j].Get(i)
+func (cs ComposedSmalls) Get(i byte) byte {
+	for j, _ := range cs {
+		i = cs[j].Get(i)
 	}
 
 	return i
