@@ -1,3 +1,4 @@
+// Implementations of the two numeric primitives in AES: Polynomial fields with coefficients in GF(2) and GF(2^8)
 package number
 
 type ByteFieldElem uint16

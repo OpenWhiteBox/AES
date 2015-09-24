@@ -1,3 +1,4 @@
+// Basic operations on 8x8 matrices in GF(2) and the random generation of new ones.
 package matrix
 
 import(

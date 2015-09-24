@@ -1,3 +1,4 @@
+// Tables with encoded inputs and outputs.
 package encoding
 
 import (

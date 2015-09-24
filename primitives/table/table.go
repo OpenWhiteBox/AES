@@ -1,7 +1,9 @@
+// A table maps one byte to another primitive type (nibble, a second byte, ...).  They're not necessarily injective or
+// surjective.  A series of byte tables can be composed indefinitely, but word and nibble tables terminate the series.
 package table
 
 type Nibble interface {
-	Get(i byte) byte
+	Get(i byte) byte // Get(i byte) nibble
 }
 
 type Byte interface {
@@ -12,15 +14,6 @@ type Word interface {
 	Get(i byte) uint32
 }
 
-type ComposedToWord struct {
-	Heads Byte
-	Tails Word
-}
-
-func (cw ComposedToWord) Get(i byte) uint32 {
-	return cw.Tails.Get(cw.Heads.Get(i))
-}
-
 type ComposedSmalls []Byte
 
 func (cs ComposedSmalls) Get(i byte) byte {
@@ -29,4 +22,15 @@ func (cs ComposedSmalls) Get(i byte) byte {
 	}
 
 	return i
+}
+
+// ComposedToNibble isn't needed because you can use ComposedSmalls.
+
+type ComposedToWord struct {
+	Heads Byte
+	Tails Word
+}
+
+func (cw ComposedToWord) Get(i byte) uint32 {
+	return cw.Tails.Get(cw.Heads.Get(i))
 }

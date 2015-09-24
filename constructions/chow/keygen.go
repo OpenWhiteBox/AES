@@ -6,6 +6,13 @@ import (
 	"../saes"
 )
 
+type TyiEncoding struct {
+	Position, SubPosition int
+}
+
+func (tyi TyiEncoding) Encode(i byte) byte { return (i ^ byte(tyi.Position+tyi.SubPosition)) & 0xf }
+func (tyi TyiEncoding) Decode(i byte) byte { return (i ^ byte(tyi.Position+tyi.SubPosition)) & 0xf }
+
 func GenerateKeys(key [16]byte) (tyi [9][16]table.Word, tbox [16]table.Byte, xor [9][32][3]table.Nibble) {
 	constr := saes.Construction{key}
 	roundKeys := constr.StretchedKey()
@@ -20,7 +27,12 @@ func GenerateKeys(key [16]byte) (tyi [9][16]table.Word, tbox [16]table.Byte, xor
 			// Build the T-Box and Tyi Table for this round and position in the state matrix.
 			tyi[round][pos] = encoding.WordTable{
 				encoding.IdentityByte{},
-				encoding.WordEncodingForLocation(pos),
+				encoding.ConcatenatedWord{
+					encoding.ConcatenatedByte{TyiEncoding{pos, 0}, TyiEncoding{pos, 1}},
+					encoding.ConcatenatedByte{TyiEncoding{pos, 2}, TyiEncoding{pos, 3}},
+					encoding.ConcatenatedByte{TyiEncoding{pos, 4}, TyiEncoding{pos, 5}},
+					encoding.ConcatenatedByte{TyiEncoding{pos, 6}, TyiEncoding{pos, 7}},
+				},
 				table.ComposedToWord{
 					TBox{constr, roundKeys[round][pos], 0},
 					TyiTable(pos % 4),
@@ -32,8 +44,8 @@ func GenerateKeys(key [16]byte) (tyi [9][16]table.Word, tbox [16]table.Byte, xor
 		for pos := 0; pos < 32; pos++ {
 			xor[round][pos][0] = encoding.NibbleTable{
 				encoding.ConcatenatedByte{
-					encoding.ForLocation{pos/8*4 + 0, pos % 8},
-					encoding.ForLocation{pos/8*4 + 1, pos % 8},
+					TyiEncoding{pos/8*4 + 0, pos % 8},
+					TyiEncoding{pos/8*4 + 1, pos % 8},
 				},
 				encoding.IdentityByte{},
 				XORTable{},
@@ -41,8 +53,8 @@ func GenerateKeys(key [16]byte) (tyi [9][16]table.Word, tbox [16]table.Byte, xor
 
 			xor[round][pos][1] = encoding.NibbleTable{
 				encoding.ConcatenatedByte{
-					encoding.ForLocation{pos/8*4 + 2, pos % 8},
-					encoding.ForLocation{pos/8*4 + 3, pos % 8},
+					TyiEncoding{pos/8*4 + 2, pos % 8},
+					TyiEncoding{pos/8*4 + 3, pos % 8},
 				},
 				encoding.IdentityByte{},
 				XORTable{},

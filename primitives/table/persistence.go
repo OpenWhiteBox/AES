@@ -1,3 +1,4 @@
+// For efficiently persisting tables in storage.
 package table
 
 type ParsedByte []byte
