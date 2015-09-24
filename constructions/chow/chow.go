@@ -40,44 +40,9 @@ func (xor XORTable) Get(i byte) (out byte) {
 }
 
 type Construction struct {
-	TBoxTyiTable [9][16]table.Word         // [round][position]
-	TBox         [16]table.Byte            // [position]
-	XORTable     [9][16][3][2]table.Nibble // [round][position][level][side]
-}
-
-func GenerateTables(key [16]byte) (tyi [9][16]table.Word, tbox [16]table.Byte, xor [9][16][3][2]table.Nibble) {
-	constr := saes.Construction{key}
-	roundKeys := constr.StretchedKey()
-
-	// Apply ShiftRows to round keys 0 to 9.
-	for k := 0; k < 10; k++ {
-		roundKeys[k] = constr.ShiftRows(roundKeys[k])
-	}
-
-	for round := 0; round < 9; round++ {
-		for pos := 0; pos < 16; pos++ {
-
-			// Build the T-Box and Tyi Table for this round and position in the state matrix.
-			tyi[round][pos] = table.ComposedToWord{
-				TBox{constr, roundKeys[round][pos], 0},
-				TyiTable(pos % 4),
-			}
-
-			// Generate the XOR Tables
-			for level := 0; level < 3; level++ {
-				for side := 0; side < 2; side++ {
-					xor[round][pos][level][side] = XORTable{}
-				}
-			}
-		}
-	}
-
-	// 10th T-Box
-	for pos := 0; pos < 16; pos++ {
-		tbox[pos] = TBox{constr, roundKeys[9][pos], roundKeys[10][pos]}
-	}
-
-	return
+	TBoxTyiTable [9][16]table.Word      // [round][position]
+	TBox         [16]table.Byte         // [position]
+	XORTable     [9][32][3]table.Nibble // [round][nibble-wise position][gate number]
 }
 
 func (constr *Construction) Encrypt(block [16]byte) [16]byte {
@@ -87,13 +52,10 @@ func (constr *Construction) Encrypt(block [16]byte) [16]byte {
 		// Apply the T-Boxes and Tyi Tables to each column of the state matrix.
 		for pos := 0; pos < 16; pos += 4 {
 			stretched := constr.ExpandWord(constr.TBoxTyiTable[round][pos:pos+4], block[pos:pos+4])
-			squashed := constr.SquashWords(constr.XORTable[round][pos:pos+4], stretched)
+			squashed := constr.SquashWords(constr.XORTable[round][2*pos:2*pos+8], stretched)
 
 			// Split squashed word into 4 bytes and put it away.
-			block[pos+0] = byte(squashed >> 24)
-			block[pos+1] = byte(squashed >> 16)
-			block[pos+2] = byte(squashed >> 8)
-			block[pos+3] = byte(squashed)
+			copy(block[pos:pos+4], []byte{byte(squashed >> 24), byte(squashed >> 16), byte(squashed >> 8), byte(squashed)})
 		}
 	}
 
@@ -125,24 +87,20 @@ func (constr *Construction) ExpandWord(tboxtyi []table.Word, word []byte) [4]uin
 }
 
 // Squash expanded word back into one word with 3 pairwise XORs (calc'd one nibble at a time) -- (a ^ b) ^ (c ^ d)
-func (constr *Construction) SquashWords(xorTable [][3][2]table.Nibble, words [4]uint32) (out uint32) {
+func (constr *Construction) SquashWords(xorTable [][3]table.Nibble, words [4]uint32) (out uint32) {
 	a, b, c, d := words[0], words[1], words[2], words[3]
 
-	for pos := 0; pos < 4; pos++ {
-		for side := 0; side < 2; side++ { // side, as in left or right side of the byte.
-			abPartial := byte(((a & 0xf) << 4) | (b & 0xf))
-			cdPartial := byte(((c & 0xf) << 4) | (d & 0xf))
+	for pos := uint(0); pos < 8; pos++ {
+		aPartial := byte((a & (0xf << (28 - 4*pos))) >> (28 - 4*pos))
+		bPartial := byte((b & (0xf << (28 - 4*pos))) >> (28 - 4*pos))
+		cPartial := byte((c & (0xf << (28 - 4*pos))) >> (28 - 4*pos))
+		dPartial := byte((d & (0xf << (28 - 4*pos))) >> (28 - 4*pos))
 
-			ab := xorTable[pos][0][side].Get(abPartial) // (a ^ b)
-			cd := xorTable[pos][1][side].Get(cdPartial) // (c ^ d)
+		ab := xorTable[pos][0].Get(aPartial<<4 | bPartial) // (a ^ b)
+		cd := xorTable[pos][1].Get(cPartial<<4 | dPartial) // (c ^ d)
 
-			adPartial := (ab << 4) | cd
-
-			offset := uint(4 * (2*pos + side))
-			out |= uint32(xorTable[pos][2][side].Get(adPartial)) << offset // (a ^ b) ^ (c ^ d)
-
-			a, b, c, d = a>>4, b>>4, c>>4, d>>4
-		}
+		out = out << 4
+		out |= uint32(xorTable[pos][2].Get(ab<<4 | cd)) // (a ^ b) ^ (c ^ d)
 	}
 
 	return

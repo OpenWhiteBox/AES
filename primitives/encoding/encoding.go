@@ -25,12 +25,10 @@ type IdentityWord struct{}
 func (iw IdentityWord) Encode(i uint32) uint32 { return i }
 func (iw IdentityWord) Decode(i uint32) uint32 { return i }
 
-// ---- START TEMPORARY ---
 type Shift uint
 
 func (s Shift) Encode(i byte) byte { return (i + byte(s)) % 16 }
 func (s Shift) Decode(i byte) byte { return (i + 16 - byte(s)) % 16 }
-// --- END TEMPORARY ---
 
 type ConcatenatedByte struct {
 	Left, Right Nibble
@@ -60,4 +58,32 @@ func (cw ConcatenatedWord) Decode(i uint32) uint32 {
 		uint32(cw.B.Decode(byte(i>>16)))<<16 |
 		uint32(cw.C.Decode(byte(i>>8)))<<8 |
 		uint32(cw.D.Decode(byte(i)))
+}
+
+type ForLocation struct {
+	Position, SubPosition int
+}
+
+func (fl ForLocation) Encode(i byte) byte { return (i ^ byte(fl.Position+fl.SubPosition)) & 0xf }
+func (fl ForLocation) Decode(i byte) byte { return (i ^ byte(fl.Position+fl.SubPosition)) & 0xf }
+
+func WordEncodingForLocation(pos int) Word {
+	return ConcatenatedWord{
+		ConcatenatedByte{
+			ForLocation{pos, 0},
+			ForLocation{pos, 1},
+		},
+		ConcatenatedByte{
+			ForLocation{pos, 2},
+			ForLocation{pos, 3},
+		},
+		ConcatenatedByte{
+			ForLocation{pos, 4},
+			ForLocation{pos, 5},
+		},
+		ConcatenatedByte{
+			ForLocation{pos, 6},
+			ForLocation{pos, 7},
+		},
+	}
 }
