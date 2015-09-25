@@ -1,11 +1,11 @@
 package chow
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
 	"../../primitives/encoding"
 	"../../primitives/table"
 	"../saes"
+	"crypto/aes"
+	"crypto/cipher"
 )
 
 type Side int
@@ -96,8 +96,8 @@ func GenerateKeys(key [16]byte, seed [16]byte) (out Construction) {
 				inEnc = encoding.IdentityByte{}
 			} else {
 				inEnc = encoding.ConcatenatedByte{
-					RoundEncoding(seed, round - 1, 2*pos + 0),
-					RoundEncoding(seed, round - 1, 2*pos + 1),
+					RoundEncoding(seed, round-1, 2*pos+0),
+					RoundEncoding(seed, round-1, 2*pos+1),
 				}
 			}
 
@@ -121,8 +121,8 @@ func GenerateKeys(key [16]byte, seed [16]byte) (out Construction) {
 		for pos := 0; pos < 32; pos++ {
 			out.XORTable[round][pos][0] = encoding.NibbleTable{
 				encoding.ConcatenatedByte{
-					TyiEncoding(seed, round, pos/8*4 + 0, pos % 8),
-					TyiEncoding(seed, round, pos/8*4 + 1, pos % 8),
+					TyiEncoding(seed, round, pos/8*4+0, pos%8),
+					TyiEncoding(seed, round, pos/8*4+1, pos%8),
 				},
 				XOREncoding(seed, round, pos, Left),
 				XORTable{},
@@ -130,8 +130,8 @@ func GenerateKeys(key [16]byte, seed [16]byte) (out Construction) {
 
 			out.XORTable[round][pos][1] = encoding.NibbleTable{
 				encoding.ConcatenatedByte{
-					TyiEncoding(seed, round, pos/8*4 + 2, pos % 8),
-					TyiEncoding(seed, round, pos/8*4 + 3, pos % 8),
+					TyiEncoding(seed, round, pos/8*4+2, pos%8),
+					TyiEncoding(seed, round, pos/8*4+3, pos%8),
 				},
 				XOREncoding(seed, round, pos, Right),
 				XORTable{},
@@ -142,7 +142,7 @@ func GenerateKeys(key [16]byte, seed [16]byte) (out Construction) {
 					XOREncoding(seed, round, pos, Left),
 					XOREncoding(seed, round, pos, Right),
 				},
-				RoundEncoding(seed, round, 2*shiftRows(pos/2) + pos%2),
+				RoundEncoding(seed, round, 2*shiftRows(pos/2)+pos%2),
 				XORTable{},
 			}
 		}
@@ -152,8 +152,8 @@ func GenerateKeys(key [16]byte, seed [16]byte) (out Construction) {
 	for pos := 0; pos < 16; pos++ {
 		out.TBox[pos] = encoding.ByteTable{
 			encoding.ConcatenatedByte{
-				RoundEncoding(seed, 8, 2*pos + 0),
-				RoundEncoding(seed, 8, 2*pos + 1),
+				RoundEncoding(seed, 8, 2*pos+0),
+				RoundEncoding(seed, 8, 2*pos+1),
 			},
 			encoding.IdentityByte{},
 			TBox{constr, roundKeys[9][pos], roundKeys[10][pos]},

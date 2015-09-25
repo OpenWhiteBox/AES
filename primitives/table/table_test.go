@@ -5,12 +5,15 @@ import (
 )
 
 type AddTable byte
+
 func (at AddTable) Get(i byte) byte { return i + byte(at) }
 
 type TimesTable byte
+
 func (tt TimesTable) Get(i byte) byte { return i * byte(tt) }
 
 type ShiftTable uint
+
 func (st ShiftTable) Get(i byte) uint32 { return uint32(i) << uint(st) }
 
 func TestCompose(t *testing.T) {

@@ -3,8 +3,8 @@
 package encoding
 
 import (
-  "io"
 	"crypto/rand"
+	"io"
 	"math/big"
 )
 

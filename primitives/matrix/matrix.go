@@ -1,7 +1,7 @@
 // Basic operations on 8x8 matrices in GF(2) and the random generation of new ones.
 package matrix
 
-import(
+import (
 	"crypto/rand"
 )
 
@@ -61,7 +61,9 @@ func (e ByteMatrix) Invert() (out ByteMatrix, ok bool) { // Gauss-Jordan Method
 
 		// Cancel out the (row)th position for every row above and below it.
 		for i := 0; i < 8; i++ {
-			if i == row { continue }
+			if i == row {
+				continue
+			}
 
 			if f[i]&(1<<uint(row)) != 0 {
 				f[i] ^= f[row]
