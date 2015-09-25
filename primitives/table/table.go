@@ -14,11 +14,11 @@ type Word interface {
 	Get(i byte) uint32
 }
 
-type ComposedSmalls []Byte
+type ComposedBytes []Byte
 
-func (cs ComposedSmalls) Get(i byte) byte {
-	for j, _ := range cs {
-		i = cs[j].Get(i)
+func (cb ComposedBytes) Get(i byte) byte {
+	for j, _ := range cb {
+		i = cb[j].Get(i)
 	}
 
 	return i

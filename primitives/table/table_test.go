@@ -17,8 +17,8 @@ type ShiftTable uint
 func (st ShiftTable) Get(i byte) uint32 { return uint32(i) << uint(st) }
 
 func TestCompose(t *testing.T) {
-	x := ComposedSmalls{TimesTable(5), AddTable(3)}
-	y := ComposedSmalls{AddTable(3), TimesTable(5)}
+	x := ComposedBytes{TimesTable(5), AddTable(3)}
+	y := ComposedBytes{AddTable(3), TimesTable(5)}
 
 	a := ComposedToWord{x, ShiftTable(24)}
 
