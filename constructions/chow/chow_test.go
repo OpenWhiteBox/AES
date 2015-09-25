@@ -11,8 +11,7 @@ func TestShiftRows(t *testing.T) {
 	in := [16]byte{99, 202, 183, 4, 9, 83, 208, 81, 205, 96, 224, 231, 186, 112, 225, 140}
 	out := [16]byte{99, 83, 224, 140, 9, 96, 225, 4, 205, 112, 183, 81, 186, 202, 208, 231}
 
-	tboxtyi, tbox, xor := GenerateKeys(key)
-	constr := Construction{tboxtyi, tbox, xor}
+	constr := GenerateKeys(key)
 	cand := constr.ShiftRows(in)
 
 	for i := 0; i < 16; i++ {
@@ -47,8 +46,7 @@ func TestTyiTable(t *testing.T) {
 
 func TestEncrypt(t *testing.T) {
 	for n, vec := range test_vectors.AESVectors {
-		tboxtyi, tbox, xor := GenerateKeys(vec.Key)
-		constr := Construction{tboxtyi, tbox, xor}
+		constr := GenerateKeys(vec.Key)
 		cand := constr.Encrypt(vec.In)
 
 		for i := 0; i < 16; i++ {
