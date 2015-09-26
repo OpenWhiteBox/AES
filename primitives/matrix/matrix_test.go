@@ -2,6 +2,7 @@ package matrix
 
 import (
 	"../number"
+	"crypto/rand"
 	"testing"
 )
 
@@ -28,7 +29,7 @@ func TestMatrix(t *testing.T) {
 }
 
 func TestInvert(t *testing.T) {
-	m := GenerateRandom()
+	m := GenerateRandom(rand.Reader)
 	n, _ := m.Invert()
 
 	for i := 0; i < 256; i++ {

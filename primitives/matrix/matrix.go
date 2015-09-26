@@ -2,7 +2,7 @@
 package matrix
 
 import (
-	"crypto/rand"
+	"io"
 )
 
 type ByteMatrix [8]byte // One byte is one row
@@ -29,6 +29,14 @@ func (e ByteMatrix) Mul(f byte) (out byte) {
 		if dotProduct(e[i], f) {
 			out += 1 << i
 		}
+	}
+
+	return
+}
+
+func (e ByteMatrix) Add(f ByteMatrix) (out ByteMatrix) {
+	for i := 0; i < 8; i++ {
+		out[i] = e[i] ^ f[i]
 	}
 
 	return
@@ -75,15 +83,15 @@ func (e ByteMatrix) Invert() (out ByteMatrix, ok bool) { // Gauss-Jordan Method
 	return out, true
 }
 
-func GenerateRandom() ByteMatrix {
+func GenerateRandom(reader io.Reader) ByteMatrix {
 	m := [8]byte{} // Generate random byte matrix.
-	rand.Read(m[:])
+	reader.Read(m[:])
 
 	_, ok := ByteMatrix(m).Invert() // Test for invertibility.
 
 	if ok { // Return this one or try again.
 		return ByteMatrix(m)
 	} else {
-		return GenerateRandom()
+		return GenerateRandom(reader)
 	}
 }
