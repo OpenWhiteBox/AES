@@ -86,11 +86,11 @@ type ByteLinear matrix.ByteMatrix
 
 func (bl ByteLinear) Encode(i byte) byte { return matrix.ByteMatrix(bl).Mul(i) }
 func (bl ByteLinear) Decode(i byte) byte {
-	 inv, ok := matrix.ByteMatrix(bl).Invert()
+	inv, ok := matrix.ByteMatrix(bl).Invert()
 
-	 if !ok {
-		 panic("Matrix wasn't invertible!")
-	 }
+	if !ok {
+		panic("Matrix wasn't invertible!")
+	}
 
 	return inv.Mul(i)
 }
