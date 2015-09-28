@@ -2,10 +2,12 @@ package chow
 
 import (
 	"../../primitives/encoding"
+	"../../primitives/matrix"
 	"../../primitives/table"
 	"../saes"
 	"crypto/aes"
 	"crypto/cipher"
+	"io"
 )
 
 type Side int
@@ -25,7 +27,7 @@ func (dn DevNull) Read(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-func generateEncoding(seed, label [16]byte) encoding.Nibble {
+func generateStream(seed, label [16]byte) io.Reader {
 	// Generate sub-key
 	subKey := [16]byte{}
 	c, _ := aes.NewCipher(seed[:])
@@ -38,7 +40,7 @@ func generateEncoding(seed, label [16]byte) encoding.Nibble {
 		DevNull{},
 	}
 
-	return encoding.GenerateShuffle(stream)
+	return stream
 }
 
 // Encodes the output of a T-Box/Tyi Table / the input of a top-level XOR.
@@ -49,7 +51,7 @@ func TyiEncoding(seed [16]byte, round, position, subPosition int) encoding.Nibbl
 	label := [16]byte{}
 	label[0], label[1], label[2], label[3] = 'T', byte(round), byte(position), byte(subPosition)
 
-	return generateEncoding(seed, label)
+	return encoding.GenerateShuffle(generateStream(seed, label))
 }
 
 // Encodes intermediate results between the two top-level XORs and the bottom XOR.
@@ -61,7 +63,7 @@ func XOREncoding(seed [16]byte, round, position int, side Side) encoding.Nibble 
 	label := [16]byte{}
 	label[0], label[1], label[2], label[3] = 'X', byte(round), byte(position), byte(side)
 
-	return generateEncoding(seed, label)
+	return encoding.GenerateShuffle(generateStream(seed, label))
 }
 
 // Encodes the output of each round / the input of the next round's T-Box/Tyi Table.
@@ -71,7 +73,14 @@ func RoundEncoding(seed [16]byte, round, position int) encoding.Nibble {
 	label := [16]byte{}
 	label[0], label[1], label[2] = 'R', byte(round), byte(position)
 
-	return generateEncoding(seed, label)
+	return encoding.GenerateShuffle(generateStream(seed, label))
+}
+
+func ByteMixingBijection(seed [16]byte, round, position int) encoding.Byte {
+	label := [16]byte{}
+	label[0], label[1], label[2] = 'M', byte(round), byte(position)
+
+	return encoding.ByteLinear(matrix.GenerateRandom(generateStream(seed, label)))
 }
 
 // Index in, index out.  Example: shiftRows(5) = 1 because ShiftRows(block) returns [16]byte{block[0], block[5], ...
@@ -95,9 +104,12 @@ func GenerateKeys(key [16]byte, seed [16]byte) (out Construction) {
 			if round == 0 {
 				inEnc = encoding.IdentityByte{}
 			} else {
-				inEnc = encoding.ConcatenatedByte{
-					RoundEncoding(seed, round-1, 2*pos+0),
-					RoundEncoding(seed, round-1, 2*pos+1),
+				inEnc = encoding.ComposedBytes{
+					ByteMixingBijection(seed, round-1, pos),
+					encoding.ConcatenatedByte{
+						RoundEncoding(seed, round-1, 2*pos+0),
+						RoundEncoding(seed, round-1, 2*pos+1),
+					},
 				}
 			}
 
@@ -105,10 +117,22 @@ func GenerateKeys(key [16]byte, seed [16]byte) (out Construction) {
 			out.TBoxTyiTable[round][pos] = encoding.WordTable{
 				inEnc,
 				encoding.ConcatenatedWord{
-					encoding.ConcatenatedByte{TyiEncoding(seed, round, pos, 0), TyiEncoding(seed, round, pos, 1)},
-					encoding.ConcatenatedByte{TyiEncoding(seed, round, pos, 2), TyiEncoding(seed, round, pos, 3)},
-					encoding.ConcatenatedByte{TyiEncoding(seed, round, pos, 4), TyiEncoding(seed, round, pos, 5)},
-					encoding.ConcatenatedByte{TyiEncoding(seed, round, pos, 6), TyiEncoding(seed, round, pos, 7)},
+					encoding.ComposedBytes{
+						ByteMixingBijection(seed, round, shiftRows(pos/4*4+0)),
+						encoding.ConcatenatedByte{TyiEncoding(seed, round, pos, 0), TyiEncoding(seed, round, pos, 1)},
+					},
+					encoding.ComposedBytes{
+						ByteMixingBijection(seed, round, shiftRows(pos/4*4+1)),
+						encoding.ConcatenatedByte{TyiEncoding(seed, round, pos, 2), TyiEncoding(seed, round, pos, 3)},
+					},
+					encoding.ComposedBytes{
+						ByteMixingBijection(seed, round, shiftRows(pos/4*4+2)),
+						encoding.ConcatenatedByte{TyiEncoding(seed, round, pos, 4), TyiEncoding(seed, round, pos, 5)},
+					},
+					encoding.ComposedBytes{
+						ByteMixingBijection(seed, round, shiftRows(pos/4*4+3)),
+						encoding.ConcatenatedByte{TyiEncoding(seed, round, pos, 6), TyiEncoding(seed, round, pos, 7)},
+					},
 				},
 				table.ComposedToWord{
 					TBox{constr, roundKeys[round][pos], 0},
@@ -151,9 +175,9 @@ func GenerateKeys(key [16]byte, seed [16]byte) (out Construction) {
 	// 10th T-Box
 	for pos := 0; pos < 16; pos++ {
 		out.TBox[pos] = encoding.ByteTable{
-			encoding.ConcatenatedByte{
-				RoundEncoding(seed, 8, 2*pos+0),
-				RoundEncoding(seed, 8, 2*pos+1),
+			encoding.ComposedBytes{
+				ByteMixingBijection(seed, 8, pos),
+				encoding.ConcatenatedByte{RoundEncoding(seed, 8, 2*pos+0), RoundEncoding(seed, 8, 2*pos+1)},
 			},
 			encoding.IdentityByte{},
 			TBox{constr, roundKeys[9][pos], roundKeys[10][pos]},
