@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestMatrix(t *testing.T) {
+func TestByteMatrix(t *testing.T) {
 	m := ByteMatrix{ // AES S-Box
 		0xF1, // 0b11110001
 		0xE3, // 0b11100011
@@ -28,8 +28,8 @@ func TestMatrix(t *testing.T) {
 	}
 }
 
-func TestInvert(t *testing.T) {
-	m := GenerateRandom(rand.Reader)
+func TestByteInvert(t *testing.T) {
+	m := GenerateRandomByte(rand.Reader)
 	n, _ := m.Invert()
 
 	for i := 0; i < 256; i++ {
@@ -37,6 +37,20 @@ func TestInvert(t *testing.T) {
 		mn := m.Mul(n.Mul(byte(i)))
 
 		if nm != byte(i) || mn != byte(i) {
+			t.Fatalf("M * M^-1 != M^-1 * M != I")
+		}
+	}
+}
+
+func TestWordInvert(t *testing.T) {
+	m := GenerateRandomWord(rand.Reader)
+	n, _ := m.Invert()
+
+	for i := 0; i < 256; i++ {
+		nm := n.Mul(m.Mul(uint32(i)))
+		mn := m.Mul(n.Mul(uint32(i)))
+
+		if nm != uint32(i) || mn != uint32(i) {
 			t.Fatalf("M * M^-1 != M^-1 * M != I")
 		}
 	}

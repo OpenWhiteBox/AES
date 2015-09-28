@@ -49,6 +49,24 @@ func (cb ComposedBytes) Decode(i byte) byte {
 	return i
 }
 
+type ComposedWords []Word
+
+func (cw ComposedWords) Encode(i uint32) uint32 {
+	for j := 0; j < len(cw); j++ {
+		i = cw[j].Encode(i)
+	}
+
+	return i
+}
+
+func (cw ComposedWords) Decode(i uint32) uint32 {
+	for j := len(cw) - 1; j >= 0; j-- {
+		i = cw[j].Decode(i)
+	}
+
+	return i
+}
+
 // A concatenated encoding is a bijection of a large primitive built by concatenating smaller encodings.
 // In the example, f(x_1 || x_2) = f_1(x_1) || f_2(x_2), f is a concatenated encoding built from f_1 and f_2.
 type ConcatenatedByte struct {
@@ -87,6 +105,19 @@ type ByteLinear matrix.ByteMatrix
 func (bl ByteLinear) Encode(i byte) byte { return matrix.ByteMatrix(bl).Mul(i) }
 func (bl ByteLinear) Decode(i byte) byte {
 	inv, ok := matrix.ByteMatrix(bl).Invert()
+
+	if !ok {
+		panic("Matrix wasn't invertible!")
+	}
+
+	return inv.Mul(i)
+}
+
+type WordLinear matrix.WordMatrix
+
+func (wl WordLinear) Encode(i uint32) uint32 { return matrix.WordMatrix(wl).Mul(i) }
+func (wl WordLinear) Decode(i uint32) uint32 {
+	inv, ok := matrix.WordMatrix(wl).Invert()
 
 	if !ok {
 		panic("Matrix wasn't invertible!")
