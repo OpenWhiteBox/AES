@@ -1,53 +1,8 @@
 package chow
 
 import (
-	"../../primitives/matrix"
-	"../../primitives/number"
 	"../../primitives/table"
-	"../saes"
 )
-
-type TBox struct {
-	Constr   saes.Construction
-	KeyByte1 byte
-	KeyByte2 byte
-}
-
-func (tbox TBox) Get(i byte) byte {
-	return tbox.Constr.SubByte(i^tbox.KeyByte1) ^ tbox.KeyByte2
-}
-
-type TyiTable uint
-
-func (tyi TyiTable) Get(i byte) (out uint32) {
-	// Calculate dot product of i and [0x02 0x01 0x01 0x03]
-	j := number.ByteFieldElem(i)
-
-	a := number.ByteFieldElem(2).Mul(j)
-	b := number.ByteFieldElem(1).Mul(j)
-	c := number.ByteFieldElem(3).Mul(j)
-
-	// Merge into one output and rotate according to column.
-	out = (uint32(a) << 24) | (uint32(b) << 16) | (uint32(b) << 8) | uint32(c)
-	out = (out >> (8 * uint(tyi))) | (out << (32 - 8*uint(tyi)))
-
-	return
-}
-
-type MBInverseTable struct {
-	MBInverse matrix.WordMatrix
-	Row       uint
-}
-
-func (mbinv MBInverseTable) Get(i byte) uint32 {
-	return mbinv.MBInverse.Mul(uint32(i) << (24 - 8*mbinv.Row))
-}
-
-type XORTable struct{}
-
-func (xor XORTable) Get(i byte) (out byte) {
-	return (i >> 4) ^ (i & 0xf)
-}
 
 type Construction struct {
 	TBoxTyiTable [9][16]table.Word      // [round][position]
