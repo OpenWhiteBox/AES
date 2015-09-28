@@ -1,3 +1,4 @@
+// Contains tables and encodings necessary for key generation.
 package chow
 
 import (
@@ -7,6 +8,7 @@ import (
 	"../saes"
 )
 
+// A T-Box computes the SubBytes and AddRoundKey steps.
 type TBox struct {
 	Constr   saes.Construction
 	KeyByte1 byte
@@ -17,6 +19,7 @@ func (tbox TBox) Get(i byte) byte {
 	return tbox.Constr.SubByte(i^tbox.KeyByte1) ^ tbox.KeyByte2
 }
 
+// A Tyi Table computes the MixColumns step.
 type TyiTable uint
 
 func (tyi TyiTable) Get(i byte) (out uint32) {
@@ -34,6 +37,7 @@ func (tyi TyiTable) Get(i byte) (out uint32) {
 	return
 }
 
+// A MB^(-1) Table inverts the mixing bijection on the Tyi Table.
 type MBInverseTable struct {
 	MBInverse matrix.WordMatrix
 	Row       uint
@@ -43,11 +47,14 @@ func (mbinv MBInverseTable) Get(i byte) uint32 {
 	return mbinv.MBInverse.Mul(uint32(i) << (24 - 8*mbinv.Row))
 }
 
+// An XOR Table computes the XOR of two nibbles.
 type XORTable struct{}
 
 func (xor XORTable) Get(i byte) (out byte) {
 	return (i >> 4) ^ (i & 0xf)
 }
+
+type StepEncoding func ([16]byte, int, int, int) encoding.Nibble
 
 // Encodes the output of a T-Box/Tyi Table / the input of a top-level XOR.
 //
