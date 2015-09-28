@@ -1,6 +1,7 @@
 package chow
 
 import (
+	"../../primitives/matrix"
 	"../../primitives/number"
 	"../../primitives/table"
 	"../saes"
@@ -33,6 +34,15 @@ func (tyi TyiTable) Get(i byte) (out uint32) {
 	return
 }
 
+type MBInverseTable struct {
+	MBInverse matrix.WordMatrix
+	Row       uint
+}
+
+func (mbinv MBInverseTable) Get(i byte) uint32 {
+	return mbinv.MBInverse.Mul(uint32(i) << (24 - 8*mbinv.Row))
+}
+
 type XORTable struct{}
 
 func (xor XORTable) Get(i byte) (out byte) {
@@ -41,8 +51,12 @@ func (xor XORTable) Get(i byte) (out byte) {
 
 type Construction struct {
 	TBoxTyiTable [9][16]table.Word      // [round][position]
-	TBox         [16]table.Byte         // [position]
-	XORTable     [9][32][3]table.Nibble // [round][nibble-wise position][gate number]
+	HighXORTable [9][32][3]table.Nibble // [round][nibble-wise position][gate number]
+
+	MBInverseTable [9][16]table.Word      // [round][position]
+	LowXORTable    [9][32][3]table.Nibble // [round][nibble-wise position][gate number]
+
+	TBox [16]table.Byte // [position]
 }
 
 func (constr *Construction) Encrypt(block [16]byte) [16]byte {
@@ -52,10 +66,10 @@ func (constr *Construction) Encrypt(block [16]byte) [16]byte {
 		// Apply the T-Boxes and Tyi Tables to each column of the state matrix.
 		for pos := 0; pos < 16; pos += 4 {
 			stretched := constr.ExpandWord(constr.TBoxTyiTable[round][pos:pos+4], block[pos:pos+4])
-			squashed := constr.SquashWords(constr.XORTable[round][2*pos:2*pos+8], stretched)
+			copy(block[pos:pos+4], constr.SquashWords(constr.HighXORTable[round][2*pos:2*pos+8], stretched))
 
-			// Split squashed word into 4 bytes and put it away.
-			copy(block[pos:pos+4], []byte{byte(squashed >> 24), byte(squashed >> 16), byte(squashed >> 8), byte(squashed)})
+			stretched = constr.ExpandWord(constr.MBInverseTable[round][pos:pos+4], block[pos:pos+4])
+			copy(block[pos:pos+4], constr.SquashWords(constr.LowXORTable[round][2*pos:2*pos+8], stretched))
 		}
 	}
 
@@ -86,8 +100,9 @@ func (constr *Construction) ExpandWord(tboxtyi []table.Word, word []byte) [4]uin
 	}
 }
 
-// Squash expanded word back into one word with 3 pairwise XORs (calc'd one nibble at a time) -- (a ^ b) ^ (c ^ d)
-func (constr *Construction) SquashWords(xorTable [][3]table.Nibble, words [4]uint32) (out uint32) {
+// Squash an expanded word back into one word with 3 pairwise XORs (calc'd one nibble at a time) -- (a ^ b) ^ (c ^ d)
+func (constr *Construction) SquashWords(xorTable [][3]table.Nibble, words [4]uint32) (out []byte) {
+	acc := uint32(0)
 	a, b, c, d := words[0], words[1], words[2], words[3]
 
 	for pos := uint(0); pos < 8; pos++ {
@@ -99,9 +114,9 @@ func (constr *Construction) SquashWords(xorTable [][3]table.Nibble, words [4]uin
 		ab := xorTable[pos][0].Get(aPartial<<4 | bPartial) // (a ^ b)
 		cd := xorTable[pos][1].Get(cPartial<<4 | dPartial) // (c ^ d)
 
-		out = out << 4
-		out |= uint32(xorTable[pos][2].Get(ab<<4 | cd)) // (a ^ b) ^ (c ^ d)
+		acc = acc << 4
+		acc |= uint32(xorTable[pos][2].Get(ab<<4 | cd)) // (a ^ b) ^ (c ^ d)
 	}
 
-	return
+	return []byte{byte(acc >> 24), byte(acc >> 16), byte(acc >> 8), byte(acc)}
 }
