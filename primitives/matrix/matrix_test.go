@@ -7,34 +7,34 @@ import (
 )
 
 func TestByteMatrix(t *testing.T) {
-	m := ByteMatrix{ // AES S-Box
-		0xF1, // 0b11110001
-		0xE3, // 0b11100011
-		0xC7, // 0b11000111
-		0x8F, // 0b10001111
-		0x1F, // 0b00011111
-		0x3E, // 0b00111110
-		0x7C, // 0b01111100
-		0xF8, // 0b11111000
+	m := Matrix{ // AES S-Box
+		Row{0xF1}, // 0b11110001
+		Row{0xE3}, // 0b11100011
+		Row{0xC7}, // 0b11000111
+		Row{0x8F}, // 0b10001111
+		Row{0x1F}, // 0b00011111
+		Row{0x3E}, // 0b00111110
+		Row{0x7C}, // 0b01111100
+		Row{0xF8}, // 0b11111000
 	}
 	a := byte(0x63) // 0b01100011
 
-	if m.Mul(byte(number.ByteFieldElem(0x53).Invert()))^a != 0xED {
+	if m.Mul(Row{byte(number.ByteFieldElem(0x53).Invert())})[0]^a != 0xED {
 		t.Fatalf("Substitution value was wrong! 0x53 -> 0xED")
 	}
 
-	if m.Mul(byte(number.ByteFieldElem(0x10).Invert()))^a != 0xCA {
+	if m.Mul(Row{byte(number.ByteFieldElem(0x10).Invert())})[0]^a != 0xCA {
 		t.Fatalf("Substitution value was wrong! 0x10 -> 0xCA")
 	}
 }
 
 func TestByteInvert(t *testing.T) {
-	m := GenerateRandomByte(rand.Reader)
+	m := GenerateRandom(rand.Reader, 8)
 	n, _ := m.Invert()
 
 	for i := 0; i < 256; i++ {
-		nm := n.Mul(m.Mul(byte(i)))
-		mn := m.Mul(n.Mul(byte(i)))
+		nm := n.Mul(m.Mul(Row{byte(i)}))[0]
+		mn := m.Mul(n.Mul(Row{byte(i)}))[0]
 
 		if nm != byte(i) || mn != byte(i) {
 			t.Fatalf("M * M^-1 != M^-1 * M != I")
@@ -43,15 +43,37 @@ func TestByteInvert(t *testing.T) {
 }
 
 func TestWordInvert(t *testing.T) {
-	m := GenerateRandomWord(rand.Reader)
+	m := GenerateRandom(rand.Reader, 32)
 	n, _ := m.Invert()
 
-	for i := 0; i < 256; i++ {
-		nm := n.Mul(m.Mul(uint32(i)))
-		mn := m.Mul(n.Mul(uint32(i)))
+	for i := 0; i < 1024; i++ {
+		r := Row{byte(i >> 24), byte(i >> 16), byte(i >> 8), byte(i)}
 
-		if nm != uint32(i) || mn != uint32(i) {
-			t.Fatalf("M * M^-1 != M^-1 * M != I")
+		nm := n.Mul(m.Mul(r))
+		mn := m.Mul(n.Mul(r))
+
+		for j := 0; j < 4; j++ {
+			if nm[j] != r[j] || mn[j] != r[j] {
+				t.Fatalf("M * M^-1 != M^-1 * M != I")
+			}
+		}
+	}
+}
+
+func TestBlockInvert(t *testing.T) {
+	m := GenerateRandom(rand.Reader, 128)
+	n, _ := m.Invert()
+
+	for i := 0; i < 1024; i++ {
+		r := Row{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, byte(i >> 24), byte(i >> 16), byte(i >> 8), byte(i)}
+
+		nm := n.Mul(m.Mul(r))
+		mn := m.Mul(n.Mul(r))
+
+		for j := 0; j < 16; j++ {
+			if nm[j] != r[j] || mn[j] != r[j] {
+				t.Fatalf("M * M^-1 != M^-1 * M != I")
+			}
 		}
 	}
 }

@@ -39,12 +39,17 @@ func (tyi TyiTable) Get(i byte) (out uint32) {
 
 // A MB^(-1) Table inverts the mixing bijection on the Tyi Table.
 type MBInverseTable struct {
-	MBInverse matrix.WordMatrix
+	MBInverse matrix.Matrix
 	Row       uint
 }
 
 func (mbinv MBInverseTable) Get(i byte) uint32 {
-	return mbinv.MBInverse.Mul(uint32(i) << (24 - 8*mbinv.Row))
+	r := matrix.Row{0, 0, 0, 0}
+	r[mbinv.Row] = i
+
+	out := mbinv.MBInverse.Mul(r)
+
+	return uint32(out[0])<<24 | uint32(out[1])<<16 | uint32(out[2])<<8 | uint32(out[3])
 }
 
 // An XOR Table computes the XOR of two nibbles.

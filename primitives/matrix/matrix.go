@@ -1,67 +1,116 @@
-// Basic operations on 8x8 matrices in GF(2) and the random generation of new ones.
+// Basic operations on matrices in GF(2) and the random generation of new ones.
 package matrix
 
 import (
 	"io"
 )
 
-func dotProduct(e, f uint32, cap uint) bool {
-	weight := 0
-	x := e & f
+type Row []byte
 
-	for i := uint(0); i < cap; i++ {
-		if x&(1<<i) > 0 {
-			weight++
-		}
+func (e Row) Add(f Row) Row {
+	if len(e) != len(f) {
+		panic("Can't add rows that are different sizes!")
 	}
 
-	if weight%2 == 0 {
-		return false
-	} else {
-		return true
-	}
-}
-
-func dotProductByte(e, f byte) bool {
-	return dotProduct(uint32(e), uint32(f), 8)
-}
-
-func dotProductWord(e, f uint32) bool {
-	return dotProduct(e, f, 32)
-}
-
-type ByteMatrix [8]byte // One byte is one row
-
-func (e ByteMatrix) Mul(f byte) (out byte) {
-	for i := uint(0); i < 8; i++ {
-		if dotProductByte(e[i], f) {
-			out += 1 << i
-		}
-	}
-
-	return
-}
-
-func (e ByteMatrix) Add(f ByteMatrix) (out ByteMatrix) {
-	for i := 0; i < 8; i++ {
+	out := make([]byte, len(e))
+	for i := 0; i < len(e); i++ {
 		out[i] = e[i] ^ f[i]
 	}
 
+	return Row(out)
+}
+
+func (e Row) Mul(f Row) Row {
+	if len(e) != len(f) {
+		panic("Can't multiply rows that are different sizes!")
+	}
+
+	out := make([]byte, len(e))
+	for i := 0; i < len(e); i++ {
+		out[i] = e[i] & f[i]
+	}
+
+	return Row(out)
+}
+
+func (e Row) DotProduct(f Row) bool {
+	if e.Mul(f).Weight()%2 == 1 {
+		return true
+	} else {
+		return false
+	}
+}
+
+func (e Row) Weight() (weight int) {
+	for _, e_i := range e {
+		for j := uint(0); j < 8; j++ {
+			if (e_i>>j)&1 == 1 {
+				weight += 1
+			}
+		}
+	}
+
 	return
 }
 
-func (e ByteMatrix) Invert() (out ByteMatrix, ok bool) { // Gauss-Jordan Method
-	out = ByteMatrix{1, 2, 4, 8, 16, 32, 64, 128} // Identity matrix
+func (e Row) Size() int {
+	return 8 * len(e)
+}
 
-	f := [8]byte{}
-	copy(f[:], e[:])
+type Matrix []Row
 
-	for row := uint(0); row < 8; row++ {
+func (e Matrix) Mul(f Row) Row {
+	out, in := e.Size()
+	if in != f.Size() {
+		panic("Can't multiply by row that is wrong size!")
+	}
+
+	n := uint(out)
+
+	res := make([]byte, n/8)
+	for i := uint(0); i < n; i++ {
+		if e[i].DotProduct(f) {
+			res[i/8] |= 1<<(i%8)
+		}
+	}
+
+	return Row(res)
+}
+
+func (e Matrix) Add(f Matrix) Matrix {
+	out := make([]Row, len(e))
+	for i := 0; i < len(e); i++ {
+		out[i] = e[i].Add(f[i])
+	}
+
+	return out
+}
+
+func (e Matrix) Invert() (Matrix, bool) { // Gauss-Jordan Method
+	a, b := e.Size()
+	if a != b {
+		panic("Can't invert a non-square matrix!")
+	}
+
+	n := uint(a)
+
+	out := make([]Row, n) // Identity matrix
+	for i := uint(0); i < n; i++ {
+		row := make([]byte, n/8)
+		row[i/8] += 1<<(i%8)
+
+		out[i] = row
+	}
+
+	f := make([]Row, n) // Duplicate e away so we don't mutate it.
+	copy(f, e)
+
+	for row := uint(0); row < n; row++ {
 		// Find a row with a non-zero entry (a 1) in the (row)th position
 		candId := uint(255)
 
-		for i := row; i < 8; i++ {
-			if (f[i]>>row)&1 != 0 {
+		for i := row; i < n; i++ {
+			if (f[i][row/8]>>(row%8))&1 == 1 {
 				candId = i
 				break
 			}
@@ -76,14 +125,14 @@ func (e ByteMatrix) Invert() (out ByteMatrix, ok bool) { // Gauss-Jordan Method
 		out[row], out[candId] = out[candId], out[row]
 
 		// Cancel out the (row)th position for every row above and below it.
-		for i := uint(0); i < 8; i++ {
+		for i := uint(0); i < n; i++ {
 			if i == row {
 				continue
 			}
 
-			if (f[i]>>row)&1 != 0 {
-				f[i] ^= f[row]
-				out[i] ^= out[row]
+			if (f[i][row/8]>>(row%8))&1 ==1 {
+				f[i] = f[i].Add(f[row])
+				out[i] = out[i].Add(out[row])
 			}
 		}
 	}
@@ -91,97 +140,27 @@ func (e ByteMatrix) Invert() (out ByteMatrix, ok bool) { // Gauss-Jordan Method
 	return out, true
 }
 
-func GenerateRandomByte(reader io.Reader) ByteMatrix {
-	m := ByteMatrix{} // Generate random byte matrix.
-	reader.Read(m[:])
+func (e Matrix) Size() (int, int) {
+	return len(e), e[0].Size()
+}
 
-	_, ok := m.Invert() // Test for invertibility.
+func GenerateRandom(reader io.Reader, n int) Matrix {
+	m := Matrix(make([]Row, n))
+
+	for i := 0; i < n; i++ { // Generate random n x n matrix.
+		row := Row(make([]byte, n/8))
+		reader.Read(row)
+
+		m[i] = row
+	}
+
+	_, ok := m.Invert()
 
 	if ok { // Return this one or try again.
 		return m
 	} else {
-		return GenerateRandomByte(reader)
-	}
-}
-
-type WordMatrix [32]uint32
-
-func (e WordMatrix) Mul(f uint32) (out uint32) {
-	for i := uint(0); i < 32; i++ {
-		if dotProductWord(e[i], f) {
-			out += 1 << i
-		}
+		return GenerateRandom(reader, n) // Performance bottleneck.
 	}
 
-	return
-}
-
-func (e WordMatrix) Add(f WordMatrix) (out WordMatrix) {
-	for i := 0; i < 32; i++ {
-		out[i] = e[i] ^ f[i]
-	}
-
-	return
-}
-
-func (e WordMatrix) Invert() (out WordMatrix, ok bool) { // Gauss-Jordan Method
-	// Generate identity matrix:
-	for i := uint(0); i < 32; i++ {
-		out[i] = 1 << i
-	}
-
-	f := [32]uint32{}
-	copy(f[:], e[:])
-
-	for row := uint(0); row < 32; row++ {
-		// Find a row with a non-zero entry (a 1) in the (row)th position
-		candId := uint(255)
-
-		for i := row; i < 32; i++ {
-			if (f[i]>>row)&1 != 0 {
-				candId = i
-				break
-			}
-		}
-
-		if candId == 255 { // If we can't find one, the matrix isn't invertible.
-			return out, false
-		}
-
-		// Move it to the top
-		f[row], f[candId] = f[candId], f[row]
-		out[row], out[candId] = out[candId], out[row]
-
-		// Cancel out the (row)th position for every row above and below it.
-		for i := uint(0); i < 32; i++ {
-			if i == row {
-				continue
-			}
-
-			if (f[i]>>row)&1 != 0 {
-				f[i] ^= f[row]
-				out[i] ^= out[row]
-			}
-		}
-	}
-
-	return out, true
-}
-
-func GenerateRandomWord(reader io.Reader) WordMatrix {
-	m := [32 * 4]byte{} // Generate random byte matrix.
-	reader.Read(m[:])
-
-	n := WordMatrix{}
-	for i := 0; i < 32; i++ {
-		n[i] = uint32(m[4*i+0])<<24 | uint32(m[4*i+1])<<16 | uint32(m[4*i+2])<<8 | uint32(m[4*i+3])
-	}
-
-	_, ok := n.Invert() // Test for invertibility.
-
-	if ok { // Return this one or try again.
-		return n
-	} else {
-		return GenerateRandomWord(reader)
-	}
+	return m
 }

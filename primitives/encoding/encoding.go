@@ -100,28 +100,33 @@ func (cw ConcatenatedWord) Decode(i uint32) uint32 {
 }
 
 // A linear encoding is specified by an invertible binary matrix.
-type ByteLinear matrix.ByteMatrix
+type ByteLinear matrix.Matrix
 
-func (bl ByteLinear) Encode(i byte) byte { return matrix.ByteMatrix(bl).Mul(i) }
+func (bl ByteLinear) Encode(i byte) byte { return matrix.Matrix(bl).Mul(matrix.Row{i})[0] }
 func (bl ByteLinear) Decode(i byte) byte {
-	inv, ok := matrix.ByteMatrix(bl).Invert()
+	inv, ok := matrix.Matrix(bl).Invert()
 
 	if !ok {
 		panic("Matrix wasn't invertible!")
 	}
 
-	return inv.Mul(i)
+	return inv.Mul(matrix.Row{i})[0]
 }
 
-type WordLinear matrix.WordMatrix
+type WordLinear matrix.Matrix
 
-func (wl WordLinear) Encode(i uint32) uint32 { return matrix.WordMatrix(wl).Mul(i) }
+func (wl WordLinear) Encode(i uint32) uint32 {
+	out := matrix.Matrix(wl).Mul(matrix.Row{byte(i>>24), byte(i>>16), byte(i>>8), byte(i)})
+	return uint32(out[0])<<24 | uint32(out[1])<<16 | uint32(out[2])<<8 | uint32(out[3])
+}
+
 func (wl WordLinear) Decode(i uint32) uint32 {
-	inv, ok := matrix.WordMatrix(wl).Invert()
+	inv, ok := matrix.Matrix(wl).Invert() // Performance bottleneck.
 
 	if !ok {
 		panic("Matrix wasn't invertible!")
 	}
 
-	return inv.Mul(i)
+	out := inv.Mul(matrix.Row{byte(i>>24), byte(i>>16), byte(i>>8), byte(i)})
+	return uint32(out[0])<<24 | uint32(out[1])<<16 | uint32(out[2])<<8 | uint32(out[3])
 }

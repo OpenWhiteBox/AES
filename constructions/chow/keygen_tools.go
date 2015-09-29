@@ -66,16 +66,16 @@ func generateStream(seed, label [16]byte) io.Reader {
 
 // Generate byte/word mixing bijections.
 // TODO: Ensure that blocks are full-rank.
-func ByteMixingBijection(seed [16]byte, round, position int) matrix.ByteMatrix {
+func ByteMixingBijection(seed [16]byte, round, position int) matrix.Matrix {
 	label := [16]byte{}
 	label[0], label[1], label[2], label[3] = 'M', 'B', byte(round), byte(position)
 
-	return matrix.GenerateRandomByte(generateStream(seed, label))
+	return matrix.GenerateRandom(generateStream(seed, label), 8)
 }
 
-func WordMixingBijection(seed [16]byte, round, column int) matrix.WordMatrix {
+func WordMixingBijection(seed [16]byte, round, column int) matrix.Matrix {
 	label := [16]byte{}
 	label[0], label[1], label[2], label[3] = 'M', 'W', byte(round), byte(column)
 
-	return matrix.GenerateRandomWord(generateStream(seed, label))
+	return matrix.GenerateRandom(generateStream(seed, label), 32)
 }

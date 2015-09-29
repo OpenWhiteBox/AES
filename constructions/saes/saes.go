@@ -114,19 +114,19 @@ func (constr *Construction) SubWord(w uint32) uint32 {
 
 func (constr *Construction) SubByte(e byte) byte {
 	// AES S-Box
-	m := matrix.ByteMatrix{ // Linear component.
-		0xF1, // 0b11110001
-		0xE3, // 0b11100011
-		0xC7, // 0b11000111
-		0x8F, // 0b10001111
-		0x1F, // 0b00011111
-		0x3E, // 0b00111110
-		0x7C, // 0b01111100
-		0xF8, // 0b11111000
+	m := matrix.Matrix{ // Linear component.
+		matrix.Row{0xF1}, // 0b11110001
+		matrix.Row{0xE3}, // 0b11100011
+		matrix.Row{0xC7}, // 0b11000111
+		matrix.Row{0x8F}, // 0b10001111
+		matrix.Row{0x1F}, // 0b00011111
+		matrix.Row{0x3E}, // 0b00111110
+		matrix.Row{0x7C}, // 0b01111100
+		matrix.Row{0xF8}, // 0b11111000
 	}
 	a := byte(0x63) // 0b01100011 - Affine component.
 
-	return m.Mul(byte(number.ByteFieldElem(e).Invert())) ^ a
+	return m.Mul(matrix.Row{byte(number.ByteFieldElem(e).Invert())})[0] ^ a
 }
 
 func (constr *Construction) ShiftRows(block [16]byte) [16]byte {
