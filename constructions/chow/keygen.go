@@ -72,64 +72,11 @@ func GenerateKeys(key [16]byte, seed [16]byte) (out Construction) {
 				MBInverseTable{mbInv, uint(pos) % 4},
 			}
 		}
-
-		// Generate the High and Low XOR Tables
-		for pos := 0; pos < 32; pos++ {
-			out.HighXORTable[round][pos][0] = encoding.NibbleTable{
-				encoding.ConcatenatedByte{
-					TyiEncoding(seed, round, pos/8*4+0, pos%8),
-					TyiEncoding(seed, round, pos/8*4+1, pos%8),
-				},
-				XOREncoding(seed, round, pos, Inside, Left),
-				XORTable{},
-			}
-
-			out.HighXORTable[round][pos][1] = encoding.NibbleTable{
-				encoding.ConcatenatedByte{
-					TyiEncoding(seed, round, pos/8*4+2, pos%8),
-					TyiEncoding(seed, round, pos/8*4+3, pos%8),
-				},
-				XOREncoding(seed, round, pos, Inside, Right),
-				XORTable{},
-			}
-
-			out.HighXORTable[round][pos][2] = encoding.NibbleTable{
-				encoding.ConcatenatedByte{
-					XOREncoding(seed, round, pos, Inside, Left),
-					XOREncoding(seed, round, pos, Inside, Right),
-				},
-				RoundEncoding(seed, round, pos, Inside),
-				XORTable{},
-			}
-
-			out.LowXORTable[round][pos][0] = encoding.NibbleTable{
-				encoding.ConcatenatedByte{
-					MBInverseEncoding(seed, round, pos/8*4+0, pos%8),
-					MBInverseEncoding(seed, round, pos/8*4+1, pos%8),
-				},
-				XOREncoding(seed, round, pos, Outside, Left),
-				XORTable{},
-			}
-
-			out.LowXORTable[round][pos][1] = encoding.NibbleTable{
-				encoding.ConcatenatedByte{
-					MBInverseEncoding(seed, round, pos/8*4+2, pos%8),
-					MBInverseEncoding(seed, round, pos/8*4+3, pos%8),
-				},
-				XOREncoding(seed, round, pos, Outside, Right),
-				XORTable{},
-			}
-
-			out.LowXORTable[round][pos][2] = encoding.NibbleTable{
-				encoding.ConcatenatedByte{
-					XOREncoding(seed, round, pos, Outside, Left),
-					XOREncoding(seed, round, pos, Outside, Right),
-				},
-				RoundEncoding(seed, round, 2*shiftRows(pos/2)+pos%2, Outside),
-				XORTable{},
-			}
-		}
 	}
+
+	// Generate the High and Low XOR Tables
+	out.HighXORTable = xorTables(seed, Inside)
+	out.LowXORTable = xorTables(seed, Outside)
 
 	// 10th T-Box
 	for pos := 0; pos < 16; pos++ {
@@ -144,4 +91,41 @@ func GenerateKeys(key [16]byte, seed [16]byte) (out Construction) {
 	}
 
 	return
+}
+
+func xorTables(seed [16]byte, surface Surface) (out [9][32][3]table.Nibble) {
+	var outPos func(int) int
+	if surface == Inside {
+		outPos = func(pos int) int { return pos }
+	} else {
+		outPos = func(pos int) int { return 2*shiftRows(pos/2) + pos%2 }
+	}
+
+	for round := 0; round < 9; round++ {
+		for pos := 0; pos < 32; pos++ {
+			out[round][pos][0] = topLevelXORTable(seed, round, pos, surface, Left)
+			out[round][pos][1] = topLevelXORTable(seed, round, pos, surface, Right)
+			out[round][pos][2] = encoding.NibbleTable{
+				encoding.ConcatenatedByte{
+					XOREncoding(seed, round, pos, surface, Left),
+					XOREncoding(seed, round, pos, surface, Right),
+				},
+				RoundEncoding(seed, round, outPos(pos), surface),
+				XORTable{},
+			}
+		}
+	}
+
+	return
+}
+
+func topLevelXORTable(seed [16]byte, round, pos int, surface Surface, side Side) table.Nibble {
+	return encoding.NibbleTable{
+		encoding.ConcatenatedByte{
+			StepEncoding(seed, round, pos/8*4+2*int(side)+0, pos%8, surface),
+			StepEncoding(seed, round, pos/8*4+2*int(side)+1, pos%8, surface),
+		},
+		XOREncoding(seed, round, pos, surface, side),
+		XORTable{},
+	}
 }

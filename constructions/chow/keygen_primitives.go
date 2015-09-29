@@ -54,7 +54,14 @@ func (xor XORTable) Get(i byte) (out byte) {
 	return (i >> 4) ^ (i & 0xf)
 }
 
-type StepEncoding func ([16]byte, int, int, int) encoding.Nibble
+// Abstraction over the Tyi and MB^(-1) encodings, to match the pattern of the XOR and round encodings.
+func StepEncoding(seed [16]byte, round, position, subPosition int, surface Surface) encoding.Nibble {
+	if surface == Inside {
+		return TyiEncoding(seed, round, position, subPosition)
+	} else {
+		return MBInverseEncoding(seed, round, position, subPosition)
+	}
+}
 
 // Encodes the output of a T-Box/Tyi Table / the input of a top-level XOR.
 //
