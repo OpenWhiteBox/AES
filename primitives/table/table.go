@@ -14,6 +14,10 @@ type Word interface {
 	Get(i byte) uint32
 }
 
+type Block interface {
+	Get(i byte) [16]byte
+}
+
 type ComposedBytes []Byte
 
 func (cb ComposedBytes) Get(i byte) byte {

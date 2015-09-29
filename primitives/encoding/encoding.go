@@ -20,6 +20,11 @@ type Word interface {
 	Decode(i uint32) uint32
 }
 
+type Block interface {
+	Encode(i [16]byte) [16]byte
+	Decode(i [16]byte) [16]byte
+}
+
 // The IdentityByte encoding is also used as the IdentityNibble encoding.
 type IdentityByte struct{}
 
@@ -30,6 +35,18 @@ type IdentityWord struct{}
 
 func (iw IdentityWord) Encode(i uint32) uint32 { return i }
 func (iw IdentityWord) Decode(i uint32) uint32 { return i }
+
+type IdentityBlock struct{}
+
+func (ib IdentityBlock) Encode(i [16]byte) (out [16]byte) {
+	copy(out[:], i[:])
+	return
+}
+
+func (ib IdentityBlock) Decode(i [16]byte) (out [16]byte) {
+	copy(out[:], i[:])
+	return
+}
 
 type ComposedBytes []Byte
 
@@ -99,6 +116,24 @@ func (cw ConcatenatedWord) Decode(i uint32) uint32 {
 		uint32(cw.D.Decode(byte(i)))
 }
 
+type ConcatenatedBlock [16]Byte
+
+func (cb ConcatenatedBlock) Encode(i [16]byte) (out [16]byte) {
+	for j := 0; j < 16; j++ {
+		out[j] = cb[j].Encode(i[j])
+	}
+
+	return
+}
+
+func (cb ConcatenatedBlock) Decode(i [16]byte) (out [16]byte) {
+	for j := 0; j < 16; j++ {
+		out[j] = cb[j].Decode(i[j])
+	}
+
+	return
+}
+
 // A linear encoding is specified by an invertible binary matrix.
 type ByteLinear matrix.Matrix
 
@@ -129,4 +164,26 @@ func (wl WordLinear) Decode(i uint32) uint32 {
 
 	out := inv.Mul(matrix.Row{byte(i>>24), byte(i>>16), byte(i>>8), byte(i)})
 	return uint32(out[0])<<24 | uint32(out[1])<<16 | uint32(out[2])<<8 | uint32(out[3])
+}
+
+type BlockLinear matrix.Matrix
+
+func (bl BlockLinear) Encode(i [16]byte) (out [16]byte) {
+	res := matrix.Matrix(bl).Mul(matrix.Row(i[:]))
+	copy(out[:], res)
+
+	return
+}
+
+func (bl BlockLinear) Decode(i [16]byte) (out [16]byte) {
+	inv, ok := matrix.Matrix(bl).Invert()
+
+	if !ok {
+		panic("Matrix wasn't invertible!")
+	}
+
+	res := inv.Mul(matrix.Row(i[:]))
+	copy(out[:], res)
+
+	return
 }

@@ -34,3 +34,13 @@ type WordTable struct {
 func (wt WordTable) Get(i byte) uint32 {
 	return wt.Out.Encode(wt.Hidden.Get(wt.In.Decode(i)))
 }
+
+type BlockTable struct {
+	In Byte
+	Out Block
+	Hidden table.Block
+}
+
+func (bt BlockTable) Get(i byte) [16]byte {
+	return bt.Out.Encode(bt.Hidden.Get(bt.In.Decode(i)))
+}
