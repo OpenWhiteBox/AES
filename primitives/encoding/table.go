@@ -36,8 +36,8 @@ func (wt WordTable) Get(i byte) uint32 {
 }
 
 type BlockTable struct {
-	In Byte
-	Out Block
+	In     Byte
+	Out    Block
 	Hidden table.Block
 }
 

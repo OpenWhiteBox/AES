@@ -151,7 +151,7 @@ func (bl ByteLinear) Decode(i byte) byte {
 type WordLinear matrix.Matrix
 
 func (wl WordLinear) Encode(i uint32) uint32 {
-	out := matrix.Matrix(wl).Mul(matrix.Row{byte(i>>24), byte(i>>16), byte(i>>8), byte(i)})
+	out := matrix.Matrix(wl).Mul(matrix.Row{byte(i >> 24), byte(i >> 16), byte(i >> 8), byte(i)})
 	return uint32(out[0])<<24 | uint32(out[1])<<16 | uint32(out[2])<<8 | uint32(out[3])
 }
 
@@ -162,7 +162,7 @@ func (wl WordLinear) Decode(i uint32) uint32 {
 		panic("Matrix wasn't invertible!")
 	}
 
-	out := inv.Mul(matrix.Row{byte(i>>24), byte(i>>16), byte(i>>8), byte(i)})
+	out := inv.Mul(matrix.Row{byte(i >> 24), byte(i >> 16), byte(i >> 8), byte(i)})
 	return uint32(out[0])<<24 | uint32(out[1])<<16 | uint32(out[2])<<8 | uint32(out[3])
 }
 

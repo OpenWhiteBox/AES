@@ -70,7 +70,7 @@ func (e Matrix) Mul(f Row) Row {
 	res := make([]byte, n/8)
 	for i := uint(0); i < n; i++ {
 		if e[i].DotProduct(f) {
-			res[i/8] |= 1<<(i%8)
+			res[i/8] |= 1 << (i % 8)
 		}
 	}
 
@@ -97,7 +97,7 @@ func (e Matrix) Invert() (Matrix, bool) { // Gauss-Jordan Method
 	out := make([]Row, n) // Identity matrix
 	for i := uint(0); i < n; i++ {
 		row := make([]byte, n/8)
-		row[i/8] += 1<<(i%8)
+		row[i/8] += 1 << (i % 8)
 
 		out[i] = row
 	}
@@ -130,7 +130,7 @@ func (e Matrix) Invert() (Matrix, bool) { // Gauss-Jordan Method
 				continue
 			}
 
-			if (f[i][row/8]>>(row%8))&1 ==1 {
+			if (f[i][row/8]>>(row%8))&1 == 1 {
 				f[i] = f[i].Add(f[row])
 				out[i] = out[i].Add(out[row])
 			}

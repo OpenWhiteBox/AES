@@ -17,7 +17,7 @@ func (pbt ParsedWord) Get(i byte) uint32 {
 type ParsedBlock []byte
 
 func (pbt ParsedBlock) Get(i byte) (out [16]byte) {
-	copy(out[:], pbt[16*uint(i) : 16*(uint(i)+1)])
+	copy(out[:], pbt[16*uint(i):16*(uint(i)+1)])
 	return
 }
 
