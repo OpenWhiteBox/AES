@@ -5,6 +5,9 @@ import (
 )
 
 type Construction struct {
+	InputMask     [16]table.Block
+	InputXORTable [32][15]table.Nibble // [nibble-wise position][gate number]
+
 	TBoxTyiTable [9][16]table.Word      // [round][position]
 	HighXORTable [9][32][3]table.Nibble // [round][nibble-wise position][gate number]
 
@@ -12,9 +15,16 @@ type Construction struct {
 	LowXORTable    [9][32][3]table.Nibble // [round][nibble-wise position][gate number]
 
 	TBox [16]table.Byte // [position]
+
+	OutputMask     [16]table.Block
+	OutputXORTable [32][15]table.Nibble // [nibble-wise position][gate number]
 }
 
 func (constr *Construction) Encrypt(block [16]byte) [16]byte {
+	// Remove input encoding.
+	stretched := constr.ExpandBlock(constr.InputMask, block)
+	copy(block[:], constr.SquashBlocks(constr.InputXORTable, stretched))
+
 	for round := 0; round < 9; round++ {
 		block = constr.ShiftRows(block)
 
@@ -34,6 +44,10 @@ func (constr *Construction) Encrypt(block [16]byte) [16]byte {
 	for pos := 0; pos < 16; pos++ {
 		block[pos] = constr.TBox[pos].Get(block[pos])
 	}
+
+	// Add output encoding.
+	stretched = constr.ExpandBlock(constr.OutputMask, block)
+	copy(block[:], constr.SquashBlocks(constr.OutputXORTable, stretched))
 
 	return block
 }
@@ -74,4 +88,28 @@ func (constr *Construction) SquashWords(xorTable [][3]table.Nibble, words [4]uin
 	}
 
 	return []byte{byte(acc >> 24), byte(acc >> 16), byte(acc >> 8), byte(acc)}
+}
+
+func (constr *Construction) ExpandBlock(mask [16]table.Block, block [16]byte) (out [16][16]byte) {
+	for i := 0; i < 16; i++ {
+		out[i] = mask[i].Get(block[i])
+	}
+
+	return
+}
+
+func (constr *Construction) SquashBlocks(xorTable [32][15]table.Nibble, blocks [16][16]byte) []byte {
+	out := make([]byte, 16)
+	copy(out, blocks[0][:])
+
+	for i := 1; i < 16; i++ {
+		for pos := 0; pos < 16; pos++ {
+			aPartial := out[pos]&0xf0 | (blocks[i][pos]&0xf0)>>4
+			bPartial := (out[pos]&0x0f)<<4 | blocks[i][pos]&0x0f
+
+			out[pos] = xorTable[2*pos+0][i-1].Get(aPartial)<<4 | xorTable[2*pos+1][i-1].Get(bPartial)
+		}
+	}
+
+	return out
 }

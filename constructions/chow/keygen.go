@@ -2,11 +2,12 @@ package chow
 
 import (
 	"../../primitives/encoding"
+	"../../primitives/matrix"
 	"../../primitives/table"
 	"../saes"
 )
 
-func GenerateKeys(key [16]byte, seed [16]byte) (out Construction) {
+func GenerateKeys(key [16]byte, seed [16]byte) (out Construction, inputMask, outputMask matrix.Matrix) {
 	constr := saes.Construction{key}
 	roundKeys := constr.StretchedKey()
 
@@ -15,9 +16,14 @@ func GenerateKeys(key [16]byte, seed [16]byte) (out Construction) {
 		roundKeys[k] = constr.ShiftRows(roundKeys[k])
 	}
 
+	// Generate input and output encodings.
+	inputMask = MixingBijection(seed, 128, 0, 0)
+	outputMask = MixingBijection(seed, 128, 10, 0)
+
+	// Generate round material.
 	for round := 0; round < 9; round++ {
 		for pos := 0; pos < 16; pos++ {
-			mb := WordMixingBijection(seed, round, pos/4)
+			mb := MixingBijection(seed, 32, round, pos/4)
 			mbInv, _ := mb.Invert()
 
 			var inEnc encoding.Byte
@@ -26,7 +32,7 @@ func GenerateKeys(key [16]byte, seed [16]byte) (out Construction) {
 				inEnc = encoding.IdentityByte{}
 			} else {
 				inEnc = encoding.ComposedBytes{
-					encoding.ByteLinear(ByteMixingBijection(seed, round-1, pos)),
+					encoding.ByteLinear(MixingBijection(seed, 8, round-1, pos)),
 					encoding.ConcatenatedByte{
 						RoundEncoding(seed, round-1, 2*pos+0, Outside),
 						RoundEncoding(seed, round-1, 2*pos+1, Outside),
@@ -39,10 +45,10 @@ func GenerateKeys(key [16]byte, seed [16]byte) (out Construction) {
 				inEnc,
 				encoding.ComposedWords{
 					encoding.ConcatenatedWord{
-						encoding.ByteLinear(ByteMixingBijection(seed, round, shiftRows(pos/4*4+0))),
-						encoding.ByteLinear(ByteMixingBijection(seed, round, shiftRows(pos/4*4+1))),
-						encoding.ByteLinear(ByteMixingBijection(seed, round, shiftRows(pos/4*4+2))),
-						encoding.ByteLinear(ByteMixingBijection(seed, round, shiftRows(pos/4*4+3))),
+						encoding.ByteLinear(MixingBijection(seed, 8, round, shiftRows(pos/4*4+0))),
+						encoding.ByteLinear(MixingBijection(seed, 8, round, shiftRows(pos/4*4+1))),
+						encoding.ByteLinear(MixingBijection(seed, 8, round, shiftRows(pos/4*4+2))),
+						encoding.ByteLinear(MixingBijection(seed, 8, round, shiftRows(pos/4*4+3))),
 					},
 					encoding.WordLinear(mb),
 					encoding.ConcatenatedWord{
@@ -78,15 +84,43 @@ func GenerateKeys(key [16]byte, seed [16]byte) (out Construction) {
 	out.HighXORTable = xorTables(seed, Inside)
 	out.LowXORTable = xorTables(seed, Outside)
 
-	// 10th T-Box
+	// 10th T-Box, and Input and Output encodings.
 	for pos := 0; pos < 16; pos++ {
 		out.TBox[pos] = encoding.ByteTable{
 			encoding.ComposedBytes{
-				encoding.ByteLinear(ByteMixingBijection(seed, 8, pos)),
+				encoding.ByteLinear(MixingBijection(seed, 8, 8, pos)),
 				encoding.ConcatenatedByte{RoundEncoding(seed, 8, 2*pos+0, Outside), RoundEncoding(seed, 8, 2*pos+1, Outside)},
 			},
 			encoding.IdentityByte{},
 			TBox{constr, roundKeys[9][pos], roundKeys[10][pos]},
+		}
+
+		out.InputMask[pos] = encoding.BlockTable{
+			encoding.IdentityByte{},
+			encoding.IdentityBlock{},
+			MaskTable{inputMask, pos},
+		}
+
+		out.OutputMask[pos] = encoding.BlockTable{
+			encoding.IdentityByte{},
+			encoding.IdentityBlock{},
+			MaskTable{outputMask, pos},
+		}
+	}
+
+	for pos := 0; pos < 32; pos++ {
+		for i := 0; i < 15; i++ {
+			out.InputXORTable[pos][i] = encoding.NibbleTable{
+				encoding.IdentityByte{},
+				encoding.IdentityByte{},
+				XORTable{},
+			}
+
+			out.OutputXORTable[pos][i] = encoding.NibbleTable{
+				encoding.IdentityByte{},
+				encoding.IdentityByte{},
+				XORTable{},
+			}
 		}
 	}
 

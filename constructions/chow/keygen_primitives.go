@@ -8,6 +8,21 @@ import (
 	"../saes"
 )
 
+type MaskTable struct {
+	Mask     matrix.Matrix
+	Position int
+}
+
+func (mt MaskTable) Get(i byte) (out [16]byte) {
+	r := make([]byte, 16)
+	r[mt.Position] = i
+
+	res := mt.Mask.Mul(matrix.Row(r))
+	copy(out[:], res)
+
+	return
+}
+
 // A T-Box computes the SubBytes and AddRoundKey steps.
 type TBox struct {
 	Constr   saes.Construction
