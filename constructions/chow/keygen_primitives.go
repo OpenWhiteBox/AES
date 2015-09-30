@@ -8,6 +8,8 @@ import (
 	"../saes"
 )
 
+var encodingCache = make(map[[32]byte]encoding.Shuffle)
+
 type MaskTable struct {
 	Mask     matrix.Matrix
 	Position int
@@ -91,7 +93,7 @@ func TyiEncoding(seed [16]byte, round, position, subPosition int) encoding.Nibbl
 	label := [16]byte{}
 	label[0], label[1], label[2], label[3] = 'T', byte(round), byte(position), byte(subPosition)
 
-	return encoding.GenerateShuffle(generateStream(seed, label))
+	return getShuffle(seed, label)
 }
 
 // Encodes the output of a MB^(-1) Table / the input of a top-level XOR.
@@ -102,7 +104,7 @@ func MBInverseEncoding(seed [16]byte, round, position, subPosition int) encoding
 	label := [16]byte{}
 	label[0], label[1], label[2], label[3], label[4] = 'M', 'E', byte(round), byte(position), byte(subPosition)
 
-	return encoding.GenerateShuffle(generateStream(seed, label))
+	return getShuffle(seed, label)
 }
 
 // Encodes intermediate results between the two top-level XORs and the bottom XOR.
@@ -115,7 +117,7 @@ func XOREncoding(seed [16]byte, round, position int, surface Surface, side Side)
 	label := [16]byte{}
 	label[0], label[1], label[2], label[3], label[4] = 'X', byte(round), byte(position), byte(surface), byte(side)
 
-	return encoding.GenerateShuffle(generateStream(seed, label))
+	return getShuffle(seed, label)
 }
 
 // Encodes the output of an Expand->Squash round. Two Expand->Squash rounds make up one AES round.
@@ -126,5 +128,20 @@ func RoundEncoding(seed [16]byte, round, position int, surface Surface) encoding
 	label := [16]byte{}
 	label[0], label[1], label[2], label[3] = 'R', byte(round), byte(position), byte(surface)
 
-	return encoding.GenerateShuffle(generateStream(seed, label))
+	return getShuffle(seed, label)
+}
+
+func getShuffle(seed, label [16]byte) encoding.Shuffle {
+	key := [32]byte{}
+	copy(key[0:16], seed[:])
+	copy(key[16:32], label[:])
+
+	cached, ok := encodingCache[key]
+
+	if ok {
+		return cached
+	} else {
+		encodingCache[key] = encoding.GenerateShuffle(generateStream(seed, label))
+		return encodingCache[key]
+	}
 }

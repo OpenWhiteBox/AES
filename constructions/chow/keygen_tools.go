@@ -8,6 +8,8 @@ import (
 	"io"
 )
 
+var mbCache = make(map[[32]byte]matrix.Matrix)
+
 // Two Expand->Squash rounds comprise one AES round.  The Inside Surface is the output of the first E->S round (or the
 // input of the second), and the Outside Surface is the output of the second E->S round (the whole AES round's output,
 // feeding into the next round).
@@ -70,5 +72,16 @@ func MixingBijection(seed [16]byte, size, round, position int) matrix.Matrix {
 	label := [16]byte{}
 	label[0], label[1], label[2], label[3] = 'M', byte(size), byte(round), byte(position)
 
-	return matrix.GenerateRandom(generateStream(seed, label), size)
+	key := [32]byte{}
+	copy(key[0:16], seed[:])
+	copy(key[16:32], label[:])
+
+	cached, ok := mbCache[key]
+
+	if ok {
+		return cached
+	} else {
+		mbCache[key] = matrix.GenerateRandom(generateStream(seed, label), size)
+		return mbCache[key]
+	}
 }
