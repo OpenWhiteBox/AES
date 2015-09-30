@@ -1,7 +1,7 @@
 package chow
 
 import (
-	"../../primitives/table"
+	"github.com/OpenWhiteBox/AES/primitives/table"
 )
 
 type Construction struct {

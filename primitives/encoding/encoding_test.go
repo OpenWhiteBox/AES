@@ -1,9 +1,10 @@
 package encoding
 
 import (
-	"../matrix"
 	"crypto/rand"
 	"testing"
+
+	"github.com/OpenWhiteBox/AES/primitives/matrix"
 )
 
 func TestShuffle(t *testing.T) {

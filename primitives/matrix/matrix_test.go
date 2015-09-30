@@ -1,9 +1,10 @@
 package matrix
 
 import (
-	"../number"
 	"crypto/rand"
 	"testing"
+
+	"github.com/OpenWhiteBox/AES/primitives/number"
 )
 
 func TestByteMatrix(t *testing.T) {

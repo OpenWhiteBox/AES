@@ -1,8 +1,8 @@
 package saes
 
 import (
-	"../../primitives/matrix"
-	"../../primitives/number"
+	"github.com/OpenWhiteBox/AES/primitives/matrix"
+	"github.com/OpenWhiteBox/AES/primitives/number"
 )
 
 // Powers of x mod M(x).

@@ -1,5 +1,6 @@
 // A table maps one byte to another primitive type (nibble, a second byte, ...).  They're not necessarily injective or
-// surjective.  A series of byte tables can be composed indefinitely, but word and nibble tables terminate the series.
+// surjective.  A series of byte tables can be composed indefinitely, but a nibble, word, or block table will terminate
+// the series.
 package table
 
 type Nibble interface {

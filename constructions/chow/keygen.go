@@ -1,10 +1,11 @@
 package chow
 
 import (
-	"../../primitives/encoding"
-	"../../primitives/matrix"
-	"../../primitives/table"
-	"../saes"
+	"github.com/OpenWhiteBox/AES/primitives/encoding"
+	"github.com/OpenWhiteBox/AES/primitives/matrix"
+	"github.com/OpenWhiteBox/AES/primitives/table"
+
+	"github.com/OpenWhiteBox/AES/constructions/saes"
 )
 
 func GenerateKeys(key [16]byte, seed [16]byte) (out Construction, inputMask, outputMask matrix.Matrix) {

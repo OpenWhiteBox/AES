@@ -2,11 +2,12 @@
 package chow
 
 import (
-	"../../primitives/encoding"
-	"../../primitives/table"
 	"crypto/aes"
 	"crypto/cipher"
 	"io"
+
+	"github.com/OpenWhiteBox/AES/primitives/encoding"
+	"github.com/OpenWhiteBox/AES/primitives/table"
 )
 
 // Two Expand->Squash rounds comprise one AES round.  The Inside Surface is the output of the first E->S round (or the

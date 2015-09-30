@@ -2,10 +2,11 @@
 package chow
 
 import (
-	"../../primitives/encoding"
-	"../../primitives/matrix"
-	"../../primitives/number"
-	"../saes"
+	"github.com/OpenWhiteBox/AES/primitives/encoding"
+	"github.com/OpenWhiteBox/AES/primitives/matrix"
+	"github.com/OpenWhiteBox/AES/primitives/number"
+
+	"github.com/OpenWhiteBox/AES/constructions/saes"
 )
 
 var (

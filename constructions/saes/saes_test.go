@@ -1,8 +1,9 @@
 package saes
 
 import (
-	test_vectors "../test/"
 	"testing"
+
+	test_vectors "github.com/OpenWhiteBox/AES/constructions/test"
 )
 
 var key = [16]byte{72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33, 33, 33, 33, 33}

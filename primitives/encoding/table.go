@@ -2,7 +2,7 @@
 package encoding
 
 import (
-	"../table"
+	"github.com/OpenWhiteBox/AES/primitives/table"
 )
 
 type NibbleTable struct {
