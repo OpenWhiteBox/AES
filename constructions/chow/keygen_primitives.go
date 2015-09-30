@@ -111,6 +111,23 @@ func MaskEncoding(seed [16]byte, position, subPosition int, surface Surface) enc
 	return getShuffle(seed, label)
 }
 
+func BlockMaskEncoding(seed [16]byte, position int, surface Surface) encoding.Block {
+	out := encoding.ConcatenatedBlock{}
+
+	for i := 0; i < 16; i++ {
+		out[i] = encoding.ConcatenatedByte{
+			MaskEncoding(seed, position, 2*i+0, surface),
+			MaskEncoding(seed, position, 2*i+1, surface),
+		}
+
+		if surface == Inside {
+			out[i] = encoding.ComposedBytes{encoding.ByteLinear(MixingBijection(seed, 8, -1, shiftRows(i))), out[i]}
+		}
+	}
+
+	return out
+}
+
 // Abstraction over the Tyi and MB^(-1) encodings, to match the pattern of the XOR and round encodings.
 func StepEncoding(seed [16]byte, round, position, subPosition int, surface Surface) encoding.Nibble {
 	if surface == Inside {
@@ -118,6 +135,19 @@ func StepEncoding(seed [16]byte, round, position, subPosition int, surface Surfa
 	} else {
 		return MBInverseEncoding(seed, round, position, subPosition)
 	}
+}
+
+func WordStepEncoding(seed [16]byte, round, position int, surface Surface) encoding.Word {
+	out := encoding.ConcatenatedWord{}
+
+	for i := 0; i < 4; i++ {
+		out[i] = encoding.ConcatenatedByte{
+			StepEncoding(seed, round, position, 2*i+0, surface),
+			StepEncoding(seed, round, position, 2*i+1, surface),
+		}
+	}
+
+	return out
 }
 
 // Encodes the output of a T-Box/Tyi Table / the input of a top-level XOR.
@@ -171,30 +201,4 @@ func ByteRoundEncoding(seed [16]byte, round, position int, surface Surface) enco
 		RoundEncoding(seed, round, 2*position+0, surface),
 		RoundEncoding(seed, round, 2*position+1, surface),
 	}
-}
-
-func WordStepEncoding(seed [16]byte, round, position int, surface Surface) encoding.Word {
-	out := encoding.ConcatenatedWord{}
-
-	for i := 0; i < 4; i++ {
-		out[i] = encoding.ConcatenatedByte{
-			StepEncoding(seed, round, position, 2*i+0, surface),
-			StepEncoding(seed, round, position, 2*i+1, surface),
-		}
-	}
-
-	return out
-}
-
-func BlockMaskEncoding(seed [16]byte, position int, surface Surface) encoding.Block {
-	out := encoding.ConcatenatedBlock{}
-
-	for i := 0; i < 16; i++ {
-		out[i] = encoding.ConcatenatedByte{
-			MaskEncoding(seed, position, 2*i+0, surface),
-			MaskEncoding(seed, position, 2*i+1, surface),
-		}
-	}
-
-	return out
 }
