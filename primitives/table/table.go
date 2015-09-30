@@ -38,3 +38,12 @@ type ComposedToWord struct {
 func (cw ComposedToWord) Get(i byte) uint32 {
 	return cw.Tails.Get(cw.Heads.Get(i))
 }
+
+type ComposedToBlock struct {
+	Heads Byte
+	Tails Block
+}
+
+func (cb ComposedToBlock) Get(i byte) [16]byte {
+	return cb.Tails.Get(cb.Heads.Get(i))
+}

@@ -29,7 +29,10 @@ func GenerateKeys(key [16]byte, seed [16]byte) (out Construction, inputMask, out
 			var inEnc encoding.Byte
 
 			if round == 0 {
-				inEnc = encoding.IdentityByte{}
+				inEnc = encoding.ConcatenatedByte{
+					RoundEncoding(seed, round-1, 2*pos+0, Outside),
+					RoundEncoding(seed, round-1, 2*pos+1, Outside),
+				}
 			} else {
 				inEnc = encoding.ComposedBytes{
 					encoding.ByteLinear(MixingBijection(seed, 8, round-1, pos)),
@@ -51,12 +54,7 @@ func GenerateKeys(key [16]byte, seed [16]byte) (out Construction, inputMask, out
 						encoding.ByteLinear(MixingBijection(seed, 8, round, shiftRows(pos/4*4+3))),
 					},
 					encoding.WordLinear(mb),
-					encoding.ConcatenatedWord{
-						encoding.ConcatenatedByte{TyiEncoding(seed, round, pos, 0), TyiEncoding(seed, round, pos, 1)},
-						encoding.ConcatenatedByte{TyiEncoding(seed, round, pos, 2), TyiEncoding(seed, round, pos, 3)},
-						encoding.ConcatenatedByte{TyiEncoding(seed, round, pos, 4), TyiEncoding(seed, round, pos, 5)},
-						encoding.ConcatenatedByte{TyiEncoding(seed, round, pos, 6), TyiEncoding(seed, round, pos, 7)},
-					},
+					WordStepEncoding(seed, round, pos, Inside),
 				},
 				table.ComposedToWord{
 					TBox{constr, roundKeys[round][pos], 0},
@@ -69,97 +67,40 @@ func GenerateKeys(key [16]byte, seed [16]byte) (out Construction, inputMask, out
 					RoundEncoding(seed, round, 2*pos+0, Inside),
 					RoundEncoding(seed, round, 2*pos+1, Inside),
 				},
-				encoding.ConcatenatedWord{
-					encoding.ConcatenatedByte{MBInverseEncoding(seed, round, pos, 0), MBInverseEncoding(seed, round, pos, 1)},
-					encoding.ConcatenatedByte{MBInverseEncoding(seed, round, pos, 2), MBInverseEncoding(seed, round, pos, 3)},
-					encoding.ConcatenatedByte{MBInverseEncoding(seed, round, pos, 4), MBInverseEncoding(seed, round, pos, 5)},
-					encoding.ConcatenatedByte{MBInverseEncoding(seed, round, pos, 6), MBInverseEncoding(seed, round, pos, 7)},
-				},
+				WordStepEncoding(seed, round, pos, Outside),
 				MBInverseTable{mbInv, uint(pos) % 4},
 			}
 		}
 	}
 
-	// Generate the High and Low XOR Tables
+	// Generate the High and Low XOR Tables for reach round.
 	out.HighXORTable = xorTables(seed, Inside)
 	out.LowXORTable = xorTables(seed, Outside)
 
-	// 10th T-Box, and Input and Output encodings.
+	// Generate the Input Mask table and the 10th T-Box/Output Mask table
 	for pos := 0; pos < 16; pos++ {
-		out.TBox[pos] = encoding.ByteTable{
-			encoding.ComposedBytes{
-				encoding.ByteLinear(MixingBijection(seed, 8, 8, pos)),
-				encoding.ConcatenatedByte{RoundEncoding(seed, 8, 2*pos+0, Outside), RoundEncoding(seed, 8, 2*pos+1, Outside)},
-			},
-			encoding.IdentityByte{},
-			TBox{constr, roundKeys[9][pos], roundKeys[10][pos]},
-		}
-
 		out.InputMask[pos] = encoding.BlockTable{
 			encoding.IdentityByte{},
-			encoding.IdentityBlock{},
+			BlockMaskEncoding(seed, pos, Inside),
 			MaskTable{inputMask, pos},
 		}
 
-		out.OutputMask[pos] = encoding.BlockTable{
-			encoding.IdentityByte{},
-			encoding.IdentityBlock{},
-			MaskTable{outputMask, pos},
+		out.TBoxOutputMask[pos] = encoding.BlockTable{
+			encoding.ComposedBytes{
+				encoding.ByteLinear(MixingBijection(seed, 8, 8, pos)),
+				ByteRoundEncoding(seed, 8, pos, Outside),
+			},
+			BlockMaskEncoding(seed, pos, Outside),
+			table.ComposedToBlock{
+				TBox{constr, roundKeys[9][pos], roundKeys[10][pos]},
+				MaskTable{outputMask, pos},
+			},
 		}
 	}
 
-	for pos := 0; pos < 32; pos++ {
-		for i := 0; i < 15; i++ {
-			out.InputXORTable[pos][i] = encoding.NibbleTable{
-				encoding.IdentityByte{},
-				encoding.IdentityByte{},
-				XORTable{},
-			}
-
-			out.OutputXORTable[pos][i] = encoding.NibbleTable{
-				encoding.IdentityByte{},
-				encoding.IdentityByte{},
-				XORTable{},
-			}
-		}
-	}
+	// Generate the XOR Tables for the Input and Output Masks.
+	out.InputXORTable = blockXORTables(seed, Inside)
+	out.OutputXORTable = blockXORTables(seed, Outside)
 
 	return
-}
-
-func xorTables(seed [16]byte, surface Surface) (out [9][32][3]table.Nibble) {
-	var outPos func(int) int
-	if surface == Inside {
-		outPos = func(pos int) int { return pos }
-	} else {
-		outPos = func(pos int) int { return 2*shiftRows(pos/2) + pos%2 }
-	}
-
-	for round := 0; round < 9; round++ {
-		for pos := 0; pos < 32; pos++ {
-			out[round][pos][0] = topLevelXORTable(seed, round, pos, surface, Left)
-			out[round][pos][1] = topLevelXORTable(seed, round, pos, surface, Right)
-			out[round][pos][2] = encoding.NibbleTable{
-				encoding.ConcatenatedByte{
-					XOREncoding(seed, round, pos, surface, Left),
-					XOREncoding(seed, round, pos, surface, Right),
-				},
-				RoundEncoding(seed, round, outPos(pos), surface),
-				XORTable{},
-			}
-		}
-	}
-
-	return
-}
-
-func topLevelXORTable(seed [16]byte, round, pos int, surface Surface, side Side) table.Nibble {
-	return encoding.NibbleTable{
-		encoding.ConcatenatedByte{
-			StepEncoding(seed, round, pos/8*4+2*int(side)+0, pos%8, surface),
-			StepEncoding(seed, round, pos/8*4+2*int(side)+1, pos%8, surface),
-		},
-		XOREncoding(seed, round, pos, surface, side),
-		XORTable{},
-	}
 }

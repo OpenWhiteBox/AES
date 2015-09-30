@@ -98,22 +98,20 @@ func (cb ConcatenatedByte) Decode(i byte) byte {
 	return (cb.Left.Decode(i>>4) << 4) | cb.Right.Decode(i&0xf)
 }
 
-type ConcatenatedWord struct {
-	A, B, C, D Byte
-}
+type ConcatenatedWord [4]Byte
 
 func (cw ConcatenatedWord) Encode(i uint32) uint32 {
-	return uint32(cw.A.Encode(byte(i>>24)))<<24 |
-		uint32(cw.B.Encode(byte(i>>16)))<<16 |
-		uint32(cw.C.Encode(byte(i>>8)))<<8 |
-		uint32(cw.D.Encode(byte(i)))
+	return uint32(cw[0].Encode(byte(i>>24)))<<24 |
+		uint32(cw[1].Encode(byte(i>>16)))<<16 |
+		uint32(cw[2].Encode(byte(i>>8)))<<8 |
+		uint32(cw[3].Encode(byte(i)))
 }
 
 func (cw ConcatenatedWord) Decode(i uint32) uint32 {
-	return uint32(cw.A.Decode(byte(i>>24)))<<24 |
-		uint32(cw.B.Decode(byte(i>>16)))<<16 |
-		uint32(cw.C.Decode(byte(i>>8)))<<8 |
-		uint32(cw.D.Decode(byte(i)))
+	return uint32(cw[0].Decode(byte(i>>24)))<<24 |
+		uint32(cw[1].Decode(byte(i>>16)))<<16 |
+		uint32(cw[2].Decode(byte(i>>8)))<<8 |
+		uint32(cw[3].Decode(byte(i)))
 }
 
 type ConcatenatedBlock [16]Byte

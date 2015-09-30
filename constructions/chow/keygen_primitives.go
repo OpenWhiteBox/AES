@@ -8,7 +8,10 @@ import (
 	"../saes"
 )
 
-var encodingCache = make(map[[32]byte]encoding.Shuffle)
+var (
+	encodingCache = make(map[[32]byte]encoding.Shuffle)
+	mbCache       = make(map[[32]byte]matrix.Matrix)
+)
 
 type MaskTable struct {
 	Mask     matrix.Matrix
@@ -76,6 +79,37 @@ func (xor XORTable) Get(i byte) (out byte) {
 	return (i >> 4) ^ (i & 0xf)
 }
 
+// Generate byte/word mixing bijections.
+// TODO: Ensure that blocks are full-rank.
+func MixingBijection(seed [16]byte, size, round, position int) matrix.Matrix {
+	label := [16]byte{}
+	label[0], label[1], label[2], label[3], label[4] = 'M', 'B', byte(size), byte(round), byte(position)
+
+	key := [32]byte{}
+	copy(key[0:16], seed[:])
+	copy(key[16:32], label[:])
+
+	cached, ok := mbCache[key]
+
+	if ok {
+		return cached
+	} else {
+		mbCache[key] = matrix.GenerateRandom(generateStream(seed, label), size)
+		return mbCache[key]
+	}
+}
+
+// Encodes the output of an input/output mask.
+//
+//    position: Position in the state array, counted in *bytes*.
+// subPosition: Position in the mask's output for this byte, counted in nibbles.
+func MaskEncoding(seed [16]byte, position, subPosition int, surface Surface) encoding.Nibble {
+	label := [16]byte{}
+	label[0], label[1], label[2], label[3], label[4] = 'M', 'E', byte(position), byte(subPosition), byte(surface)
+
+	return getShuffle(seed, label)
+}
+
 // Abstraction over the Tyi and MB^(-1) encodings, to match the pattern of the XOR and round encodings.
 func StepEncoding(seed [16]byte, round, position, subPosition int, surface Surface) encoding.Nibble {
 	if surface == Inside {
@@ -102,7 +136,7 @@ func TyiEncoding(seed [16]byte, round, position, subPosition int) encoding.Nibbl
 // subPosition: Position in the MB^(-1) Table's ouptput for this byte, counted in nibbles.
 func MBInverseEncoding(seed [16]byte, round, position, subPosition int) encoding.Nibble {
 	label := [16]byte{}
-	label[0], label[1], label[2], label[3], label[4] = 'M', 'E', byte(round), byte(position), byte(subPosition)
+	label[0], label[1], label[2], label[3], label[4] = 'M', 'I', byte(round), byte(position), byte(subPosition)
 
 	return getShuffle(seed, label)
 }
@@ -131,17 +165,35 @@ func RoundEncoding(seed [16]byte, round, position int, surface Surface) encoding
 	return getShuffle(seed, label)
 }
 
-func getShuffle(seed, label [16]byte) encoding.Shuffle {
-	key := [32]byte{}
-	copy(key[0:16], seed[:])
-	copy(key[16:32], label[:])
-
-	cached, ok := encodingCache[key]
-
-	if ok {
-		return cached
-	} else {
-		encodingCache[key] = encoding.GenerateShuffle(generateStream(seed, label))
-		return encodingCache[key]
+func ByteRoundEncoding(seed [16]byte, round, position int, surface Surface) encoding.Byte {
+	return encoding.ConcatenatedByte{
+		RoundEncoding(seed, round, 2*position+0, surface),
+		RoundEncoding(seed, round, 2*position+1, surface),
 	}
+}
+
+func WordStepEncoding(seed [16]byte, round, position int, surface Surface) encoding.Word {
+	out := encoding.ConcatenatedWord{}
+
+	for i := 0; i < 4; i++ {
+		out[i] = encoding.ConcatenatedByte{
+			StepEncoding(seed, round, position, 2*i+0, surface),
+			StepEncoding(seed, round, position, 2*i+1, surface),
+		}
+	}
+
+	return out
+}
+
+func BlockMaskEncoding(seed [16]byte, position int, surface Surface) encoding.Block {
+	out := encoding.ConcatenatedBlock{}
+
+	for i := 0; i < 16; i++ {
+		out[i] = encoding.ConcatenatedByte{
+			MaskEncoding(seed, position, 2*i+0, surface),
+			MaskEncoding(seed, position, 2*i+1, surface),
+		}
+	}
+
+	return out
 }

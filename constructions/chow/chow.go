@@ -14,9 +14,7 @@ type Construction struct {
 	MBInverseTable [9][16]table.Word      // [round][position]
 	LowXORTable    [9][32][3]table.Nibble // [round][nibble-wise position][gate number]
 
-	TBox [16]table.Byte // [position]
-
-	OutputMask     [16]table.Block
+	TBoxOutputMask [16]table.Block      // [position]
 	OutputXORTable [32][15]table.Nibble // [nibble-wise position][gate number]
 }
 
@@ -40,13 +38,8 @@ func (constr *Construction) Encrypt(block [16]byte) [16]byte {
 
 	block = constr.ShiftRows(block)
 
-	// Final T-Box transformation.
-	for pos := 0; pos < 16; pos++ {
-		block[pos] = constr.TBox[pos].Get(block[pos])
-	}
-
-	// Add output encoding.
-	stretched = constr.ExpandBlock(constr.OutputMask, block)
+	// Apply the final T-Box transformation and add the output encoding.
+	stretched = constr.ExpandBlock(constr.TBoxOutputMask, block)
 	copy(block[:], constr.SquashBlocks(constr.OutputXORTable, stretched))
 
 	return block
