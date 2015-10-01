@@ -53,34 +53,25 @@ func (constr *Construction) ShiftRows(block [16]byte) [16]byte {
 }
 
 // Expand one word of the state matrix with the T-Boxes composed with Tyi Tables.
-func (constr *Construction) ExpandWord(tboxtyi []table.Word, word []byte) [4]uint32 {
-	return [4]uint32{
-		tboxtyi[0].Get(word[0]),
-		tboxtyi[1].Get(word[1]),
-		tboxtyi[2].Get(word[2]),
-		tboxtyi[3].Get(word[3]),
-	}
+func (constr *Construction) ExpandWord(tboxtyi []table.Word, word []byte) [4][4]byte {
+	return [4][4]byte{tboxtyi[0].Get(word[0]), tboxtyi[1].Get(word[1]), tboxtyi[2].Get(word[2]), tboxtyi[3].Get(word[3])}
 }
 
-// Squash an expanded word back into one word with 3 pairwise XORs (calc'd one nibble at a time) -- (a ^ b) ^ (c ^ d)
-func (constr *Construction) SquashWords(xorTable [][3]table.Nibble, words [4]uint32) (out []byte) {
-	acc := uint32(0)
-	a, b, c, d := words[0], words[1], words[2], words[3]
+// Squash an expanded word back into one word with 3 pairwise XORs (calc'd one nibble at a time) -- (((a ^ b) ^ c) ^ d)
+func (constr *Construction) SquashWords(xorTable [][3]table.Nibble, words [4][4]byte) []byte {
+	out := make([]byte, 4)
+	copy(out, words[0][:])
 
-	for pos := uint(0); pos < 8; pos++ {
-		aPartial := byte((a & (0xf << (28 - 4*pos))) >> (28 - 4*pos))
-		bPartial := byte((b & (0xf << (28 - 4*pos))) >> (28 - 4*pos))
-		cPartial := byte((c & (0xf << (28 - 4*pos))) >> (28 - 4*pos))
-		dPartial := byte((d & (0xf << (28 - 4*pos))) >> (28 - 4*pos))
+	for i := 1; i < 4; i++ {
+		for pos := 0; pos < 4; pos++ {
+			aPartial := out[pos]&0xf0 | (words[i][pos]&0xf0)>>4
+			bPartial := (out[pos]&0x0f)<<4 | words[i][pos]&0x0f
 
-		ab := xorTable[pos][0].Get(aPartial<<4 | bPartial) // (a ^ b)
-		cd := xorTable[pos][1].Get(cPartial<<4 | dPartial) // (c ^ d)
-
-		acc = acc << 4
-		acc |= uint32(xorTable[pos][2].Get(ab<<4 | cd)) // (a ^ b) ^ (c ^ d)
+			out[pos] = xorTable[2*pos+0][i-1].Get(aPartial)<<4 | xorTable[2*pos+1][i-1].Get(bPartial)
+		}
 	}
 
-	return []byte{byte(acc >> 24), byte(acc >> 16), byte(acc >> 8), byte(acc)}
+	return out
 }
 
 func (constr *Construction) ExpandBlock(mask [16]table.Block, block [16]byte) (out [16][16]byte) {

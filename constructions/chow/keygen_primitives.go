@@ -43,17 +43,17 @@ func (tbox TBox) Get(i byte) byte {
 // A Tyi Table computes the MixColumns step.
 type TyiTable uint
 
-func (tyi TyiTable) Get(i byte) (out uint32) {
+func (tyi TyiTable) Get(i byte) (out [4]byte) {
 	// Calculate dot product of i and [0x02 0x01 0x01 0x03]
 	j := number.ByteFieldElem(i)
 
-	a := number.ByteFieldElem(2).Mul(j)
-	b := number.ByteFieldElem(1).Mul(j)
-	c := number.ByteFieldElem(3).Mul(j)
+	a := byte(number.ByteFieldElem(2).Mul(j))
+	b := byte(number.ByteFieldElem(1).Mul(j))
+	c := byte(number.ByteFieldElem(3).Mul(j))
 
 	// Merge into one output and rotate according to column.
-	out = (uint32(a) << 24) | (uint32(b) << 16) | (uint32(b) << 8) | uint32(c)
-	out = (out >> (8 * uint(tyi))) | (out << (32 - 8*uint(tyi)))
+	res := [4]byte{a, b, b, c}
+	copy(out[:], append(res[(4-tyi):], res[0:(4-tyi)]...))
 
 	return
 }
@@ -64,13 +64,14 @@ type MBInverseTable struct {
 	Row       uint
 }
 
-func (mbinv MBInverseTable) Get(i byte) uint32 {
+func (mbinv MBInverseTable) Get(i byte) (out [4]byte) {
 	r := matrix.Row{0, 0, 0, 0}
 	r[mbinv.Row] = i
 
-	out := mbinv.MBInverse.Mul(r)
+	res := mbinv.MBInverse.Mul(r)
+	copy(out[:], res)
 
-	return uint32(out[0])<<24 | uint32(out[1])<<16 | uint32(out[2])<<8 | uint32(out[3])
+	return
 }
 
 // An XOR Table computes the XOR of two nibbles.
@@ -150,7 +151,7 @@ func WordStepEncoding(seed [16]byte, round, position int, surface Surface) encod
 	return out
 }
 
-// Encodes the output of a T-Box/Tyi Table / the input of a top-level XOR.
+// Encodes the output of a T-Box/Tyi Table / the input of an XOR Table.
 //
 //    position: Position in the state array, counted in *bytes*.
 // subPosition: Position in the T-Box/Tyi Table's ouptput for this byte, counted in nibbles.
@@ -161,7 +162,7 @@ func TyiEncoding(seed [16]byte, round, position, subPosition int) encoding.Nibbl
 	return getShuffle(seed, label)
 }
 
-// Encodes the output of a MB^(-1) Table / the input of a top-level XOR.
+// Encodes the output of a MB^(-1) Table / the input of an XOR Table.
 //
 //    position: Position in the state array, counted in *bytes*.
 // subPosition: Position in the MB^(-1) Table's ouptput for this byte, counted in nibbles.
@@ -172,15 +173,14 @@ func MBInverseEncoding(seed [16]byte, round, position, subPosition int) encoding
 	return getShuffle(seed, label)
 }
 
-// Encodes intermediate results between the two top-level XORs and the bottom XOR.
-// The bottom XOR decodes its input with a Left and Right XOREncoding and encodes its output with a RoundEncoding.
+// Encodes intermediate results between each successive XOR.
 //
 // position: Position in the state array, counted in nibbles.
+//     gate: The gate number, or, the number of XORs we've computed so far.
 //  surface: Location relative to the round structure. Inside or Outside.
-//     side: "Side" of the circuit. Left or Right.
-func XOREncoding(seed [16]byte, round, position int, surface Surface, side Side) encoding.Nibble {
+func XOREncoding(seed [16]byte, round, position, gate int, surface Surface) encoding.Nibble {
 	label := [16]byte{}
-	label[0], label[1], label[2], label[3], label[4] = 'X', byte(round), byte(position), byte(surface), byte(side)
+	label[0], label[1], label[2], label[3], label[4] = 'X', byte(round), byte(position), byte(gate), byte(surface)
 
 	return getShuffle(seed, label)
 }

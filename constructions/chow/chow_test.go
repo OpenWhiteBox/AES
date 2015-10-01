@@ -32,12 +32,12 @@ func TestTyiTable(t *testing.T) {
 	cand := [16]byte{}
 
 	for i := 0; i < 16; i += 4 {
-		x := a.Get(in[i+0]) ^ b.Get(in[i+1]) ^ c.Get(in[i+2]) ^ d.Get(in[i+3])
+		e, f, g, h := a.Get(in[i+0]), b.Get(in[i+1]), c.Get(in[i+2]), d.Get(in[i+3])
 
-		cand[i+0] = byte(x >> 24)
-		cand[i+1] = byte(x >> 16)
-		cand[i+2] = byte(x >> 8)
-		cand[i+3] = byte(x)
+		cand[i+0] = e[0] ^ f[0] ^ g[0] ^ h[0]
+		cand[i+1] = e[1] ^ f[1] ^ g[1] ^ h[1]
+		cand[i+2] = e[2] ^ f[2] ^ g[2] ^ h[2]
+		cand[i+3] = e[3] ^ f[3] ^ g[3] ^ h[3]
 	}
 
 	for i := 0; i < 16; i++ {

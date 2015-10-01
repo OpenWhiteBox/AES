@@ -20,16 +20,6 @@ const (
 	Outside
 )
 
-// In a Squash step, we take four words and XOR them together into one word with 3 pairwise XORs: (a ^ b) ^ (c ^ d)
-// This requires two top-level XOR tables, a Left computing (a ^ b) and a Right computing (c ^ d).  A bottom-level XOR
-// takes the output of a Left and a Right gate and computes (a ^ b) ^ (c ^ d).
-type Side int
-
-const (
-	Left Side = iota
-	Right
-)
-
 // Index in, index out.  Example: shiftRows(5) = 1 because ShiftRows(block) returns [16]byte{block[0], block[5], ...
 func shiftRows(i int) int {
 	return []int{0, 13, 10, 7, 4, 1, 14, 11, 8, 5, 2, 15, 12, 9, 6, 3}[i]
@@ -86,14 +76,14 @@ func blockXORTables(seed [16]byte, surface Surface) (out [32][15]table.Nibble) {
 	for pos := 0; pos < 32; pos++ {
 		out[pos][0] = encoding.NibbleTable{
 			encoding.ConcatenatedByte{MaskEncoding(seed, 0, pos, surface), MaskEncoding(seed, 1, pos, surface)},
-			XOREncoding(seed, 9, pos, surface, Left),
+			XOREncoding(seed, 10, pos, 0, surface),
 			XORTable{},
 		}
 
 		for i := 1; i < 14; i++ {
 			out[pos][i] = encoding.NibbleTable{
-				encoding.ConcatenatedByte{XOREncoding(seed, i+8, pos, surface, Left), MaskEncoding(seed, i+1, pos, surface)},
-				XOREncoding(seed, i+9, pos, surface, Left),
+				encoding.ConcatenatedByte{XOREncoding(seed, 10, pos, i-1, surface), MaskEncoding(seed, i+1, pos, surface)},
+				XOREncoding(seed, 10, pos, i, surface),
 				XORTable{},
 			}
 		}
@@ -106,7 +96,7 @@ func blockXORTables(seed [16]byte, surface Surface) (out [32][15]table.Nibble) {
 		}
 
 		out[pos][14] = encoding.NibbleTable{
-			encoding.ConcatenatedByte{XOREncoding(seed, 22, pos, surface, Left), MaskEncoding(seed, 15, pos, surface)},
+			encoding.ConcatenatedByte{XOREncoding(seed, 10, pos, 13, surface), MaskEncoding(seed, 15, pos, surface)},
 			outEnc,
 			XORTable{},
 		}
@@ -126,12 +116,28 @@ func xorTables(seed [16]byte, surface Surface) (out [9][32][3]table.Nibble) {
 
 	for round := 0; round < 9; round++ {
 		for pos := 0; pos < 32; pos++ {
-			out[round][pos][0] = topLevelXORTable(seed, round, pos, surface, Left)
-			out[round][pos][1] = topLevelXORTable(seed, round, pos, surface, Right)
+			out[round][pos][0] = encoding.NibbleTable{
+				encoding.ConcatenatedByte{
+					StepEncoding(seed, round, pos/8*4+0, pos%8, surface),
+					StepEncoding(seed, round, pos/8*4+1, pos%8, surface),
+				},
+				XOREncoding(seed, round, pos, 0, surface),
+				XORTable{},
+			}
+
+			out[round][pos][1] = encoding.NibbleTable{
+				encoding.ConcatenatedByte{
+					XOREncoding(seed, round, pos, 0, surface),
+					StepEncoding(seed, round, pos/8*4+2, pos%8, surface),
+				},
+				XOREncoding(seed, round, pos, 1, surface),
+				XORTable{},
+			}
+
 			out[round][pos][2] = encoding.NibbleTable{
 				encoding.ConcatenatedByte{
-					XOREncoding(seed, round, pos, surface, Left),
-					XOREncoding(seed, round, pos, surface, Right),
+					XOREncoding(seed, round, pos, 1, surface),
+					StepEncoding(seed, round, pos/8*4+3, pos%8, surface),
 				},
 				RoundEncoding(seed, round, outPos(pos), surface),
 				XORTable{},
@@ -140,16 +146,4 @@ func xorTables(seed [16]byte, surface Surface) (out [9][32][3]table.Nibble) {
 	}
 
 	return
-}
-
-// Generate a top-level XOR (one that takes new input, rather than one that takes semi-squashed input)
-func topLevelXORTable(seed [16]byte, round, pos int, surface Surface, side Side) table.Nibble {
-	return encoding.NibbleTable{
-		encoding.ConcatenatedByte{
-			StepEncoding(seed, round, pos/8*4+2*int(side)+0, pos%8, surface),
-			StepEncoding(seed, round, pos/8*4+2*int(side)+1, pos%8, surface),
-		},
-		XOREncoding(seed, round, pos, surface, side),
-		XORTable{},
-	}
 }
