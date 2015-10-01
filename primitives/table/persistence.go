@@ -9,9 +9,11 @@ func (pst ParsedByte) Get(i byte) byte {
 
 type ParsedWord []byte
 
-func (pbt ParsedWord) Get(i byte) uint32 {
+func (pbt ParsedWord) Get(i byte) (out [4]byte) {
 	data := pbt[4*uint(i) : 4*(uint(i)+1)]
-	return (uint32(data[0]) << 24) | (uint32(data[1]) << 16) | (uint32(data[2]) << 8) | uint32(data[3])
+	copy(out[:], data)
+
+	return
 }
 
 type ParsedBlock []byte
@@ -32,7 +34,7 @@ func SerializeByte(t Byte) (out []byte) {
 func SerializeWord(t Word) (out []byte) {
 	for i := 0; i < 256; i++ {
 		val := t.Get(byte(i))
-		out = append(out, byte(val>>24), byte(val>>16), byte(val>>8), byte(val))
+		out = append(out, val[:]...)
 	}
 
 	return

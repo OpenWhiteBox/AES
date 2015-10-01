@@ -2,7 +2,7 @@
 package encoding
 
 import (
-  "github.com/OpenWhiteBox/AES/primitives/matrix"
+	"github.com/OpenWhiteBox/AES/primitives/matrix"
 )
 
 type ByteLinear matrix.Matrix
@@ -20,20 +20,24 @@ func (bl ByteLinear) Decode(i byte) byte {
 
 type WordLinear matrix.Matrix
 
-func (wl WordLinear) Encode(i uint32) uint32 {
-	out := matrix.Matrix(wl).Mul(matrix.Row{byte(i >> 24), byte(i >> 16), byte(i >> 8), byte(i)})
-	return uint32(out[0])<<24 | uint32(out[1])<<16 | uint32(out[2])<<8 | uint32(out[3])
+func (wl WordLinear) Encode(i [4]byte) (out [4]byte) {
+	res := matrix.Matrix(wl).Mul(matrix.Row(i[:]))
+	copy(out[:], res)
+
+	return
 }
 
-func (wl WordLinear) Decode(i uint32) uint32 {
+func (wl WordLinear) Decode(i [4]byte) (out [4]byte) {
 	inv, ok := matrix.Matrix(wl).Invert() // Performance bottleneck.
 
 	if !ok {
 		panic("Matrix wasn't invertible!")
 	}
 
-	out := inv.Mul(matrix.Row{byte(i >> 24), byte(i >> 16), byte(i >> 8), byte(i)})
-	return uint32(out[0])<<24 | uint32(out[1])<<16 | uint32(out[2])<<8 | uint32(out[3])
+	res := inv.Mul(matrix.Row(i[:]))
+	copy(out[:], res)
+
+	return
 }
 
 type BlockLinear matrix.Matrix

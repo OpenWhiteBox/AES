@@ -31,7 +31,7 @@ type WordTable struct {
 	Hidden table.Word
 }
 
-func (wt WordTable) Get(i byte) uint32 {
+func (wt WordTable) Get(i byte) [4]byte {
 	return wt.Out.Encode(wt.Hidden.Get(wt.In.Decode(i)))
 }
 

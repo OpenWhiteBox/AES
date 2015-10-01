@@ -12,7 +12,7 @@ type Byte interface {
 }
 
 type Word interface {
-	Get(i byte) uint32
+	Get(i byte) [4]byte
 }
 
 type Block interface {
@@ -36,7 +36,7 @@ type ComposedToWord struct {
 	Tails Word
 }
 
-func (cw ComposedToWord) Get(i byte) uint32 {
+func (cw ComposedToWord) Get(i byte) [4]byte {
 	return cw.Tails.Get(cw.Heads.Get(i))
 }
 

@@ -12,8 +12,8 @@ type Byte interface {
 }
 
 type Word interface {
-	Encode(i uint32) uint32
-	Decode(i uint32) uint32
+	Encode(i [4]byte) [4]byte
+	Decode(i [4]byte) [4]byte
 }
 
 type Block interface {
@@ -29,8 +29,15 @@ func (ib IdentityByte) Decode(i byte) byte { return i }
 
 type IdentityWord struct{}
 
-func (iw IdentityWord) Encode(i uint32) uint32 { return i }
-func (iw IdentityWord) Decode(i uint32) uint32 { return i }
+func (iw IdentityWord) Encode(i [4]byte) (out [4]byte) {
+	copy(out[:], i[:])
+	return
+}
+
+func (iw IdentityWord) Decode(i [4]byte) (out [4]byte) {
+	copy(out[:], i[:])
+	return
+}
 
 type IdentityBlock struct{}
 
@@ -64,20 +71,28 @@ func (cb ComposedBytes) Decode(i byte) byte {
 
 type ComposedWords []Word
 
-func (cw ComposedWords) Encode(i uint32) uint32 {
-	for j := 0; j < len(cw); j++ {
-		i = cw[j].Encode(i)
+func (cw ComposedWords) Encode(i [4]byte) (out [4]byte) {
+	res := cw[0].Encode(i)
+	copy(out[:], res[:])
+
+	for j := 1; j < len(cw); j++ {
+		res = cw[j].Encode(out)
+		copy(out[:], res[:])
 	}
 
-	return i
+	return
 }
 
-func (cw ComposedWords) Decode(i uint32) uint32 {
-	for j := len(cw) - 1; j >= 0; j-- {
-		i = cw[j].Decode(i)
+func (cw ComposedWords) Decode(i [4]byte) (out [4]byte) {
+	res := cw[len(cw)-1].Decode(i)
+	copy(out[:], res[:])
+
+	for j := len(cw) - 2; j >= 0; j-- {
+		res = cw[j].Decode(out)
+		copy(out[:], res[:])
 	}
 
-	return i
+	return
 }
 
 // A concatenated encoding is a bijection of a large primitive built by concatenating smaller encodings.
@@ -96,18 +111,12 @@ func (cb ConcatenatedByte) Decode(i byte) byte {
 
 type ConcatenatedWord [4]Byte
 
-func (cw ConcatenatedWord) Encode(i uint32) uint32 {
-	return uint32(cw[0].Encode(byte(i>>24)))<<24 |
-		uint32(cw[1].Encode(byte(i>>16)))<<16 |
-		uint32(cw[2].Encode(byte(i>>8)))<<8 |
-		uint32(cw[3].Encode(byte(i)))
+func (cw ConcatenatedWord) Encode(i [4]byte) [4]byte {
+	return [4]byte{cw[0].Encode(i[0]), cw[1].Encode(i[1]), cw[2].Encode(i[2]), cw[3].Encode(i[3])}
 }
 
-func (cw ConcatenatedWord) Decode(i uint32) uint32 {
-	return uint32(cw[0].Decode(byte(i>>24)))<<24 |
-		uint32(cw[1].Decode(byte(i>>16)))<<16 |
-		uint32(cw[2].Decode(byte(i>>8)))<<8 |
-		uint32(cw[3].Decode(byte(i)))
+func (cw ConcatenatedWord) Decode(i [4]byte) [4]byte {
+	return [4]byte{cw[0].Decode(i[0]), cw[1].Decode(i[1]), cw[2].Decode(i[2]), cw[3].Decode(i[3])}
 }
 
 type ConcatenatedBlock [16]Byte

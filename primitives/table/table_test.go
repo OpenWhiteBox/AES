@@ -14,7 +14,10 @@ func (tt TimesTable) Get(i byte) byte { return i * byte(tt) }
 
 type ShiftTable uint
 
-func (st ShiftTable) Get(i byte) uint32 { return uint32(i) << uint(st) }
+func (st ShiftTable) Get(i byte) [4]byte {
+	val := uint32(i) << uint(st)
+	return [4]byte{byte(val >> 24), byte(val >> 16), byte(val >> 8), byte(val)}
+}
 
 func TestCompose(t *testing.T) {
 	x := ComposedBytes{TimesTable(5), AddTable(3)}
@@ -30,7 +33,10 @@ func TestCompose(t *testing.T) {
 		t.Fatalf("Y's Composition is wrong.")
 	}
 
-	if a.Get(7) != ((7*5)+3)<<24 {
+	temp := a.Get(7)
+	val := uint32(temp[0])<<24 | uint32(temp[1])<<16 | uint32(temp[2])<<8 | uint32(temp[3])
+
+	if val != ((7*5)+3)<<24 {
 		t.Fatalf("A's Composition is wrong.")
 	}
 
