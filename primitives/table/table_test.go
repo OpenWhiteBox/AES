@@ -4,6 +4,12 @@ import (
 	"testing"
 )
 
+type XORTable struct{}
+
+func (xor XORTable) Get(i byte) (out byte) {
+	return (i >> 4) ^ (i & 0xf)
+}
+
 type AddTable byte
 
 func (at AddTable) Get(i byte) byte { return i + byte(at) }
@@ -43,20 +49,36 @@ func TestCompose(t *testing.T) {
 	// Incorrect table compositions should refuse to compile.
 }
 
-func TestPersist(t *testing.T) {
+func TestPersistNibble(t *testing.T) {
+	w := XORTable{}
+	serializedW := SerializeNibble(w)
+	parsedW := ParsedNibble(serializedW)
+
+	for i := 0; i < 256; i++ {
+		if w.Get(byte(i)) != parsedW.Get(byte(i)) {
+			t.Fatalf("W and ParsedW disagree at point %v: %v != %v", i, w.Get(byte(i)), parsedW.Get(byte(i)))
+		}
+	}
+}
+
+func TestPersistByte(t *testing.T) {
 	x := AddTable(3)
 	serializedX := SerializeByte(x)
 	parsedX := ParsedByte(serializedX)
-
-	y := ShiftTable(13)
-	serializedY := SerializeWord(y)
-	parsedY := ParsedWord(serializedY)
 
 	for i := 0; i < 256; i++ {
 		if x.Get(byte(i)) != parsedX.Get(byte(i)) {
 			t.Fatalf("X and ParsedX disagree at point %v: %v != %v", i, x.Get(byte(i)), parsedX.Get(byte(i)))
 		}
+	}
+}
 
+func TestPersistWord(t *testing.T) {
+	y := ShiftTable(13)
+	serializedY := SerializeWord(y)
+	parsedY := ParsedWord(serializedY)
+
+	for i := 0; i < 256; i++ {
 		if y.Get(byte(i)) != parsedY.Get(byte(i)) {
 			t.Fatalf("Y and ParsedY disagree at point %v: %v != %v", i, y.Get(byte(i)), parsedY.Get(byte(i)))
 		}

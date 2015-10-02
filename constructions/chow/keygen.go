@@ -49,7 +49,7 @@ func GenerateKeys(key [16]byte, seed [16]byte) (out Construction, inputMask, out
 	// Generate round material.
 	for round := 0; round < 9; round++ {
 		for pos := 0; pos < 16; pos++ {
-			 // Generate a word-sized mixing bijection and stick it on the end of the T-Box/Tyi Table.
+			// Generate a word-sized mixing bijection and stick it on the end of the T-Box/Tyi Table.
 			mb := MixingBijection(seed, 32, round, pos/4)
 
 			// Build the T-Box and Tyi Table for this round and position in the state matrix.

@@ -1,6 +1,7 @@
 package saes
 
 import (
+	"crypto/aes"
 	"testing"
 
 	test_vectors "github.com/OpenWhiteBox/AES/constructions/test"
@@ -51,10 +52,8 @@ func TestKeyStretching(t *testing.T) {
 	cand := constr.StretchedKey()
 
 	for i := 0; i < 11; i++ {
-		for j := 0; j < 16; j++ {
-			if real[i][j] != cand[i][j] {
-				t.Fatalf("Byte (%v, %v) is wrong! %v != %v", i, j, real[i][j], cand[i][j])
-			}
+		if real[i] != cand[i] {
+			t.Fatalf("Real #%v disagrees with result! %x != %x", i, real[i], cand[i])
 		}
 	}
 }
@@ -66,10 +65,8 @@ func TestShiftRows(t *testing.T) {
 	constr := Construction{key}
 	cand := constr.ShiftRows(in)
 
-	for i := 0; i < 16; i++ {
-		if out[i] != cand[i] {
-			t.Fatalf("Byte %v is wrong! %v != %v", i, out[i], cand[i])
-		}
+	if out != cand {
+		t.Fatalf("Real disagrees with result! %x != %x", out, cand)
 	}
 }
 
@@ -80,10 +77,8 @@ func TestMixColumns(t *testing.T) {
 	constr := Construction{key}
 	cand := constr.MixColumns(in)
 
-	for i := 0; i < 16; i++ {
-		if out[i] != cand[i] {
-			t.Fatalf("Byte %v is wrong! %v != %v", i, out[i], cand[i])
-		}
+	if out != cand {
+		t.Fatalf("Real disagrees with result! %x != %x", out, cand)
 	}
 }
 
@@ -92,10 +87,35 @@ func TestEncrypt(t *testing.T) {
 		constr := Construction{vec.Key}
 		cand := constr.Encrypt(vec.In)
 
-		for i := 0; i < 16; i++ {
-			if vec.Out[i] != cand[i] {
-				t.Fatalf("Byte %v is wrong in test vector %v! %v != %v", i, n, vec.Out[i], cand[i])
-			}
+		if vec.Out != cand {
+			t.Fatalf("Real disagrees with result in test vector %v! %x != %x", n, vec.Out, cand)
 		}
+	}
+}
+
+func BenchmarkStandardEncrypt(b *testing.B) {
+	key := test_vectors.AESVectors[50].Key
+	input := test_vectors.AESVectors[50].In
+
+	constr := Construction{key}
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		constr.Encrypt(input)
+	}
+}
+
+func BenchmarkGolangEncrypt(b *testing.B) {
+	key := test_vectors.AESVectors[50].Key
+	input := test_vectors.AESVectors[50].In
+
+	constr, _ := aes.NewCipher(key[:])
+	out := make([]byte, 16)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		constr.Encrypt(out, input[:])
 	}
 }

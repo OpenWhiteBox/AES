@@ -17,10 +17,8 @@ func TestShiftRows(t *testing.T) {
 	constr, _, _ := GenerateKeys(key, key)
 	cand := constr.ShiftRows(in)
 
-	for i := 0; i < 16; i++ {
-		if out[i] != cand[i] {
-			t.Fatalf("Byte %v is wrong! %v != %v", i, out[i], cand[i])
-		}
+	if out != cand {
+		t.Fatalf("Real disagrees with result! %v != %v", out, cand)
 	}
 }
 
@@ -40,15 +38,13 @@ func TestTyiTable(t *testing.T) {
 		cand[i+3] = e[3] ^ f[3] ^ g[3] ^ h[3]
 	}
 
-	for i := 0; i < 16; i++ {
-		if out[i] != cand[i] {
-			t.Fatalf("Byte %v is wrong! %v != %v", i, out[i], cand[i])
-		}
+	if out != cand {
+		t.Fatalf("Real disagrees with result! %v != %v", out, cand)
 	}
 }
 
 func TestEncrypt(t *testing.T) {
-	for n, vec := range test_vectors.AESVectors {
+	for n, vec := range test_vectors.AESVectors[0:10] {
 		constr, input, output := GenerateKeys(vec.Key, vec.Key)
 
 		inputInv, _ := input.Invert()
@@ -62,10 +58,58 @@ func TestEncrypt(t *testing.T) {
 
 		copy(out[:], outputInv.Mul(matrix.Row(cand[:]))) // Remove output encoding.
 
-		for i := 0; i < 16; i++ {
-			if vec.Out[i] != out[i] {
-				t.Fatalf("Byte %v is wrong in test vector %v! %v != %v", i, n, vec.Out[i], cand[i])
-			}
+		if vec.Out != out {
+			t.Fatalf("Real disagrees with result in test vector %v! %x != %x", n, vec.Out, cand)
 		}
+	}
+}
+
+func TestPersistence(t *testing.T) {
+	key := test_vectors.AESVectors[50].Key
+	seed := test_vectors.AESVectors[51].Key
+	input := test_vectors.AESVectors[50].In
+
+	constr, _, _ := GenerateKeys(key, seed)
+
+	serialized := constr.Serialize()
+	constr2 := Parse(serialized)
+
+	cand1 := constr.Encrypt(input)
+	cand2 := constr2.Encrypt(input)
+
+	if cand1 != cand2 {
+		t.Fatalf("Real disagrees with parsed! %v != %v", cand1, cand2)
+	}
+}
+
+// A "Live" Encryption is one based on table abstractions, so many computations are performed on-demand.
+func BenchmarkLiveEncrypt(b *testing.B) {
+	key := test_vectors.AESVectors[50].Key
+	seed := test_vectors.AESVectors[51].Key
+	input := test_vectors.AESVectors[50].In
+
+	constr, _, _ := GenerateKeys(key, seed)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		constr.Encrypt(input)
+	}
+}
+
+// A "Dead" Encryption is one based on serialized tables, like we'd have in a real use case.
+func BenchmarkDeadEncrypt(b *testing.B) {
+	key := test_vectors.AESVectors[50].Key
+	seed := test_vectors.AESVectors[51].Key
+	input := test_vectors.AESVectors[50].In
+
+	constr, _, _ := GenerateKeys(key, seed)
+	serialized := constr.Serialize()
+	constr2 := Parse(serialized)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		constr2.Encrypt(input)
 	}
 }
