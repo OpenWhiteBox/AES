@@ -17,6 +17,7 @@ func Invert(it InvertibleTable) InvertibleTable {
 	return InvertibleTable(table.ParsedByte(out))
 }
 
+// A new lookup table mapping an input position to an output position with other values in the column held constant.
 type F struct {
 	Constr          chow.Construction
 	Round, Position int
@@ -38,10 +39,26 @@ func (f F) Get(i byte) byte {
 	return block[f.Position%4]
 }
 
-func RecoverKey(constr chow.Construction) (key [16]byte) {
-  // S := GenerateS(constr)
-  // basis := FindBasisAndSort(S)
+// Qtilde is the approximation of the RoundEncoding between two rounds.
+type Qtilde struct {
+  S [][256]byte
+}
 
+func (q Qtilde) Encode(i byte) byte {
+  return q.S[i][0]
+}
+
+func (q Qtilde) Decode(i byte) byte {
+  for j, perm := range q.S {
+    if perm[0] == i {
+      return byte(j)
+    }
+  }
+
+  return byte(0)
+}
+
+func RecoverKey(constr chow.Construction) (key [16]byte) {
 	// The set of elements S, of the form fXX(f00^(-1)(x)) = Q(Q^(-1)(x) + b) for indeterminate x is isomorphic to the
 	// additive group (GF(2)^8, xor) under composition.
 
