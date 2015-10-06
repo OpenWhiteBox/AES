@@ -83,13 +83,13 @@ func (xor XORTable) Get(i byte) (out byte) {
 
 // Generate byte/word mixing bijections.
 // TODO: Ensure that blocks are full-rank.
-func MixingBijection(seed [16]byte, size, round, position int) matrix.Matrix {
-	label := [16]byte{}
+func MixingBijection(seed []byte, size, round, position int) matrix.Matrix {
+	label := make([]byte, 16)
 	label[0], label[1], label[2], label[3], label[4] = 'M', 'B', byte(size), byte(round), byte(position)
 
 	key := [32]byte{}
-	copy(key[0:16], seed[:])
-	copy(key[16:32], label[:])
+	copy(key[0:16], seed)
+	copy(key[16:32], label)
 
 	cached, ok := mbCache[key]
 
@@ -105,14 +105,14 @@ func MixingBijection(seed [16]byte, size, round, position int) matrix.Matrix {
 //
 //    position: Position in the state array, counted in *bytes*.
 // subPosition: Position in the mask's output for this byte, counted in nibbles.
-func MaskEncoding(seed [16]byte, position, subPosition int, surface Surface) encoding.Nibble {
-	label := [16]byte{}
+func MaskEncoding(seed []byte, position, subPosition int, surface Surface) encoding.Nibble {
+	label := make([]byte, 16)
 	label[0], label[1], label[2], label[3], label[4] = 'M', 'E', byte(position), byte(subPosition), byte(surface)
 
 	return getShuffle(seed, label)
 }
 
-func BlockMaskEncoding(seed [16]byte, position int, surface Surface) encoding.Block {
+func BlockMaskEncoding(seed []byte, position int, surface Surface) encoding.Block {
 	out := encoding.ConcatenatedBlock{}
 
 	for i := 0; i < 16; i++ {
@@ -130,7 +130,7 @@ func BlockMaskEncoding(seed [16]byte, position int, surface Surface) encoding.Bl
 }
 
 // Abstraction over the Tyi and MB^(-1) encodings, to match the pattern of the XOR and round encodings.
-func StepEncoding(seed [16]byte, round, position, subPosition int, surface Surface) encoding.Nibble {
+func StepEncoding(seed []byte, round, position, subPosition int, surface Surface) encoding.Nibble {
 	if surface == Inside {
 		return TyiEncoding(seed, round, position, subPosition)
 	} else {
@@ -138,7 +138,7 @@ func StepEncoding(seed [16]byte, round, position, subPosition int, surface Surfa
 	}
 }
 
-func WordStepEncoding(seed [16]byte, round, position int, surface Surface) encoding.Word {
+func WordStepEncoding(seed []byte, round, position int, surface Surface) encoding.Word {
 	out := encoding.ConcatenatedWord{}
 
 	for i := 0; i < 4; i++ {
@@ -155,8 +155,8 @@ func WordStepEncoding(seed [16]byte, round, position int, surface Surface) encod
 //
 //    position: Position in the state array, counted in *bytes*.
 // subPosition: Position in the T-Box/Tyi Table's ouptput for this byte, counted in nibbles.
-func TyiEncoding(seed [16]byte, round, position, subPosition int) encoding.Nibble {
-	label := [16]byte{}
+func TyiEncoding(seed []byte, round, position, subPosition int) encoding.Nibble {
+	label := make([]byte, 16)
 	label[0], label[1], label[2], label[3] = 'T', byte(round), byte(position), byte(subPosition)
 
 	return getShuffle(seed, label)
@@ -166,8 +166,8 @@ func TyiEncoding(seed [16]byte, round, position, subPosition int) encoding.Nibbl
 //
 //    position: Position in the state array, counted in *bytes*.
 // subPosition: Position in the MB^(-1) Table's ouptput for this byte, counted in nibbles.
-func MBInverseEncoding(seed [16]byte, round, position, subPosition int) encoding.Nibble {
-	label := [16]byte{}
+func MBInverseEncoding(seed []byte, round, position, subPosition int) encoding.Nibble {
+	label := make([]byte, 16)
 	label[0], label[1], label[2], label[3], label[4] = 'M', 'I', byte(round), byte(position), byte(subPosition)
 
 	return getShuffle(seed, label)
@@ -178,8 +178,8 @@ func MBInverseEncoding(seed [16]byte, round, position, subPosition int) encoding
 // position: Position in the state array, counted in nibbles.
 //     gate: The gate number, or, the number of XORs we've computed so far.
 //  surface: Location relative to the round structure. Inside or Outside.
-func XOREncoding(seed [16]byte, round, position, gate int, surface Surface) encoding.Nibble {
-	label := [16]byte{}
+func XOREncoding(seed []byte, round, position, gate int, surface Surface) encoding.Nibble {
+	label := make([]byte, 16)
 	label[0], label[1], label[2], label[3], label[4] = 'X', byte(round), byte(position), byte(gate), byte(surface)
 
 	return getShuffle(seed, label)
@@ -189,14 +189,14 @@ func XOREncoding(seed [16]byte, round, position, gate int, surface Surface) enco
 //
 // position: Position in the state array, counted in nibbles.
 //  surface: Location relative to the AES round structure. Inside or Outside.
-func RoundEncoding(seed [16]byte, round, position int, surface Surface) encoding.Nibble {
-	label := [16]byte{}
+func RoundEncoding(seed []byte, round, position int, surface Surface) encoding.Nibble {
+	label := make([]byte, 16)
 	label[0], label[1], label[2], label[3] = 'R', byte(round), byte(position), byte(surface)
 
 	return getShuffle(seed, label)
 }
 
-func ByteRoundEncoding(seed [16]byte, round, position int, surface Surface) encoding.Byte {
+func ByteRoundEncoding(seed []byte, round, position int, surface Surface) encoding.Byte {
 	return encoding.ConcatenatedByte{
 		RoundEncoding(seed, round, 2*position+0, surface),
 		RoundEncoding(seed, round, 2*position+1, surface),

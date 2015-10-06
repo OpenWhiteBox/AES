@@ -40,26 +40,26 @@ func (dn devNull) Read(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-func generateStream(seed, label [16]byte) io.Reader {
+func generateStream(seed, label []byte) io.Reader {
 	// Generate sub-key
-	subKey := [16]byte{}
-	c, _ := aes.NewCipher(seed[:])
-	c.Encrypt(subKey[:], label[:])
+	subKey := make([]byte, 16)
+	c, _ := aes.NewCipher(seed)
+	c.Encrypt(subKey, label)
 
 	// Create pseudo-random byte stream keyed by sub-key.
-	block, _ := aes.NewCipher(subKey[:])
+	block, _ := aes.NewCipher(subKey)
 	stream := cipher.StreamReader{
-		cipher.NewCTR(block, label[:]),
+		cipher.NewCTR(block, label),
 		devNull{},
 	}
 
 	return stream
 }
 
-func getShuffle(seed, label [16]byte) encoding.Shuffle {
+func getShuffle(seed, label []byte) encoding.Shuffle {
 	key := [32]byte{}
-	copy(key[0:16], seed[:])
-	copy(key[16:32], label[:])
+	copy(key[0:16], seed)
+	copy(key[16:32], label)
 
 	cached, ok := encodingCache[key]
 
@@ -72,7 +72,7 @@ func getShuffle(seed, label [16]byte) encoding.Shuffle {
 }
 
 // Generate the XOR Tables for squashing the result of a Input/Output Mask.
-func blockXORTables(seed [16]byte, surface Surface) (out [32][15]table.Nibble) {
+func blockXORTables(seed []byte, surface Surface) (out [32][15]table.Nibble) {
 	for pos := 0; pos < 32; pos++ {
 		out[pos][0] = encoding.NibbleTable{
 			encoding.ConcatenatedByte{MaskEncoding(seed, 0, pos, surface), MaskEncoding(seed, 1, pos, surface)},
@@ -106,7 +106,7 @@ func blockXORTables(seed [16]byte, surface Surface) (out [32][15]table.Nibble) {
 }
 
 // Generate the XOR Tables for squashing the result of a Tyi Table or MB^(-1) Table.
-func xorTables(seed [16]byte, surface Surface) (out [9][32][3]table.Nibble) {
+func xorTables(seed []byte, surface Surface) (out [9][32][3]table.Nibble) {
 	var outPos func(int) int
 	if surface == Inside {
 		outPos = func(pos int) int { return pos }

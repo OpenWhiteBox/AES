@@ -8,13 +8,13 @@ import (
 	"github.com/OpenWhiteBox/AES/constructions/saes"
 )
 
-func GenerateKeys(key [16]byte, seed [16]byte) (out Construction, inputMask, outputMask matrix.Matrix) {
+func GenerateKeys(key, seed []byte) (out Construction, inputMask, outputMask matrix.Matrix) {
 	constr := saes.Construction{key}
 	roundKeys := constr.StretchedKey()
 
 	// Apply ShiftRows to round keys 0 to 9.
 	for k := 0; k < 10; k++ {
-		roundKeys[k] = constr.ShiftRows(roundKeys[k])
+		constr.ShiftRows(roundKeys[k])
 	}
 
 	// Generate input and output encodings.

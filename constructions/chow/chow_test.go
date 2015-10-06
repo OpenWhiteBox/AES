@@ -1,6 +1,7 @@
 package chow
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/OpenWhiteBox/AES/primitives/matrix"
@@ -8,17 +9,17 @@ import (
 	test_vectors "github.com/OpenWhiteBox/AES/constructions/test"
 )
 
-var key = [16]byte{72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33, 33, 33, 33, 33}
+var key = []byte{72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33, 33, 33, 33, 33}
 
 func TestShiftRows(t *testing.T) {
-	in := [16]byte{99, 202, 183, 4, 9, 83, 208, 81, 205, 96, 224, 231, 186, 112, 225, 140}
-	out := [16]byte{99, 83, 224, 140, 9, 96, 225, 4, 205, 112, 183, 81, 186, 202, 208, 231}
+	in := []byte{99, 202, 183, 4, 9, 83, 208, 81, 205, 96, 224, 231, 186, 112, 225, 140}
+	out := []byte{99, 83, 224, 140, 9, 96, 225, 4, 205, 112, 183, 81, 186, 202, 208, 231}
 
 	constr, _, _ := GenerateKeys(key, key)
-	cand := constr.ShiftRows(in)
+	constr.ShiftRows(in)
 
-	if out != cand {
-		t.Fatalf("Real disagrees with result! %v != %v", out, cand)
+	if !bytes.Equal(out, in) {
+		t.Fatalf("Real disagrees with result! %v != %v", out, in)
 	}
 }
 
@@ -50,16 +51,16 @@ func TestEncrypt(t *testing.T) {
 		inputInv, _ := input.Invert()
 		outputInv, _ := output.Invert()
 
-		in, out := [16]byte{}, [16]byte{}
+		in, out := make([]byte, 16), make([]byte, 16)
 
-		copy(in[:], inputInv.Mul(matrix.Row(vec.In[:]))) // Apply input encoding.
+		copy(in, inputInv.Mul(matrix.Row(vec.In))) // Apply input encoding.
 
-		cand := constr.Encrypt(in)
+		constr.Encrypt(out, in)
 
-		copy(out[:], outputInv.Mul(matrix.Row(cand[:]))) // Remove output encoding.
+		copy(out, outputInv.Mul(matrix.Row(out))) // Remove output encoding.
 
-		if vec.Out != out {
-			t.Fatalf("Real disagrees with result in test vector %v! %x != %x", n, vec.Out, cand)
+		if !bytes.Equal(vec.Out, out) {
+			t.Fatalf("Real disagrees with result in test vector %v! %x != %x", n, vec.Out, out)
 		}
 	}
 }
@@ -69,15 +70,17 @@ func TestPersistence(t *testing.T) {
 	seed := test_vectors.AESVectors[51].Key
 	input := test_vectors.AESVectors[50].In
 
-	constr, _, _ := GenerateKeys(key, seed)
+	constr1, _, _ := GenerateKeys(key, seed)
 
-	serialized := constr.Serialize()
+	serialized := constr1.Serialize()
 	constr2 := Parse(serialized)
 
-	cand1 := constr.Encrypt(input)
-	cand2 := constr2.Encrypt(input)
+	cand1, cand2 := make([]byte, 16), make([]byte, 16)
 
-	if cand1 != cand2 {
+	constr1.Encrypt(cand1, input)
+	constr2.Encrypt(cand2, input)
+
+	if !bytes.Equal(cand1, cand2) {
 		t.Fatalf("Real disagrees with parsed! %v != %v", cand1, cand2)
 	}
 }
@@ -90,10 +93,12 @@ func BenchmarkLiveEncrypt(b *testing.B) {
 
 	constr, _, _ := GenerateKeys(key, seed)
 
+	out := make([]byte, 16)
+
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		constr.Encrypt(input)
+		constr.Encrypt(out, input)
 	}
 }
 
@@ -103,13 +108,16 @@ func BenchmarkDeadEncrypt(b *testing.B) {
 	seed := test_vectors.AESVectors[51].Key
 	input := test_vectors.AESVectors[50].In
 
-	constr, _, _ := GenerateKeys(key, seed)
-	serialized := constr.Serialize()
+	constr1, _, _ := GenerateKeys(key, seed)
+
+	serialized := constr1.Serialize()
 	constr2 := Parse(serialized)
+
+	out := make([]byte, 16)
 
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		constr2.Encrypt(input)
+		constr2.Encrypt(out, input)
 	}
 }
