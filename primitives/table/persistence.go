@@ -43,12 +43,13 @@ func SerializeNibble(t Nibble) (out []byte) {
 	return
 }
 
-func SerializeByte(t Byte) (out []byte) {
+func SerializeByte(t Byte) []byte {
+	out := make([]byte, 256)
 	for i := 0; i < 256; i++ {
-		out = append(out, t.Get(byte(i)))
+		out[i] = t.Get(byte(i))
 	}
 
-	return
+	return out
 }
 
 func SerializeWord(t Word) (out []byte) {
