@@ -3,6 +3,7 @@ package saes
 import (
 	"bytes"
 	"crypto/aes"
+	"crypto/cipher"
 	"testing"
 
 	test_vectors "github.com/OpenWhiteBox/AES/constructions/test"
@@ -31,6 +32,17 @@ func TestSubByte(t *testing.T) {
 
 	if constr.SubWord(wordA) != wordB {
 		t.Fatalf("constr.subWord gave incorrect output!")
+	}
+}
+
+func TestUnSubByte(t *testing.T) {
+	constr := Construction{key}
+
+	for i := 0; i < 256; i++ {
+		cand := constr.UnSubByte(constr.SubByte(byte(i)))
+		if cand != byte(i) {
+			t.Fatalf("UnSubByte didn't properly invert SubByte! %v in, got %v out.", i, cand)
+		}
 	}
 }
 
@@ -71,6 +83,18 @@ func TestShiftRows(t *testing.T) {
 	}
 }
 
+func TestUnShiftRows(t *testing.T) {
+	in := []byte{99, 83, 224, 140, 9, 96, 225, 4, 205, 112, 183, 81, 186, 202, 208, 231}
+	out := []byte{99, 202, 183, 4, 9, 83, 208, 81, 205, 96, 224, 231, 186, 112, 225, 140}
+
+	constr := Construction{key}
+	constr.UnShiftRows(in)
+
+	if !bytes.Equal(out, in) {
+		t.Fatalf("Real disagrees with result! %x != %x", out, in)
+	}
+}
+
 func TestShiftRows2(t *testing.T) {
 	in := []byte{83, 146, 140, 83, 213, 138, 7, 139, 50, 163, 16, 51, 66, 55, 140, 174}
 	out := []byte{83, 138, 16, 174, 213, 163, 140, 83, 50, 55, 140, 139, 66, 146, 7, 51}
@@ -89,6 +113,18 @@ func TestMixColumns(t *testing.T) {
 
 	constr := Construction{key}
 	constr.MixColumns(in)
+
+	if !bytes.Equal(out, in) {
+		t.Fatalf("Real disagrees with result! %x != %x", out, in)
+	}
+}
+
+func TestUnMixColumns(t *testing.T) {
+	in := []byte{95, 114, 100, 21, 87, 245, 188, 146, 247, 190, 59, 41, 29, 185, 249, 26}
+	out := []byte{99, 83, 224, 140, 9, 96, 225, 4, 205, 112, 183, 81, 186, 202, 208, 231}
+
+	constr := Construction{key}
+	constr.UnMixColumns(in)
 
 	if !bytes.Equal(out, in) {
 		t.Fatalf("Real disagrees with result! %x != %x", out, in)
@@ -146,6 +182,57 @@ func TestEncrypt(t *testing.T) {
 	}
 }
 
+func TestDecrypt(t *testing.T) {
+	for n, vec := range test_vectors.AESVectors {
+		constr := Construction{vec.Key}
+
+		cand := make([]byte, 16)
+		constr.Decrypt(cand, vec.Out)
+
+		if !bytes.Equal(vec.In, cand) {
+			t.Fatalf("Real disagrees with result in test vector %v! %x != %x", n, vec.In, cand)
+		}
+	}
+}
+
+func TestCBC(t *testing.T) {
+	// Vector stolen from crypto/aes/cbc_aes_test.go
+	key := []byte{0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c}
+	iv := []byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}
+
+	in := []byte{
+		0x6b, 0xc1, 0xbe, 0xe2, 0x2e, 0x40, 0x9f, 0x96, 0xe9, 0x3d, 0x7e, 0x11, 0x73, 0x93, 0x17, 0x2a,
+		0xae, 0x2d, 0x8a, 0x57, 0x1e, 0x03, 0xac, 0x9c, 0x9e, 0xb7, 0x6f, 0xac, 0x45, 0xaf, 0x8e, 0x51,
+		0x30, 0xc8, 0x1c, 0x46, 0xa3, 0x5c, 0xe4, 0x11, 0xe5, 0xfb, 0xc1, 0x19, 0x1a, 0x0a, 0x52, 0xef,
+		0xf6, 0x9f, 0x24, 0x45, 0xdf, 0x4f, 0x9b, 0x17, 0xad, 0x2b, 0x41, 0x7b, 0xe6, 0x6c, 0x37, 0x10,
+	}
+
+	out := []byte{
+		0x76, 0x49, 0xab, 0xac, 0x81, 0x19, 0xb2, 0x46, 0xce, 0xe9, 0x8e, 0x9b, 0x12, 0xe9, 0x19, 0x7d,
+		0x50, 0x86, 0xcb, 0x9b, 0x50, 0x72, 0x19, 0xee, 0x95, 0xdb, 0x11, 0x3a, 0x91, 0x76, 0x78, 0xb2,
+		0x73, 0xbe, 0xd6, 0xb8, 0xe3, 0xc1, 0x74, 0x3b, 0x71, 0x16, 0xe6, 0x9e, 0x22, 0x22, 0x95, 0x16,
+		0x3f, 0xf1, 0xca, 0xa1, 0x68, 0x1f, 0xac, 0x09, 0x12, 0x0e, 0xca, 0x30, 0x75, 0x86, 0xe1, 0xa7,
+	}
+
+	constr := Construction{key}
+
+	cbcEnc := cipher.NewCBCEncrypter(constr, iv)
+	cbcDec := cipher.NewCBCDecrypter(constr, iv)
+
+	cand1, cand2 := make([]byte, 16*4), make([]byte, 16*4)
+
+	cbcEnc.CryptBlocks(cand1, in)
+	cbcDec.CryptBlocks(cand2, out)
+
+	if !bytes.Equal(cand2, in) {
+		t.Fatalf("CBC decryption was wrong!")
+	}
+
+	if !bytes.Equal(cand1, out) {
+		t.Fatalf("CBC encryption was wrong!")
+	}
+}
+
 func BenchmarkStandardEncrypt(b *testing.B) {
 	key := test_vectors.AESVectors[50].Key
 	input := test_vectors.AESVectors[50].In
@@ -157,6 +244,20 @@ func BenchmarkStandardEncrypt(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		constr.Encrypt(out, input)
+	}
+}
+
+func BenchmarkStandardDecrypt(b *testing.B) {
+	key := test_vectors.AESVectors[50].Key
+	input := test_vectors.AESVectors[50].Out
+
+	constr := Construction{key}
+	out := make([]byte, 16)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		constr.Decrypt(out, input)
 	}
 }
 
