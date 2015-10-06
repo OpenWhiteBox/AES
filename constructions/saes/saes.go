@@ -26,36 +26,36 @@ var powx = [16]byte{
 }
 
 type Construction struct {
-	Key [16]byte
+	Key []byte
 }
 
-func (constr *Construction) Encrypt(block [16]byte) [16]byte {
+func (constr *Construction) BlockSize() int { return 16 }
+
+func (constr *Construction) Encrypt(dst, src []byte) {
 	roundKeys := constr.StretchedKey()
+	copy(dst, src)
 
-	block = constr.AddRoundKey(roundKeys[0], block)
-
+	constr.AddRoundKey(roundKeys[0], dst)
 	for i := 1; i <= 9; i++ {
-		block = constr.SubBytes(block)
-		block = constr.ShiftRows(block)
-		block = constr.MixColumns(block)
-		block = constr.AddRoundKey(roundKeys[i], block)
+		constr.SubBytes(dst)
+		constr.ShiftRows(dst)
+		constr.MixColumns(dst)
+		constr.AddRoundKey(roundKeys[i], dst)
 	}
 
-	block = constr.SubBytes(block)
-	block = constr.ShiftRows(block)
-	block = constr.AddRoundKey(roundKeys[10], block)
-
-	return block
+	constr.SubBytes(dst)
+	constr.ShiftRows(dst)
+	constr.AddRoundKey(roundKeys[10], dst)
 }
 
 func rotw(w uint32) uint32 { return w<<8 | w>>24 }
 
-func (constr *Construction) StretchedKey() [11][16]byte {
+func (constr *Construction) StretchedKey() [11][]byte {
 	var (
 		i         int            = 0
 		temp      uint32         = 0
 		stretched [4 * 11]uint32 // Stretched key
-		split     [11][16]byte   // Each round key is combined and its uint32s are turned into 4 bytes
+		split     [11][]byte     // Each round key is combined and its uint32s are turned into 4 bytes
 	)
 
 	for ; i < 4; i++ { // First key-length of stretched is the raw key.
@@ -76,6 +76,8 @@ func (constr *Construction) StretchedKey() [11][16]byte {
 	}
 
 	for j := 0; j < 11; j++ {
+		split[j] = make([]byte, 16)
+
 		for k := 0; k < 4; k++ {
 			word := stretched[4*j+k]
 
@@ -89,20 +91,16 @@ func (constr *Construction) StretchedKey() [11][16]byte {
 	return split
 }
 
-func (constr *Construction) AddRoundKey(roundKey, block [16]byte) (out [16]byte) {
+func (constr *Construction) AddRoundKey(roundKey, block []byte) {
 	for i := 0; i < 16; i++ {
-		out[i] = roundKey[i] ^ block[i]
+		block[i] = roundKey[i] ^ block[i]
 	}
-
-	return
 }
 
-func (constr *Construction) SubBytes(block [16]byte) (out [16]byte) {
+func (constr *Construction) SubBytes(block []byte) {
 	for i, _ := range block {
-		out[i] = constr.SubByte(block[i])
+		block[i] = constr.SubByte(block[i])
 	}
-
-	return out
 }
 
 func (constr *Construction) SubWord(w uint32) uint32 {
@@ -129,35 +127,33 @@ func (constr *Construction) SubByte(e byte) byte {
 	return m.Mul(matrix.Row{byte(number.ByteFieldElem(e).Invert())})[0] ^ a
 }
 
-func (constr *Construction) ShiftRows(block [16]byte) [16]byte {
-	return [16]byte{
+func (constr *Construction) ShiftRows(block []byte) {
+	copy(block, []byte{
 		block[0], block[5], block[10], block[15], block[4], block[9], block[14], block[3], block[8], block[13], block[2],
 		block[7], block[12], block[1], block[6], block[11],
+	})
+}
+
+func (constr *Construction) MixColumns(block []byte) {
+	for i := 0; i < 16; i += 4 {
+		constr.MixColumn(block[i : i+4])
 	}
 }
 
-func (constr *Construction) MixColumns(block [16]byte) (out [16]byte) {
-	for i := 0; i < 4; i++ {
-		copy(out[4*i:4*(i+1)], constr.MixColumn(block[4*i:4*(i+1)]))
-	}
-
-	return out
-}
-
-func (constr *Construction) MixColumn(slice []byte) (out []byte) {
-	column := number.ArrayFieldElem{}
-	for i := 0; i < 4; i++ {
-		column = append(column, number.ByteFieldElem(slice[i]))
-	}
-
-	column = column.Mul(number.ArrayFieldElem{
+func (constr *Construction) MixColumn(slice []byte) {
+	column := number.ArrayFieldElem{
+		number.ByteFieldElem(slice[0]), number.ByteFieldElem(slice[1]),
+		number.ByteFieldElem(slice[2]), number.ByteFieldElem(slice[3]),
+	}.Mul(number.ArrayFieldElem{
 		number.ByteFieldElem(0x02), number.ByteFieldElem(0x01),
 		number.ByteFieldElem(0x01), number.ByteFieldElem(0x03),
 	})
 
-	for i := 0; i < len(column); i++ {
-		out = append(out, byte(column[i]))
+	for i := 0; i < 4; i++ {
+		if len(column) > i {
+			slice[i] = byte(column[i])
+		} else {
+			slice[i] = 0x00
+		}
 	}
-
-	return
 }
