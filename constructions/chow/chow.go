@@ -51,7 +51,7 @@ func (constr Construction) Decrypt(dst, src []byte) {
 	panic("White-Box decryption isn't allowed!")
 }
 
-func (constr Construction) ShiftRows(block []byte) {
+func (constr *Construction) ShiftRows(block []byte) {
 	copy(block, []byte{
 		block[0], block[5], block[10], block[15], block[4], block[9], block[14], block[3], block[8], block[13], block[2],
 		block[7], block[12], block[1], block[6], block[11],
@@ -59,12 +59,12 @@ func (constr Construction) ShiftRows(block []byte) {
 }
 
 // Expand one word of the state matrix with the T-Boxes composed with Tyi Tables.
-func (constr Construction) ExpandWord(tboxtyi []table.Word, word []byte) [4][4]byte {
+func (constr *Construction) ExpandWord(tboxtyi []table.Word, word []byte) [4][4]byte {
 	return [4][4]byte{tboxtyi[0].Get(word[0]), tboxtyi[1].Get(word[1]), tboxtyi[2].Get(word[2]), tboxtyi[3].Get(word[3])}
 }
 
 // Squash an expanded word back into one word with 3 pairwise XORs (calc'd one nibble at a time) -- (((a ^ b) ^ c) ^ d)
-func (constr Construction) SquashWords(xorTable [][3]table.Nibble, words [4][4]byte, dst []byte) {
+func (constr *Construction) SquashWords(xorTable [][3]table.Nibble, words [4][4]byte, dst []byte) {
 	copy(dst, words[0][:])
 
 	for i := 1; i < 4; i++ {

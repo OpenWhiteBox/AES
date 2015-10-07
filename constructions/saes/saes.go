@@ -51,7 +51,7 @@ func (constr Construction) Decrypt(dst, src []byte) {
 
 func rotw(w uint32) uint32 { return w<<8 | w>>24 }
 
-func (constr Construction) StretchedKey() [11][]byte {
+func (constr *Construction) StretchedKey() [11][]byte {
 	var (
 		i         int            = 0
 		temp      uint32         = 0
@@ -92,32 +92,32 @@ func (constr Construction) StretchedKey() [11][]byte {
 	return split
 }
 
-func (constr Construction) AddRoundKey(roundKey, block []byte) {
+func (constr *Construction) AddRoundKey(roundKey, block []byte) {
 	for i, _ := range block {
 		block[i] = roundKey[i] ^ block[i]
 	}
 }
 
-func (constr Construction) SubBytes(block []byte) {
+func (constr *Construction) SubBytes(block []byte) {
 	for i, _ := range block {
 		block[i] = constr.SubByte(block[i])
 	}
 }
 
-func (constr Construction) UnSubBytes(block []byte) {
+func (constr *Construction) UnSubBytes(block []byte) {
 	for i, _ := range block {
 		block[i] = constr.UnSubByte(block[i])
 	}
 }
 
-func (constr Construction) SubWord(w uint32) uint32 {
+func (constr *Construction) SubWord(w uint32) uint32 {
 	return (uint32(constr.SubByte(byte(w>>24))) << 24) |
 		(uint32(constr.SubByte(byte(w>>16))) << 16) |
 		(uint32(constr.SubByte(byte(w>>8))) << 8) |
 		uint32(constr.SubByte(byte(w)))
 }
 
-func (constr Construction) SubByte(e byte) byte {
+func (constr *Construction) SubByte(e byte) byte {
 	// AES S-Box
 	m := matrix.Matrix{ // Linear component.
 		matrix.Row{0xF1}, // 0b11110001
@@ -134,7 +134,7 @@ func (constr Construction) SubByte(e byte) byte {
 	return m.Mul(matrix.Row{byte(number.ByteFieldElem(e).Invert())})[0] ^ a
 }
 
-func (constr Construction) UnSubByte(e byte) byte {
+func (constr *Construction) UnSubByte(e byte) byte {
 	// AES Inverse S-Box
 	m := matrix.Matrix{
 		matrix.Row{0xA4},
@@ -152,33 +152,33 @@ func (constr Construction) UnSubByte(e byte) byte {
 	return byte(number.ByteFieldElem(invVal).Invert())
 }
 
-func (constr Construction) ShiftRows(block []byte) {
+func (constr *Construction) ShiftRows(block []byte) {
 	copy(block, []byte{
 		block[0], block[5], block[10], block[15], block[4], block[9], block[14], block[3], block[8], block[13], block[2],
 		block[7], block[12], block[1], block[6], block[11],
 	})
 }
 
-func (constr Construction) UnShiftRows(block []byte) {
+func (constr *Construction) UnShiftRows(block []byte) {
 	copy(block, []byte{
 		block[0], block[13], block[10], block[7], block[4], block[1], block[14], block[11], block[8], block[5], block[2],
 		block[15], block[12], block[9], block[6], block[3],
 	})
 }
 
-func (constr Construction) MixColumns(block []byte) {
+func (constr *Construction) MixColumns(block []byte) {
 	for i := 0; i < 16; i += 4 {
 		constr.MixColumn(block[i : i+4])
 	}
 }
 
-func (constr Construction) UnMixColumns(block []byte) {
+func (constr *Construction) UnMixColumns(block []byte) {
 	for i := 0; i < 16; i += 4 {
 		constr.UnMixColumn(block[i : i+4])
 	}
 }
 
-func (constr Construction) MixColumn(slice []byte) {
+func (constr *Construction) MixColumn(slice []byte) {
 	column := number.ArrayFieldElem{
 		number.ByteFieldElem(slice[0]), number.ByteFieldElem(slice[1]),
 		number.ByteFieldElem(slice[2]), number.ByteFieldElem(slice[3]),
@@ -196,7 +196,7 @@ func (constr Construction) MixColumn(slice []byte) {
 	}
 }
 
-func (constr Construction) UnMixColumn(slice []byte) {
+func (constr *Construction) UnMixColumn(slice []byte) {
 	column := number.ArrayFieldElem{
 		number.ByteFieldElem(slice[0]), number.ByteFieldElem(slice[1]),
 		number.ByteFieldElem(slice[2]), number.ByteFieldElem(slice[3]),

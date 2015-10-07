@@ -121,3 +121,103 @@ func BenchmarkDeadEncrypt(b *testing.B) {
 		constr2.Encrypt(out, input)
 	}
 }
+
+func BenchmarkShiftRows(b *testing.B) {
+	key := test_vectors.AESVectors[50].Key
+	seed := test_vectors.AESVectors[51].Key
+	input := test_vectors.AESVectors[50].In
+
+	constr, _, _ := GenerateKeys(key, seed)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		constr.ShiftRows(input)
+	}
+}
+
+func BenchmarkExpandWord(b *testing.B) {
+	key := test_vectors.AESVectors[50].Key
+	seed := test_vectors.AESVectors[51].Key
+	input := test_vectors.AESVectors[50].In
+
+	constr1, _, _ := GenerateKeys(key, seed)
+
+	serialized := constr1.Serialize()
+	constr2 := Parse(serialized)
+
+	dst := make([]byte, 16)
+	copy(dst, input)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		constr2.ExpandWord(constr2.TBoxTyiTable[0][0:4], dst[0:4])
+	}
+}
+
+func BenchmarkExpandBlock(b *testing.B) {
+	key := test_vectors.AESVectors[50].Key
+	seed := test_vectors.AESVectors[51].Key
+	input := test_vectors.AESVectors[50].In
+
+	constr1, _, _ := GenerateKeys(key, seed)
+
+	serialized := constr1.Serialize()
+	constr2 := Parse(serialized)
+
+	dst := make([]byte, 16)
+	copy(dst, input)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		constr2.ExpandBlock(constr2.InputMask, dst)
+	}
+}
+
+func BenchmarkSquashWords(b *testing.B) {
+	key := test_vectors.AESVectors[50].Key
+	seed := test_vectors.AESVectors[51].Key
+	input := test_vectors.AESVectors[50].In
+
+	constr1, _, _ := GenerateKeys(key, seed)
+
+	serialized := constr1.Serialize()
+	constr2 := Parse(serialized)
+
+	dst := make([]byte, 16)
+	copy(dst, input)
+
+	stretched := constr2.ExpandWord(constr2.TBoxTyiTable[0][0:4], dst[0:4])
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		constr2.SquashWords(constr2.HighXORTable[0][0:8], stretched, dst[0:4])
+		copy(dst[0:4], input)
+	}
+}
+
+func BenchmarkSquashBlocks(b *testing.B) {
+	key := test_vectors.AESVectors[50].Key
+	seed := test_vectors.AESVectors[51].Key
+	input := test_vectors.AESVectors[50].In
+
+	constr1, _, _ := GenerateKeys(key, seed)
+
+	serialized := constr1.Serialize()
+	constr2 := Parse(serialized)
+
+	dst := make([]byte, 16)
+	copy(dst, input)
+
+	stretched := constr2.ExpandBlock(constr2.InputMask, dst)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		constr2.SquashBlocks(constr2.InputXORTable, stretched, dst)
+		copy(dst, input)
+	}
+}
