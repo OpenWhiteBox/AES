@@ -8,7 +8,17 @@ import (
 	"github.com/OpenWhiteBox/AES/constructions/saes"
 )
 
-func GenerateKeys(key, seed []byte) (out Construction, inputMask, outputMask matrix.Matrix) {
+type KeyGenerationOpts interface{}
+
+type IndependentMasks struct {
+	Input, Output MaskType
+}
+
+type SameMasks MaskType
+
+type MatchingMasks struct{}
+
+func GenerateKeys(key, seed []byte, opts KeyGenerationOpts) (out Construction, inputMask, outputMask matrix.Matrix) {
 	constr := saes.Construction{key}
 	roundKeys := constr.StretchedKey()
 
@@ -18,8 +28,21 @@ func GenerateKeys(key, seed []byte) (out Construction, inputMask, outputMask mat
 	}
 
 	// Generate input and output encodings.
-	inputMask = MixingBijection(seed, 128, 0, 0)
-	outputMask = MixingBijection(seed, 128, 10, 0)
+	switch opts.(type) {
+	case IndependentMasks:
+		inputMask = GenerateMask(opts.(IndependentMasks).Input, seed, Inside)
+		outputMask = GenerateMask(opts.(IndependentMasks).Output, seed, Outside)
+	case SameMasks:
+		mask := GenerateMask(MaskType(opts.(SameMasks)), seed, Inside)
+		inputMask, outputMask = mask, mask
+	case MatchingMasks:
+		mask := GenerateMask(RandomMask, seed, Inside)
+
+		inputMask = mask
+		outputMask, _ = mask.Invert()
+	default:
+		panic("Unrecognized key generation options!")
+	}
 
 	// Generate the Input Mask table and the 10th T-Box/Output Mask table
 	for pos := 0; pos < 16; pos++ {

@@ -41,5 +41,5 @@ expenses associated with memory allocation and function calls.
 ### Context
 
 With hardware implementations of AES, an Encrypt call can take as little at 30ns/op.  Heavily optimized software
-implementations take about 170ns/op.  White-Boxing an AES call seems makes it 2 to 3 orders of magnitude slower, at
+implementations take about 170ns/op.  White-Boxing an AES call seems to make it 2 to 3 orders of magnitude slower, at
 most.

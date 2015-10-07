@@ -14,6 +14,13 @@ var (
 	mbCache       = make(map[[32]byte]matrix.Matrix)
 )
 
+type MaskType int
+
+const (
+	RandomMask MaskType = iota
+	IdentityMask
+)
+
 type MaskTable struct {
 	Mask     matrix.Matrix
 	Position int
@@ -98,6 +105,19 @@ func MixingBijection(seed []byte, size, round, position int) matrix.Matrix {
 	} else {
 		mbCache[key] = matrix.GenerateRandom(generateStream(seed, label), size)
 		return mbCache[key]
+	}
+}
+
+// Generate input and output masks.
+func GenerateMask(maskType MaskType, seed []byte, surface Surface) matrix.Matrix {
+	if maskType == RandomMask {
+		if surface == Inside {
+			return MixingBijection(seed, 128, 0, 0)
+		} else {
+			return MixingBijection(seed, 128, 10, 0)
+		}
+	} else { // Identity mask.
+		return matrix.GenerateIdentity(128)
 	}
 }
 

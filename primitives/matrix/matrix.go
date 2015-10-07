@@ -94,15 +94,9 @@ func (e Matrix) Invert() (Matrix, bool) { // Gauss-Jordan Method
 
 	n := uint(a)
 
-	out := make([]Row, n) // Identity matrix
-	for i := uint(0); i < n; i++ {
-		row := make([]byte, n/8)
-		row[i/8] += 1 << (i % 8)
+	out := GenerateIdentity(int(n)) // The augmentation matrix for e. Will be mutated into e's inverse.
 
-		out[i] = row
-	}
-
-	f := make([]Row, n) // Duplicate e away so we don't mutate it.
+	f := make([]Row, n) // Duplicate e away so we don't mutate it while we're turning it into the identity.
 	copy(f, e)
 
 	for row := uint(0); row < n; row++ {
@@ -142,6 +136,19 @@ func (e Matrix) Invert() (Matrix, bool) { // Gauss-Jordan Method
 
 func (e Matrix) Size() (int, int) {
 	return len(e), e[0].Size()
+}
+
+func GenerateIdentity(n int) Matrix {
+	out := make([]Row, n)
+
+	for i := 0; i < n; i++ {
+		row := make([]byte, n/8)
+		row[i/8] += 1 << (uint(i) % 8)
+
+		out[i] = row
+	}
+
+	return Matrix(out)
 }
 
 func GenerateRandom(reader io.Reader, n int) Matrix {
