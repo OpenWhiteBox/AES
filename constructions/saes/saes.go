@@ -1,3 +1,5 @@
+// A reference-style implementation of AES.  It's useful for seeing the ways we can permute AES' internals without
+// affecting its output.
 package saes
 
 import (

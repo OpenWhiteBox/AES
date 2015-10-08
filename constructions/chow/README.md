@@ -1,9 +1,57 @@
 Chow's White-Box AES
 --------------------
 
-Currently unfinished:
+Chow is an implementation of the white-box AES scheme described by S. Chow et al. in the paper *White-Box
+Cryptography and an AES Implementation*.
 
-- Generating matrices with blocks of full rank.
+Broadly, it works by taking a normal AES key and stretching it out and adding randomness to computations that eventually
+cancel out and allow someone to compute a correct AES encryption of a plaintext without knowing or being able to find
+the key. We can also modify the white-box key such that the function isn't exactly ct = AES(pt), but a masked or
+encoded function like ct' = Q(AES(P(pt))), where Q and P are randomly chosen bijections from a family.
+
+We start by generating a white-boxed key:
+
+```go
+opts := IndependentMasks{RandomMask, RandomMask} // Random input and output masks.
+constr, input, output := chow.GenerateKeys(key, seed, opts) // key is the AES key, seed is the seed for the RNG.
+```
+
+Which we can use to encrypt data just like a normal AES cipher:
+
+```go
+constr.Encrypt(dst, src)
+```
+
+There are two types of mask: `RandomMask` and `IdentityMask`. `RandomMask` is a random linear bijection, `IdentityMask`
+is the identity bijection.
+
+There are three types of ways to combine masks with the `Encrypt` function: `IndependentMasks`, `SameMasks`, and
+`MatchingMasks`:
+
+- `IndependentMasks{IdentityMask, RandomMask}` - The function's input is unmasked, but the output has a random mask.
+- `SameMasks(IdentityMask)` - The function is completely unmasked.
+- `MatchingMasks{}` - We choose a random mask for the input and use it's inverse as the output mask.
+
+The `constr` output of `GenerateKeys` is compatible with `cipher.Block` so it can automatically be used with any cipher
+mode Golang supports.
+
+To mask input or recover output from a masked white-box, you multiply the input/output bit vector by the inverse of the
+`input` or `output` matrix returned by `GenerateKeys`.
+
+```go
+import (
+  "github.com/OpenWhiteBox/AES/primitives/matrix"
+)
+
+// ...
+
+inputInv, ok := inputMask.Invert() // ok should always be true, so it can be discarded.
+
+input := []byte{...}
+copy(input, inputInv.Mul(matrix.Row(input)))
+
+// input is sent off to a server running the white-box to be encrypted/processed.
+```
 
 ## Performance
 
@@ -43,3 +91,8 @@ expenses associated with memory allocation and function calls.
 With hardware implementations of AES, an Encrypt call can take as little at 30ns/op.  Heavily optimized software
 implementations take about 170ns/op.  White-Boxing an AES call seems to make it 2 to 3 orders of magnitude slower, at
 most.
+
+
+## To Do
+
+- Generate matrices with blocks of full rank.

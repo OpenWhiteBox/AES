@@ -21,6 +21,7 @@ const (
 	IdentityMask
 )
 
+// MaskTable maps one byte to a block, according to an input or output mask.
 type MaskTable struct {
 	Mask     matrix.Matrix
 	Position int
