@@ -5,6 +5,11 @@ import (
 	"io"
 )
 
+var weight [4]uint64 = [4]uint64{
+	0x6996966996696996, 0x9669699669969669,
+	0x9669699669969669, 0x6996966996696996,
+}
+
 type Row []byte
 
 func (e Row) Add(f Row) Row {
@@ -34,18 +39,20 @@ func (e Row) Mul(f Row) Row {
 }
 
 func (e Row) DotProduct(f Row) bool {
-	if e.Mul(f).Weight()%2 == 1 {
-		return true
-	} else {
-		return false
+	parity := uint64(0)
+
+	for _, g_i := range e.Mul(f) {
+		parity ^= (weight[g_i/64] >> (g_i % 64)) & 1
 	}
+
+	return parity == 1
 }
 
-func (e Row) Weight() (weight int) {
+func (e Row) Weight() (w int) {
 	for _, e_i := range e {
 		for j := uint(0); j < 8; j++ {
 			if (e_i>>j)&1 == 1 {
-				weight += 1
+				w += 1
 			}
 		}
 	}
