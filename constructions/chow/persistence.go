@@ -1,32 +1,42 @@
 package chow
 
 import (
+	"errors"
+
 	"github.com/OpenWhiteBox/AES/primitives/table"
 )
 
+const (
+	fullSize = 770048
+
+	maskTableSize = 256 * 16
+	stepTableSize = 256 * 4
+	xorTableSize  = 256 / 2
+)
+
 func (constr *Construction) Serialize() []byte {
-	out := []byte{}
+	out, base := make([]byte, fullSize), 0
 
 	// Input Mask
-	out = append(out, serializeMaskTables(constr.InputMask)...)
-	out = append(out, serializeLargeXORTables(constr.InputXORTable)...)
+	base += serializeMaskTables(out[base:], constr.InputMask)
+	base += serializeLargeXORTables(out[base:], constr.InputXORTable)
 
 	// First half of round
-	out = append(out, serializeStepTables(constr.TBoxTyiTable)...)
-	out = append(out, serializeXORTables(constr.HighXORTable)...)
+	base += serializeStepTables(out[base:], constr.TBoxTyiTable)
+	base += serializeXORTables(out[base:], constr.HighXORTable)
 
 	// Second half of round
-	out = append(out, serializeStepTables(constr.MBInverseTable)...)
-	out = append(out, serializeXORTables(constr.LowXORTable)...)
+	base += serializeStepTables(out[base:], constr.MBInverseTable)
+	base += serializeXORTables(out[base:], constr.LowXORTable)
 
 	// Output Mask
-	out = append(out, serializeMaskTables(constr.TBoxOutputMask)...)
-	out = append(out, serializeLargeXORTables(constr.OutputXORTable)...)
+	base += serializeMaskTables(out[base:], constr.TBoxOutputMask)
+	serializeLargeXORTables(out[base:], constr.OutputXORTable)
 
 	return out
 }
 
-func Parse(in []byte) (constr Construction) {
+func Parse(in []byte) (constr Construction, err error) {
 	var rest []byte
 
 	constr.InputMask, rest = parseMaskTables(in)
@@ -41,96 +51,112 @@ func Parse(in []byte) (constr Construction) {
 	constr.TBoxOutputMask, rest = parseMaskTables(rest)
 	constr.OutputXORTable, rest = parseLargeXORTables(rest)
 
+	if rest == nil {
+		err = errors.New("Parsing the table failed!")
+	}
+
 	return
 }
 
-func serializeMaskTables(t [16]table.Block) []byte {
-	out := []byte{}
+func serializeMaskTables(dst []byte, t [16]table.Block) int {
+	base := 0
 	for _, mask := range t {
-		out = append(out, table.SerializeBlock(mask)...)
+		base += copy(dst[base:], table.SerializeBlock(mask))
 	}
 
-	return out
+	return base
 }
 
 func parseMaskTables(in []byte) (out [16]table.Block, rest []byte) {
-	size := 256 * 16
-	for i := 0; i < 16; i++ {
-		out[i] = table.ParsedBlock(in[size*i : size*(i+1)])
+	if in == nil || len(in) < maskTableSize*16 {
+		return
 	}
 
-	return out, in[size*16:]
+	for i := 0; i < 16; i++ {
+		out[i] = table.ParsedBlock(in[maskTableSize*i : maskTableSize*(i+1)])
+	}
+
+	return out, in[maskTableSize*16:]
 }
 
-func serializeLargeXORTables(t [32][15]table.Nibble) []byte {
-	out := []byte{}
+func serializeLargeXORTables(dst []byte, t [32][15]table.Nibble) int {
+	base := 0
 	for _, rack := range t {
 		for _, xorTable := range rack {
-			out = append(out, table.SerializeNibble(xorTable)...)
+			base += copy(dst[base:], table.SerializeNibble(xorTable))
 		}
 	}
 
-	return out
+	return base
 }
 
 func parseLargeXORTables(in []byte) (out [32][15]table.Nibble, rest []byte) {
-	size := 256 / 2
+	if in == nil || len(in) < xorTableSize*9*16 {
+		return
+	}
+
 	for i := 0; i < 32; i++ {
 		for j := 0; j < 15; j++ {
 			loc := 15*i + j
-			out[i][j] = table.ParsedNibble(in[size*loc : size*(loc+1)])
+			out[i][j] = table.ParsedNibble(in[xorTableSize*loc : xorTableSize*(loc+1)])
 		}
 	}
 
-	return out, in[size*32*15:]
+	return out, in[xorTableSize*32*15:]
 }
 
-func serializeStepTables(t [9][16]table.Word) []byte {
-	out := []byte{}
+func serializeStepTables(dst []byte, t [9][16]table.Word) int {
+	base := 0
 	for _, round := range t {
 		for _, pos := range round {
-			out = append(out, table.SerializeWord(pos)...)
+			base += copy(dst[base:], table.SerializeWord(pos))
 		}
 	}
 
-	return out
+	return base
 }
 
 func parseStepTables(in []byte) (out [9][16]table.Word, rest []byte) {
-	size := 256 * 4
+	if in == nil || len(in) < stepTableSize*9*16 {
+		return
+	}
+
 	for i := 0; i < 9; i++ {
 		for j := 0; j < 16; j++ {
 			loc := 16*i + j
-			out[i][j] = table.ParsedWord(in[size*loc : size*(loc+1)])
+			out[i][j] = table.ParsedWord(in[stepTableSize*loc : stepTableSize*(loc+1)])
 		}
 	}
 
-	return out, in[size*9*16:]
+	return out, in[stepTableSize*9*16:]
 }
 
-func serializeXORTables(t [9][32][3]table.Nibble) []byte {
-	out := []byte{}
+func serializeXORTables(dst []byte, t [9][32][3]table.Nibble) int {
+	base := 0
 	for _, round := range t {
 		for _, pos := range round {
 			for _, gate := range pos {
-				out = append(out, table.SerializeNibble(gate)...)
+				base += copy(dst[base:], table.SerializeNibble(gate))
 			}
 		}
 	}
 
-	return out
+	return base
 }
 
 func parseXORTables(in []byte) (out [9][32][3]table.Nibble, rest []byte) {
-	size := 256 / 2
+	if in == nil || len(in) < xorTableSize*9*32*3 {
+		return
+	}
+
 	for i := 0; i < 9; i++ {
 		for j := 0; j < 32; j++ {
 			for k := 0; k < 3; k++ {
 				loc := 32*3*i + 3*j + k
-				out[i][j][k] = table.ParsedNibble(in[size*loc : size*(loc+1)])
+				out[i][j][k] = table.ParsedNibble(in[xorTableSize*loc : xorTableSize*(loc+1)])
 			}
 		}
 	}
 
-	return out, in[size*9*32*3:]
+	return out, in[xorTableSize*9*32*3:]
 }

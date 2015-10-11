@@ -93,7 +93,7 @@ func TestMatchedEncrypt(t *testing.T) {
 }
 
 func TestEncrypt(t *testing.T) {
-	for n, vec := range test_vectors.AESVectors[0:10] {
+	for n, vec := range test_vectors.AESVectors {
 		constr, inputMask, outputMask := GenerateKeys(vec.Key, vec.Key, IndependentMasks{RandomMask, RandomMask})
 
 		inputInv, _ := inputMask.Invert()
@@ -117,7 +117,7 @@ func TestPersistence(t *testing.T) {
 	constr1, _, _ := GenerateKeys(key, seed, IndependentMasks{RandomMask, RandomMask})
 
 	serialized := constr1.Serialize()
-	constr2 := Parse(serialized)
+	constr2, _ := Parse(serialized)
 
 	cand1, cand2 := make([]byte, 16), make([]byte, 16)
 
@@ -126,6 +126,13 @@ func TestPersistence(t *testing.T) {
 
 	if !bytes.Equal(cand1, cand2) {
 		t.Fatalf("Real disagrees with parsed! %v != %v", cand1, cand2)
+	}
+}
+
+func BenchmarkGenerateKeys(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		constr, _, _ := GenerateKeys(key, seed, IndependentMasks{RandomMask, RandomMask})
+		constr.Serialize()
 	}
 }
 
@@ -147,7 +154,7 @@ func BenchmarkDeadEncrypt(b *testing.B) {
 	constr1, _, _ := GenerateKeys(key, seed, IndependentMasks{RandomMask, RandomMask})
 
 	serialized := constr1.Serialize()
-	constr2 := Parse(serialized)
+	constr2, _ := Parse(serialized)
 
 	out := make([]byte, 16)
 
@@ -172,7 +179,7 @@ func BenchmarkExpandWord(b *testing.B) {
 	constr1, _, _ := GenerateKeys(key, seed, SameMasks(IdentityMask))
 
 	serialized := constr1.Serialize()
-	constr2 := Parse(serialized)
+	constr2, _ := Parse(serialized)
 
 	dst := make([]byte, 16)
 	copy(dst, input)
@@ -188,7 +195,7 @@ func BenchmarkExpandBlock(b *testing.B) {
 	constr1, _, _ := GenerateKeys(key, seed, IndependentMasks{RandomMask, RandomMask})
 
 	serialized := constr1.Serialize()
-	constr2 := Parse(serialized)
+	constr2, _ := Parse(serialized)
 
 	dst := make([]byte, 16)
 	copy(dst, input)
@@ -204,7 +211,7 @@ func BenchmarkSquashWords(b *testing.B) {
 	constr1, _, _ := GenerateKeys(key, seed, SameMasks(IdentityMask))
 
 	serialized := constr1.Serialize()
-	constr2 := Parse(serialized)
+	constr2, _ := Parse(serialized)
 
 	dst := make([]byte, 16)
 	copy(dst, input)
@@ -223,7 +230,7 @@ func BenchmarkSquashBlocks(b *testing.B) {
 	constr1, _, _ := GenerateKeys(key, seed, IndependentMasks{RandomMask, RandomMask})
 
 	serialized := constr1.Serialize()
-	constr2 := Parse(serialized)
+	constr2, _ := Parse(serialized)
 
 	dst := make([]byte, 16)
 	copy(dst, input)
