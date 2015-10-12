@@ -3,21 +3,8 @@ package chow
 import (
 	"github.com/OpenWhiteBox/AES/constructions/chow"
 	"github.com/OpenWhiteBox/AES/primitives/encoding"
-	"github.com/OpenWhiteBox/AES/primitives/matrix"
 	"github.com/OpenWhiteBox/AES/primitives/table"
 )
-
-type InvertibleTable table.Byte
-
-func Invert(it InvertibleTable) InvertibleTable {
-	out := make([]byte, 256)
-
-	for i := 0; i < 256; i++ {
-		out[it.Get(byte(i))] = byte(i)
-	}
-
-	return InvertibleTable(table.ParsedByte(out))
-}
 
 // A new lookup table mapping an input position to an output position with other values in the column held constant.
 type F struct {
@@ -61,50 +48,41 @@ func (q Qtilde) Decode(i byte) byte {
 }
 
 func RecoverKey(constr chow.Construction) (key [16]byte) {
-	S := GenerateS(constr, 0, 0)
-	_ = FindBasisAndSort(S)
+	// idEnc := [16]encoding.Byte{}
+	// for i, _ := range idEnc {
+	// 	idEnc[i] = encoding.Identity{}
+	// }
+	//
+	// r0Enc, r0 := MakeAffineRound(constr, idEnc, 0)
+	// r1Enc, r1 := MakeAffineRound(constr, r0Enc, 1)
+	// _    , r2 := MakeAffineRound(constr, r1Enc, 2)
 
-	qtilde := Qtilde{S}
+	return
+}
 
-	constr.TBoxTyiTable[0][0] = encoding.WordTable{
-		encoding.IdentityByte{},
-		encoding.ConcatenatedWord{
+func MakeAffineRound(constr chow.Construction, inputEnc [16]encoding.Byte, round int) (outEnc [16]encoding.Byte, out [16]table.Byte) {
+	for i, _ := range out {
+		S := GenerateS(constr, round, i)
+		_ = FindBasisAndSort(S)
+
+		qtilde := Qtilde{S}
+
+		outEnc[i] = qtilde
+		out[i] = encoding.ByteTable{
+			inputEnc[i],
 			qtilde,
-			encoding.IdentityByte{},
-			encoding.IdentityByte{},
-			encoding.IdentityByte{},
-		},
-		constr.TBoxTyiTable[1][0],
+			F{constr, round, i, 0x00},
+		}
 	}
 
 	return
 }
 
-func DecomposeAffineEncoding(e encoding.Byte) (matrix.Matrix, byte) {
-	m := matrix.Matrix{
-		matrix.Row{0}, matrix.Row{0}, matrix.Row{0}, matrix.Row{0},
-		matrix.Row{0}, matrix.Row{0}, matrix.Row{0}, matrix.Row{0},
-	}
-	c := e.Encode(0)
-
-	for i := uint(0); i < 8; i++ {
-		x := e.Encode(1<<i) ^ c
-
-		for j := uint(0); j < 8; j++ {
-			if (x>>j)&1 == 1 {
-				m[j][0] += 1 << i
-			}
-		}
-	}
-
-	return m, c
-}
-
 // The set of elements S, of the form fXX(f00^(-1)(x)) = Q(Q^(-1)(x) + b) for indeterminate x is isomorphic to the
 // additive group (GF(2)^8, xor) under composition.
 func GenerateS(constr chow.Construction, round, pos int) [][256]byte {
-	f00 := InvertibleTable(F{constr, round, pos, 0x00})
-	f00Inv := Invert(f00)
+	f00 := table.InvertibleTable(F{constr, round, pos, 0x00})
+	f00Inv := table.Invert(f00)
 
 	S := make([][256]byte, 256)
 	for x := 0; x < 256; x++ {

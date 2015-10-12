@@ -51,6 +51,21 @@ func (ib IdentityBlock) Decode(i [16]byte) (out [16]byte) {
 	return
 }
 
+type InverseByte struct{ Byte }
+
+func (ib InverseByte) Encode(i byte) byte { return ib.Byte.Decode(i) }
+func (ib InverseByte) Decode(i byte) byte { return ib.Byte.Encode(i) }
+
+type InverseWord struct{ Word }
+
+func (iw InverseWord) Encode(i [4]byte) [4]byte { return iw.Word.Decode(i) }
+func (iw InverseWord) Decode(i [4]byte) [4]byte { return iw.Word.Encode(i) }
+
+type InverseBlock struct{ Block }
+
+func (ib InverseBlock) Encode(i [16]byte) [16]byte { return ib.Block.Decode(i) }
+func (ib InverseBlock) Decode(i [16]byte) [16]byte { return ib.Block.Encode(i) }
+
 type ComposedBytes []Byte
 
 func (cb ComposedBytes) Encode(i byte) byte {

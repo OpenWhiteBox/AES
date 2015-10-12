@@ -18,6 +18,14 @@ func (bl ByteLinear) Decode(i byte) byte {
 	return inv.Mul(matrix.Row{i})[0]
 }
 
+type ByteAffine struct {
+	Linear ByteLinear
+	Affine byte
+}
+
+func (ba ByteAffine) Encode(i byte) byte { return ba.Linear.Encode(i) ^ ba.Affine }
+func (ba ByteAffine) Decode(i byte) byte { return ba.Linear.Decode(i ^ ba.Affine) }
+
 type WordLinear matrix.Matrix
 
 func (wl WordLinear) Encode(i [4]byte) (out [4]byte) {

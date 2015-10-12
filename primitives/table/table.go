@@ -29,6 +29,10 @@ func (cb ComposedBytes) Get(i byte) byte {
 	return i
 }
 
+type IdentityByte struct{}
+
+func (ib IdentityByte) Get(i byte) byte { return i }
+
 // ComposedToNibble isn't needed because you can use ComposedSmalls.
 
 type ComposedToWord struct {
@@ -47,4 +51,17 @@ type ComposedToBlock struct {
 
 func (cb ComposedToBlock) Get(i byte) [16]byte {
 	return cb.Tails.Get(cb.Heads.Get(i))
+}
+
+// Sloppy way to invert permutation tables that aren't encodings for some reason.
+type InvertibleTable Byte
+
+func Invert(it InvertibleTable) InvertibleTable {
+	out := make([]byte, 256)
+
+	for i := 0; i < 256; i++ {
+		out[it.Get(byte(i))] = byte(i)
+	}
+
+	return InvertibleTable(ParsedByte(out))
 }
