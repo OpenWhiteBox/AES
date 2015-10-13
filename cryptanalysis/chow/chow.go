@@ -48,18 +48,10 @@ func (q Qtilde) Decode(i byte) byte {
 }
 
 func RecoverKey(constr chow.Construction) (key [16]byte) {
-	// idEnc := [16]encoding.Byte{}
-	// for i, _ := range idEnc {
-	// 	idEnc[i] = encoding.Identity{}
-	// }
-	//
-	// r0Enc, r0 := MakeAffineRound(constr, idEnc, 0)
-	// r1Enc, r1 := MakeAffineRound(constr, r0Enc, 1)
-	// _    , r2 := MakeAffineRound(constr, r1Enc, 2)
-
 	return
 }
 
+// MakeAffineRound reduces the output encodings of a round to affine transformations.
 func MakeAffineRound(constr chow.Construction, inputEnc [16]encoding.Byte, round int) (outEnc [16]encoding.Byte, out [16]table.Byte) {
 	for i, _ := range out {
 		S := GenerateS(constr, round, i)
@@ -67,10 +59,10 @@ func MakeAffineRound(constr chow.Construction, inputEnc [16]encoding.Byte, round
 
 		qtilde := Qtilde{S}
 
-		outEnc[i] = qtilde
-		out[i] = encoding.ByteTable{
-			inputEnc[i],
-			qtilde,
+		outEnc[shiftRows(i)] = qtilde
+		out[shiftRows(i)] = encoding.ByteTable{
+			encoding.InverseByte{inputEnc[i/4*4]}, // i/4*4 because F only ever uses left-most byte of word as input.
+			encoding.InverseByte{qtilde},
 			F{constr, round, i, 0x00},
 		}
 	}
@@ -78,8 +70,8 @@ func MakeAffineRound(constr chow.Construction, inputEnc [16]encoding.Byte, round
 	return
 }
 
-// The set of elements S, of the form fXX(f00^(-1)(x)) = Q(Q^(-1)(x) + b) for indeterminate x is isomorphic to the
-// additive group (GF(2)^8, xor) under composition.
+// GenerateS creates the set of elements S, of the form fXX(f00^(-1)(x)) = Q(Q^(-1)(x) + b) for indeterminate x is
+// isomorphic to the additive group (GF(2)^8, xor) under composition.
 func GenerateS(constr chow.Construction, round, pos int) [][256]byte {
 	f00 := table.InvertibleTable(F{constr, round, pos, 0x00})
 	f00Inv := table.Invert(f00)
@@ -95,7 +87,7 @@ func GenerateS(constr chow.Construction, round, pos int) [][256]byte {
 	return S
 }
 
-// Find 8 elements of S that act as a basis for S and build isomorphism psi.
+// FindBasisAndSort finds 8 elements of S that act as a basis for S and build isomorphism psi.
 func FindBasisAndSort(S [][256]byte) (basis []table.Byte) {
 	for len(basis) < 8 { // Until we have a full basis.
 		basis = append(basis, table.ParsedByte(S[1<<uint(len(basis))][:])) // Add the first independent vector to the basis.

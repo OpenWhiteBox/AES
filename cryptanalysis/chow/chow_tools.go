@@ -6,6 +6,8 @@ import (
 	"github.com/OpenWhiteBox/AES/primitives/table"
 )
 
+// FunctionFromBasis produces the element of S according a basis and a specified combination of its elements.  It is an
+// isomorphism from (0..2^8-1, xor) -> (S, compose).
 func FunctionFromBasis(i int, basis []table.Byte) table.Byte {
 	// Generate the function specified by i.
 	vect := table.ComposedBytes{
@@ -21,6 +23,8 @@ func FunctionFromBasis(i int, basis []table.Byte) table.Byte {
 	return vect
 }
 
+// DecomposeAffineEncoding is an efficient way to factor an unknown affine encoding into its component linear and
+// affine parts.
 func DecomposeAffineEncoding(e encoding.Byte) (matrix.Matrix, byte) {
 	m := matrix.Matrix{
 		matrix.Row{0}, matrix.Row{0}, matrix.Row{0}, matrix.Row{0},
@@ -39,4 +43,9 @@ func DecomposeAffineEncoding(e encoding.Byte) (matrix.Matrix, byte) {
 	}
 
 	return m, c
+}
+
+// Index in, index out.  Example: shiftRows(5) = 1 because ShiftRows(block) returns [16]byte{block[0], block[5], ...
+func shiftRows(i int) int {
+	return []int{0, 13, 10, 7, 4, 1, 14, 11, 8, 5, 2, 15, 12, 9, 6, 3}[i]
 }
