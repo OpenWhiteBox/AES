@@ -9,15 +9,16 @@ import (
 // A new lookup table mapping an input position to an output position with other values in the column held constant.
 type F struct {
 	Constr          chow.Construction
-	Round, Position int
+	Round, In, Out int
 	Base            byte
 }
 
 func (f F) Get(i byte) byte {
-	pos := f.Position / 4 * 4
+	pos := f.Out / 4 * 4
 
 	block := make([]byte, 4)
-	copy(block, []byte{i, 0, 0, f.Base})
+	block[f.In%4] = i
+	block[(f.In+1)%4] = f.Base
 
 	stretched := f.Constr.ExpandWord(f.Constr.TBoxTyiTable[f.Round][pos:pos+4], block)
 	f.Constr.SquashWords(f.Constr.HighXORTable[f.Round][2*pos:2*pos+8], stretched, block)
@@ -25,7 +26,7 @@ func (f F) Get(i byte) byte {
 	stretched = f.Constr.ExpandWord(f.Constr.MBInverseTable[f.Round][pos:pos+4], block)
 	f.Constr.SquashWords(f.Constr.LowXORTable[f.Round][2*pos:2*pos+8], stretched, block)
 
-	return block[f.Position%4]
+	return block[f.Out%4]
 }
 
 // Qtilde is the approximation of the RoundEncoding between two rounds.
@@ -47,40 +48,43 @@ func (q Qtilde) Decode(i byte) byte {
 	return byte(0)
 }
 
-func RecoverKey(constr chow.Construction) (key [16]byte) {
-	return
-}
-
 // MakeAffineRound reduces the output encodings of a round to affine transformations.
 func MakeAffineRound(constr chow.Construction, inputEnc [16]encoding.Byte, round int) (outEnc [16]encoding.Byte, out [16]table.Byte) {
 	for i, _ := range out {
-		S := GenerateS(constr, round, i)
-		_ = FindBasisAndSort(S)
-
-		qtilde := Qtilde{S}
-
-		outEnc[shiftRows(i)] = qtilde
-		out[shiftRows(i)] = encoding.ByteTable{
-			encoding.InverseByte{inputEnc[i/4*4]}, // i/4*4 because F only ever uses left-most byte of word as input.
-			encoding.InverseByte{qtilde},
-			F{constr, round, i, 0x00},
-		}
+		outEnc[shiftRows(i)], out[shiftRows(i)] = RecoverAffineEncoded(constr, inputEnc[i/4*4], round, i/4*4, i)
 	}
 
 	return
 }
 
+// RecoverAffineEncoded reduces the output encodings of a function to affine transformations.
+func RecoverAffineEncoded(constr chow.Construction, inputEnc encoding.Byte, round, inPos, outPos int) (encoding.Byte, table.Byte) {
+	S := GenerateS(constr, round, inPos, outPos)
+	_ = FindBasisAndSort(S)
+
+	qtilde := Qtilde{S}
+
+	outEnc := qtilde
+	outTable := encoding.ByteTable{
+		encoding.InverseByte{inputEnc},
+		encoding.InverseByte{qtilde},
+		F{constr, round, inPos, outPos, 0x00},
+	}
+
+	return outEnc, outTable
+}
+
 // GenerateS creates the set of elements S, of the form fXX(f00^(-1)(x)) = Q(Q^(-1)(x) + b) for indeterminate x is
 // isomorphic to the additive group (GF(2)^8, xor) under composition.
-func GenerateS(constr chow.Construction, round, pos int) [][256]byte {
-	f00 := table.InvertibleTable(F{constr, round, pos, 0x00})
+func GenerateS(constr chow.Construction, round, inPos, outPos int) [][256]byte {
+	f00 := table.InvertibleTable(F{constr, round, inPos, outPos, 0x00})
 	f00Inv := table.Invert(f00)
 
 	S := make([][256]byte, 256)
 	for x := 0; x < 256; x++ {
 		copy(S[x][:], table.SerializeByte(table.ComposedBytes{
 			f00Inv,
-			F{constr, round, pos, byte(x)},
+			F{constr, round, inPos, outPos, byte(x)},
 		}))
 	}
 
