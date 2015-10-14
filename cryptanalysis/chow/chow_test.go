@@ -1,6 +1,7 @@
 package chow
 
 import (
+	"crypto/rand"
 	"fmt"
 	"testing"
 
@@ -14,7 +15,7 @@ import (
 
 var (
 	isCached bool = false
-	cached chow.Construction
+	cached   chow.Construction
 )
 
 func testConstruction() (chow.Construction, []byte) {
@@ -194,6 +195,23 @@ func TestMakeAffineRound(t *testing.T) {
 				t.Fatalf("RAff and r1 at position %v disagree at point %v! %v != %v", i, j, a, b)
 			}
 		}
+	}
+}
+
+func TestFindCharacteristic(t *testing.T) {
+	M := matrix.GenerateRandom(rand.Reader, 8)
+
+	A := matrix.GenerateRandom(rand.Reader, 8)
+	AInv, _ := A.Invert()
+
+	N, _ := DecomposeAffineEncoding(encoding.ComposedBytes{
+		encoding.ByteLinear(A),
+		encoding.ByteLinear(M),
+		encoding.ByteLinear(AInv),
+	})
+
+	if FindCharacteristic(M) == FindCharacteristic(N) {
+		t.Fatalf("FindCharacteristic was not invariant!\nM = %x\nA = %x\nN = %x, ", M, A, N)
 	}
 }
 

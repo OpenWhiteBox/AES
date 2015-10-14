@@ -45,6 +45,19 @@ func DecomposeAffineEncoding(e encoding.Byte) (matrix.Matrix, byte) {
 	return m, c
 }
 
+// FindCharacteristic finds the characteristic number of a matrix.  This number is invariant to matrix similarity.
+func FindCharacteristic(A matrix.Matrix) (a byte) {
+	AkEnc := encoding.ComposedBytes{}
+
+	for k := uint(0); k < 8; k++ {
+		AkEnc = append(AkEnc, encoding.ByteLinear(A))
+		Ak, _ := DecomposeAffineEncoding(AkEnc)
+		a ^= Ak.Trace() << k
+	}
+
+	return
+}
+
 // Index in, index out.  Example: shiftRows(5) = 1 because ShiftRows(block) returns [16]byte{block[0], block[5], ...
 func shiftRows(i int) int {
 	return []int{0, 13, 10, 7, 4, 1, 14, 11, 8, 5, 2, 15, 12, 9, 6, 3}[i]
