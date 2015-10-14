@@ -144,7 +144,7 @@ func (e Matrix) Invert() (Matrix, bool) { // Gauss-Jordan Method
 func (e Matrix) Trace() (out byte) {
 	n, _ := e.Size()
 	for i := 0; i < n; i++ {
-		out ^= (e[i][0]>>uint(i))&1
+		out ^= (e[i][0] >> uint(i)) & 1
 	}
 
 	return
