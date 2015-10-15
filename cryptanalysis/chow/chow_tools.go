@@ -6,6 +6,13 @@ import (
 	"github.com/OpenWhiteBox/AES/primitives/table"
 )
 
+type TableAsEncoding struct {
+	Forwards, Backwards table.InvertibleTable
+}
+
+func (tae TableAsEncoding) Encode(i byte) byte { return tae.Forwards.Get(i) }
+func (tae TableAsEncoding) Decode(i byte) byte { return tae.Backwards.Get(i) }
+
 // FunctionFromBasis produces the element of S according a basis and a specified combination of its elements.  It is an
 // isomorphism from (0..2^8-1, xor) -> (S, compose).
 func FunctionFromBasis(i int, basis []table.Byte) table.Byte {

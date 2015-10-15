@@ -8,6 +8,7 @@ import (
 	"github.com/OpenWhiteBox/AES/constructions/chow"
 	"github.com/OpenWhiteBox/AES/primitives/encoding"
 	"github.com/OpenWhiteBox/AES/primitives/matrix"
+	"github.com/OpenWhiteBox/AES/primitives/number"
 	"github.com/OpenWhiteBox/AES/primitives/table"
 
 	test_vectors "github.com/OpenWhiteBox/AES/constructions/test"
@@ -38,7 +39,7 @@ func fastTestConstruction() chow.Construction {
 	return cached
 }
 
-func exposeRound(constr chow.Construction, round, inPos, outPos int) (encoding.Byte, encoding.Byte, table.InvertibleTable){
+func exposeRound(constr chow.Construction, round, inPos, outPos int) (encoding.Byte, encoding.Byte, table.InvertibleTable) {
 	// Actual input and output encoding for round 1 in position i.
 	in := constr.TBoxTyiTable[round][inPos].(encoding.WordTable).In
 	out := constr.TBoxTyiTable[round+1][shiftRows(outPos)].(encoding.WordTable).In
@@ -197,7 +198,50 @@ func TestFindCharacteristic(t *testing.T) {
 	})
 
 	if FindCharacteristic(M) != FindCharacteristic(N) {
-		t.Fatalf("FindCharacteristic was not invariant!\nM = %x\nA = %x\nN = %x, ", M, A, N)
+		t.Fatalf("FindCharacteristic was not invariant!\nM = %2.2x\nA = %2.2x\nN = %2.2x, ", M, A, N)
+	}
+}
+
+func TestRecoverL(t *testing.T) {
+	MC := [][]number.ByteFieldElem{
+		[]number.ByteFieldElem{0x02, 0x01, 0x01, 0x03},
+		[]number.ByteFieldElem{0x03, 0x02, 0x01, 0x01},
+	}
+
+	constr, _ := testConstruction()
+	fastConstr := fastTestConstruction()
+
+	for i := 0; i < 16; i++ {
+		L := RecoverL(fastConstr, 1, i)
+
+		// Expected affine output encoding of position 0 in round 1.
+		_, out, _ := exposeRound(constr, 1, i, i)
+		outEncTilde, _ := RecoverAffineEncoded(fastConstr, encoding.IdentityByte{}, 1, i, i)
+		outAff := encoding.ComposedBytes{out, encoding.InverseByte{outEncTilde}}
+
+		verifyIsAffine(t, outAff, "outAff %v %v %v")
+
+		// L is supposed to equal A_i <- D(beta) <- A_i^(-1)
+		// We strip the conjugation by A_i and check that D(beta) is multiplication by an element of GF(2^8).
+		DEnc := encoding.ComposedBytes{
+			outAff,
+			encoding.ByteLinear(L),
+			encoding.InverseByte{outAff},
+		}
+		D, _ := DecomposeAffineEncoding(DEnc)
+		Dstr := fmt.Sprintf("%x", D)
+
+		// Calculate what beta should be.
+		pos0, pos1 := i%4, (i+1)%4
+		beta := MC[0][pos0].Mul(MC[1][pos1]).Mul(MC[0][pos1].Mul(MC[1][pos0]).Invert())
+
+		// Calculate the matrix of multiplication by beta and check that it equals what we derived in D.
+		E, _ := DecomposeAffineEncoding(encoding.ByteMultiplication(beta))
+		Estr := fmt.Sprintf("%x", E)
+
+		if Dstr != Estr {
+			t.Fatalf("A_i^(-1) * L * A_i doesn't equal D(beta)! i = %v\nL = %2.2x\nD = %2.2x\nE = %2.2x\n", i, L, D, E)
+		}
 	}
 }
 
@@ -217,5 +261,26 @@ func BenchmarkQtilde(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		S := GenerateS(constr, 0, 0, 0)
 		_ = FindBasisAndSort(S)
+	}
+}
+
+func BenchmarkDecoposeAffineEncoding(b *testing.B) {
+	aff := encoding.ByteAffine{
+		encoding.ByteLinear(matrix.GenerateRandom(rand.Reader, 8)),
+		0x60,
+	}
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		DecomposeAffineEncoding(aff)
+	}
+}
+
+func BenchmarkFindCharacteristic(b *testing.B) {
+	M := matrix.GenerateRandom(rand.Reader, 8)
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		FindCharacteristic(M)
 	}
 }

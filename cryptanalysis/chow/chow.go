@@ -3,14 +3,15 @@ package chow
 import (
 	"github.com/OpenWhiteBox/AES/constructions/chow"
 	"github.com/OpenWhiteBox/AES/primitives/encoding"
+	"github.com/OpenWhiteBox/AES/primitives/matrix"
 	"github.com/OpenWhiteBox/AES/primitives/table"
 )
 
 // A new lookup table mapping an input position to an output position with other values in the column held constant.
 type F struct {
-	Constr          chow.Construction
+	Constr         chow.Construction
 	Round, In, Out int
-	Base            byte
+	Base           byte
 }
 
 func (f F) Get(i byte) byte {
@@ -48,6 +49,28 @@ func (q Qtilde) Decode(i byte) byte {
 	return byte(0)
 }
 
+// RecoverL recovers the matrix L = A_i <- D(beta) <- A_i^(-1) where A_i is the affine output mask at position i and
+// D(beta) is the matrix of multiplication by beta in GF(2^8).
+func RecoverL(constr chow.Construction, round, pos int) matrix.Matrix {
+	inPos, outPos := pos/4*4, pos/4*4+(pos+1)%4
+
+	_, f00 := RecoverAffineEncoded(constr, encoding.IdentityByte{}, round, inPos+0, pos)
+	_, f01 := RecoverAffineEncoded(constr, encoding.IdentityByte{}, round, inPos+0, outPos)
+	_, f10 := RecoverAffineEncoded(constr, encoding.IdentityByte{}, round, inPos+1, pos)
+	_, f11 := RecoverAffineEncoded(constr, encoding.IdentityByte{}, round, inPos+1, outPos)
+
+	LEnc := encoding.ComposedBytes{
+		TableAsEncoding{table.Invert(f01), f01},
+		TableAsEncoding{f00, table.Invert(f00)},
+		TableAsEncoding{table.Invert(f10), f10},
+		TableAsEncoding{f11, table.Invert(f11)},
+	}
+
+	L, _ := DecomposeAffineEncoding(LEnc)
+
+	return L
+}
+
 // MakeAffineRound reduces the output encodings of a round to affine transformations.
 func MakeAffineRound(constr chow.Construction, inputEnc [16]encoding.Byte, round int) (outEnc [16]encoding.Byte, out [16]table.Byte) {
 	for i, _ := range out {
@@ -58,8 +81,8 @@ func MakeAffineRound(constr chow.Construction, inputEnc [16]encoding.Byte, round
 }
 
 // RecoverAffineEncoded reduces the output encodings of a function to affine transformations.
-func RecoverAffineEncoded(constr chow.Construction, inputEnc encoding.Byte, round, inPos, outPos int) (encoding.Byte, table.Byte) {
-	S := GenerateS(constr, round, inPos, outPos)
+func RecoverAffineEncoded(constr chow.Construction, inputEnc encoding.Byte, round, inPos, outPos int) (encoding.Byte, table.InvertibleTable) {
+	S := GenerateS(constr, round, inPos/4*4, outPos)
 	_ = FindBasisAndSort(S)
 
 	qtilde := Qtilde{S}
@@ -71,7 +94,7 @@ func RecoverAffineEncoded(constr chow.Construction, inputEnc encoding.Byte, roun
 		F{constr, round, inPos, outPos, 0x00},
 	}
 
-	return outEnc, outTable
+	return outEnc, table.InvertibleTable(outTable)
 }
 
 // GenerateS creates the set of elements S, of the form fXX(f00^(-1)(x)) = Q(Q^(-1)(x) + b) for indeterminate x is
