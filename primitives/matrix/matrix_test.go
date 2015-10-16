@@ -114,18 +114,32 @@ func TestCompose(t *testing.T) {
 	}
 }
 
-func TestStretch(t *testing.T) {
-	m := SBox
-	mRow := Row{0xF1, 0xE3, 0xC7, 0x8F, 0x1F, 0x3E, 0x7C, 0xF8}
+func TestRightStretch(t *testing.T) {
+	M := GenerateRandom(rand.Reader, 8)
+	sboxRow := Row{0xF1, 0xE3, 0xC7, 0x8F, 0x1F, 0x3E, 0x7C, 0xF8}
 
-	mReal := m.Compose(m)
-	M := m.Stretch()
+	MS := M.RightStretch()
 
-	mCand := M.Mul(mRow)
+	real, cand := M.Compose(SBox), MS.Mul(sboxRow)
 
 	for i := 0; i < 8; i++ {
-		if mReal[i][0] != mCand[i] {
-			t.Fatalf("mCand is not the inlining of mReal!\nmReal = %v\nmCand = %v", mReal, mCand)
+		if real[i][0] != cand[i] {
+			t.Fatalf("cand is not the inlining of real!\nreal = %v\ncand = %v", real, cand)
+		}
+	}
+}
+
+func TestLeftStretch(t *testing.T) {
+	M := GenerateRandom(rand.Reader, 8)
+	sboxRow := Row{0xF1, 0xE3, 0xC7, 0x8F, 0x1F, 0x3E, 0x7C, 0xF8}
+
+	MS := M.LeftStretch()
+
+	real, cand := SBox.Compose(M), MS.Mul(sboxRow)
+
+	for i := 0; i < 8; i++ {
+		if real[i][0] != cand[i] {
+			t.Fatalf("cand is not the inlining of real!\nreal = %v\ncand = %v", real, cand)
 		}
 	}
 }
