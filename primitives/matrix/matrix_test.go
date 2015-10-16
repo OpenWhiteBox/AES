@@ -84,10 +84,10 @@ func TestTrace(t *testing.T) {
 	n := Matrix{Row{53}, Row{95}, Row{191}, Row{75}, Row{163}, Row{70}, Row{141}, Row{26}}
 
 	if m.Trace() != 1 {
-		t.Fatalf("Reported wrong determinant for m!  Should be 1, got %v.", m.Trace())
+		t.Fatalf("Reported wrong trace for m!  Should be 1, got %v.", m.Trace())
 	}
 
 	if n.Trace() != 0 {
-		t.Fatalf("Reported wrong determinant for n! Should be 0, got %v", n.Trace())
+		t.Fatalf("Reported wrong trace for n! Should be 0, got %v", n.Trace())
 	}
 }

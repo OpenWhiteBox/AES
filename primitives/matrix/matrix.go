@@ -49,15 +49,24 @@ func (e Row) DotProduct(f Row) bool {
 }
 
 func (e Row) Weight() (w int) {
-	for _, e_i := range e {
-		for j := uint(0); j < 8; j++ {
-			if (e_i>>j)&1 == 1 {
-				w += 1
-			}
+	for i := 0; i < e.Size(); i++ {
+		if e.GetBit(i) == 1 {
+			w += 1
 		}
 	}
 
 	return
+}
+
+func (e Row) GetBit(i int) byte {
+	return (e[i/8] >> (uint(i) % 8)) & 1
+}
+
+func (e Row) SetBit(i int, x bool) {
+	y := e.GetBit(i)
+	if y == 0 && x || y == 1 && !x {
+		e[i/8] ^= 1 << (uint(i) % 8)
+	}
 }
 
 func (e Row) Size() int {
@@ -72,16 +81,14 @@ func (e Matrix) Mul(f Row) Row {
 		panic("Can't multiply by row that is wrong size!")
 	}
 
-	n := uint(out)
-
-	res := make([]byte, n/8)
-	for i := uint(0); i < n; i++ {
+	res := Row(make([]byte, out/8))
+	for i := 0; i < out; i++ {
 		if e[i].DotProduct(f) {
-			res[i/8] |= 1 << (i % 8)
+			res.SetBit(i, true)
 		}
 	}
 
-	return Row(res)
+	return res
 }
 
 func (e Matrix) Add(f Matrix) Matrix {
@@ -99,19 +106,17 @@ func (e Matrix) Invert() (Matrix, bool) { // Gauss-Jordan Method
 		panic("Can't invert a non-square matrix!")
 	}
 
-	n := uint(a)
+	out := GenerateIdentity(a) // The augmentation matrix for e. Will be mutated into e's inverse.
 
-	out := GenerateIdentity(int(n)) // The augmentation matrix for e. Will be mutated into e's inverse.
-
-	f := make([]Row, n) // Duplicate e away so we don't mutate it while we're turning it into the identity.
+	f := make([]Row, a) // Duplicate e away so we don't mutate it while we're turning it into the identity.
 	copy(f, e)
 
-	for row := uint(0); row < n; row++ {
+	for row := 0; row < a; row++ {
 		// Find a row with a non-zero entry (a 1) in the (row)th position
-		candId := uint(255)
+		candId := 255
 
-		for i := row; i < n; i++ {
-			if (f[i][row/8]>>(row%8))&1 == 1 {
+		for i := row; i < a; i++ {
+			if f[i].GetBit(row) == 1 {
 				candId = i
 				break
 			}
@@ -126,12 +131,12 @@ func (e Matrix) Invert() (Matrix, bool) { // Gauss-Jordan Method
 		out[row], out[candId] = out[candId], out[row]
 
 		// Cancel out the (row)th position for every row above and below it.
-		for i := uint(0); i < n; i++ {
+		for i := 0; i < a; i++ {
 			if i == row {
 				continue
 			}
 
-			if (f[i][row/8]>>(row%8))&1 == 1 {
+			if f[i].GetBit(row) == 1 {
 				f[i] = f[i].Add(f[row])
 				out[i] = out[i].Add(out[row])
 			}
@@ -155,13 +160,29 @@ func (e Matrix) Size() (int, int) {
 }
 
 func GenerateIdentity(n int) Matrix {
-	out := make([]Row, n)
-
+	out := GenerateEmpty(n)
 	for i := 0; i < n; i++ {
-		row := make([]byte, n/8)
-		row[i/8] += 1 << (uint(i) % 8)
+		out[i].SetBit(i, true)
+	}
 
-		out[i] = row
+	return out
+}
+
+func GenerateFull(n int) Matrix {
+	out := GenerateEmpty(n)
+	for i := 0; i < n; i++ {
+		for j := 0; j < n/8; j++ {
+			out[i][j] = 0xff
+		}
+	}
+
+	return out
+}
+
+func GenerateEmpty(n int) Matrix {
+	out := make([]Row, n)
+	for i := 0; i < n; i++ {
+		out[i] = make([]byte, n/8)
 	}
 
 	return Matrix(out)
