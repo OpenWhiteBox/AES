@@ -12,6 +12,7 @@ var weight [4]uint64 = [4]uint64{
 
 type Row []byte
 
+// Add adds two vectors from GF(2)^n.
 func (e Row) Add(f Row) Row {
 	if len(e) != len(f) {
 		panic("Can't add rows that are different sizes!")
@@ -25,6 +26,7 @@ func (e Row) Add(f Row) Row {
 	return Row(out)
 }
 
+// Mul component-wise multiplies two vectors.
 func (e Row) Mul(f Row) Row {
 	if len(e) != len(f) {
 		panic("Can't multiply rows that are different sizes!")
@@ -38,6 +40,7 @@ func (e Row) Mul(f Row) Row {
 	return Row(out)
 }
 
+// DotProduct computes the dot product of two vectors.
 func (e Row) DotProduct(f Row) bool {
 	parity := uint64(0)
 
@@ -58,10 +61,12 @@ func (e Row) Weight() (w int) {
 	return
 }
 
+// GetBit returns the ith entry of the vector.
 func (e Row) GetBit(i int) byte {
 	return (e[i/8] >> (uint(i) % 8)) & 1
 }
 
+// SetBit sets the ith bit of the vector to 1 is x = true and 0 if x = false.
 func (e Row) SetBit(i int, x bool) {
 	y := e.GetBit(i)
 	if y == 0 && x || y == 1 && !x {
@@ -69,12 +74,15 @@ func (e Row) SetBit(i int, x bool) {
 	}
 }
 
+// Size returns the dimension of the vector.
 func (e Row) Size() int {
 	return 8 * len(e)
 }
 
+// Logical, or (0, 1)-Matrices
 type Matrix []Row
 
+// Mul right-multiplies a matrix by a row.
 func (e Matrix) Mul(f Row) Row {
 	out, in := e.Size()
 	if in != f.Size() {
@@ -91,6 +99,7 @@ func (e Matrix) Mul(f Row) Row {
 	return res
 }
 
+// Add adds two binary matrices from GF(2)^nxm.
 func (e Matrix) Add(f Matrix) Matrix {
 	out := make([]Row, len(e))
 	for i := 0; i < len(e); i++ {
@@ -100,6 +109,7 @@ func (e Matrix) Add(f Matrix) Matrix {
 	return out
 }
 
+// Invert computes the two-sided multiplicative inverse of a matrix, if it exists.
 func (e Matrix) Invert() (Matrix, bool) { // Gauss-Jordan Method
 	a, b := e.Size()
 	if a != b {
@@ -146,6 +156,23 @@ func (e Matrix) Invert() (Matrix, bool) { // Gauss-Jordan Method
 	return out, true
 }
 
+// Transpose returns the transpose of a matrix.
+func (e Matrix) Transpose() Matrix {
+	n, m := e.Size()
+	out := make([]Row, m)
+
+	for i, _ := range out {
+		out[i] = Row(make([]byte, n/8))
+
+		for j := 0; j < n; j++ {
+			out[i].SetBit(j, e[j].GetBit(i) == 1)
+		}
+	}
+
+	return Matrix(out)
+}
+
+// Trace returns the trace (sum of elements on the diagonal) of a matrix.
 func (e Matrix) Trace() (out byte) {
 	n, _ := e.Size()
 	for i := 0; i < n; i++ {
@@ -155,10 +182,12 @@ func (e Matrix) Trace() (out byte) {
 	return
 }
 
+// Size returns the dimensions of the matrix in (Rows, Columns) order.
 func (e Matrix) Size() (int, int) {
 	return len(e), e[0].Size()
 }
 
+// GenerateIdentity creates the n by n identity matrix.
 func GenerateIdentity(n int) Matrix {
 	out := GenerateEmpty(n)
 	for i := 0; i < n; i++ {
@@ -168,6 +197,7 @@ func GenerateIdentity(n int) Matrix {
 	return out
 }
 
+// GenerateFull creates a matrix with all entries set to 1.
 func GenerateFull(n int) Matrix {
 	out := GenerateEmpty(n)
 	for i := 0; i < n; i++ {
@@ -179,6 +209,7 @@ func GenerateFull(n int) Matrix {
 	return out
 }
 
+// GenerateEmpty creates a matrix with all entries set to 0.
 func GenerateEmpty(n int) Matrix {
 	out := make([]Row, n)
 	for i := 0; i < n; i++ {
@@ -188,6 +219,7 @@ func GenerateEmpty(n int) Matrix {
 	return Matrix(out)
 }
 
+// GenerateRandom creates a random non-singular n by n matrix.
 func GenerateRandom(reader io.Reader, n int) Matrix {
 	m := Matrix(make([]Row, n))
 

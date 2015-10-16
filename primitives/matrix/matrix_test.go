@@ -79,6 +79,26 @@ func TestBlockInvert(t *testing.T) {
 	}
 }
 
+func TestTranspose(t *testing.T) {
+	m := GenerateIdentity(8)
+	m[0].SetBit(7, true)
+
+	mT := m.Transpose()
+
+	if mT[7].GetBit(0) != 1 {
+		t.Fatalf("Transpose is didn't flip the coordinates of a bit off the diagonal!")
+	}
+
+	m[0].SetBit(7, false)
+	mT[7].SetBit(0, false)
+
+	for i := 0; i < 8; i++ {
+		if m[i][0] != mT[i][0] {
+			t.Fatalf("Transpose didn't fix elements on the diagonal!")
+		}
+	}
+}
+
 func TestTrace(t *testing.T) {
 	m := Matrix{Row{12}, Row{20}, Row{41}, Row{94}, Row{176}, Row{97}, Row{195}, Row{134}}
 	n := Matrix{Row{53}, Row{95}, Row{191}, Row{75}, Row{163}, Row{70}, Row{141}, Row{26}}
