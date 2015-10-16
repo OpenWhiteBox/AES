@@ -109,6 +109,48 @@ func (e Matrix) Add(f Matrix) Matrix {
 	return out
 }
 
+// Compose returns the result of composing e with f.
+func (e Matrix) Compose(f Matrix) Matrix {
+	n, m := e.Size()
+	p, q := f.Size()
+
+	if m != p {
+		panic("Can't multiply matrices of wrong size!")
+	}
+
+	out := make([]Row, n)
+	g := f.Transpose()
+
+	for i := 0; i < n; i++ {
+		out[i] = Row(make([]byte, q/8))
+
+		for j := 0; j < q; j++ {
+			out[i].SetBit(j, e[i].DotProduct(g[j]))
+		}
+	}
+
+	return Matrix(out)
+}
+
+// Stretch returns the matrix of matrix multiplication by a given matrix.
+func (e Matrix) Stretch() Matrix {
+	n, m := e.Size()
+	nm := n * m
+
+	out := make([]Row, nm)
+
+	for i := 0; i < nm; i++ {
+		out[i] = make([]byte, nm/8)
+		p, q := i/n, i%n
+
+		for j := 0; j < m; j++ {
+			out[i].SetBit(j*m+q, e[p].GetBit(j) == 1)
+		}
+	}
+
+	return out
+}
+
 // Invert computes the two-sided multiplicative inverse of a matrix, if it exists.
 func (e Matrix) Invert() (Matrix, bool) { // Gauss-Jordan Method
 	a, b := e.Size()

@@ -7,17 +7,19 @@ import (
 	"github.com/OpenWhiteBox/AES/primitives/number"
 )
 
+var SBox = Matrix{ // AES S-Box
+	Row{0xF1}, // 0b11110001
+	Row{0xE3}, // 0b11100011
+	Row{0xC7}, // 0b11000111
+	Row{0x8F}, // 0b10001111
+	Row{0x1F}, // 0b00011111
+	Row{0x3E}, // 0b00111110
+	Row{0x7C}, // 0b01111100
+	Row{0xF8}, // 0b11111000
+}
+
 func TestByteMatrix(t *testing.T) {
-	m := Matrix{ // AES S-Box
-		Row{0xF1}, // 0b11110001
-		Row{0xE3}, // 0b11100011
-		Row{0xC7}, // 0b11000111
-		Row{0x8F}, // 0b10001111
-		Row{0x1F}, // 0b00011111
-		Row{0x3E}, // 0b00111110
-		Row{0x7C}, // 0b01111100
-		Row{0xF8}, // 0b11111000
-	}
+	m := SBox
 	a := byte(0x63) // 0b01100011
 
 	if m.Mul(Row{byte(number.ByteFieldElem(0x53).Invert())})[0]^a != 0xED {
@@ -95,6 +97,35 @@ func TestTranspose(t *testing.T) {
 	for i := 0; i < 8; i++ {
 		if m[i][0] != mT[i][0] {
 			t.Fatalf("Transpose didn't fix elements on the diagonal!")
+		}
+	}
+}
+
+func TestCompose(t *testing.T) {
+	m := SBox
+	n, _ := m.Invert()
+
+	x, y, z := m.Compose(n), n.Compose(m), GenerateIdentity(8)
+
+	for i := 0; i < 8; i++ {
+		if x[i][0] != y[i][0] || y[i][0] != z[i][0] {
+			t.Fatalf("Matrix composition is wrong!\nX = %x\nY = %x\nZ = %x\n", x, y, z)
+		}
+	}
+}
+
+func TestStretch(t *testing.T) {
+	m := SBox
+	mRow := Row{0xF1, 0xE3, 0xC7, 0x8F, 0x1F, 0x3E, 0x7C, 0xF8}
+
+	mReal := m.Compose(m)
+	M := m.Stretch()
+
+	mCand := M.Mul(mRow)
+
+	for i := 0; i < 8; i++ {
+		if mReal[i][0] != mCand[i] {
+			t.Fatalf("mCand is not the inlining of mReal!\nmReal = %v\nmCand = %v", mReal, mCand)
 		}
 	}
 }
