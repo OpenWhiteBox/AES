@@ -170,51 +170,50 @@ func (e Matrix) LeftStretch() Matrix {
 	return out
 }
 
-// Invert computes the two-sided multiplicative inverse of a matrix, if it exists.
-func (e Matrix) Invert() (Matrix, bool) { // Gauss-Jordan Method
-	a, b := e.Size()
-	if a != b {
-		panic("Can't invert a non-square matrix!")
-	}
+// gaussJordan reduces the matrix according to the Gauss-Jordan Method.  Returns the transformed matrix, the augment
+// matrix, at what column elimination failed (if ever), and whether or not the input is invertible (meaning the augment
+// matrix is the inverse).
+func (e Matrix) gaussJordan() (Matrix, Matrix, int, bool) {
+	a, _ := e.Size()
 
-	out := GenerateIdentity(a) // The augmentation matrix for e. Will be mutated into e's inverse.
-
-	f := make([]Row, a) // Duplicate e away so we don't mutate it while we're turning it into the identity.
+	aug := GenerateIdentity(a) // The augmentation matrix for e.
+	f := make([]Row, a)        // Duplicate e away so we don't mutate it.
 	copy(f, e)
 
-	for row := 0; row < a; row++ {
-		// Find a row with a non-zero entry (a 1) in the (row)th position
-		candId := 255
-
-		for i := row; i < a; i++ {
-			if f[i].GetBit(row) == 1 {
-				candId = i
+	for row, _ := range f {
+		// Find a row with a non-zero entry in the (col)th position
+		candId := -1
+		for i, f_i := range f[row:] {
+			if f_i.GetBit(row) == 1 {
+				candId = i + row
 				break
 			}
 		}
 
-		if candId == 255 { // If we can't find one, the matrix isn't invertible.
-			return out, false
+		if candId == -1 { // If we can't find one, fail and return our partial work.
+			return f, aug, row, false
 		}
 
 		// Move it to the top
 		f[row], f[candId] = f[candId], f[row]
-		out[row], out[candId] = out[candId], out[row]
+		aug[row], aug[candId] = aug[candId], aug[row]
 
 		// Cancel out the (row)th position for every row above and below it.
-		for i := 0; i < a; i++ {
-			if i == row {
-				continue
-			}
-
-			if f[i].GetBit(row) == 1 {
+		for i, _ := range f {
+			if i != row && f[i].GetBit(row) == 1 {
 				f[i] = f[i].Add(f[row])
-				out[i] = out[i].Add(out[row])
+				aug[i] = aug[i].Add(aug[row])
 			}
 		}
 	}
 
-	return out, true
+	return f, aug, -1, true
+}
+
+// Invert computes the multiplicative inverse of a matrix, if it exists.
+func (e Matrix) Invert() (Matrix, bool) {
+	_, inv, _, ok := e.gaussJordan()
+	return inv, ok
 }
 
 // Transpose returns the transpose of a matrix.
@@ -241,6 +240,31 @@ func (e Matrix) Trace() (out byte) {
 	}
 
 	return
+}
+
+// Slice cuts the matrix in half, down the given column. It returns the left and right halves.
+func (e Matrix) Slice(col int) (Matrix, Matrix) {
+	a, b := e.Size()
+
+	left, right := make([]Row, a), make([]Row, a)
+
+	lSize, rSize := col/8, (b-col)/8
+	if col%8 != 0 {
+		lSize, rSize = lSize+1, rSize+1
+	}
+
+	for i, row := range e {
+		left[i], right[i] = make([]byte, lSize), make([]byte, rSize)
+
+		for j := 0; j < col; j++ {
+			left[i].SetBit(j, row.GetBit(j) == 1)
+		}
+
+		for j := col; j < b; j++ {
+			right[i].SetBit(j-col, row.GetBit(j) == 1)
+		}
+	}
+	return Matrix(left), Matrix(right)
 }
 
 // Size returns the dimensions of the matrix in (Rows, Columns) order.
@@ -272,9 +296,13 @@ func GenerateFull(n int) Matrix {
 
 // GenerateEmpty creates a matrix with all entries set to 0.
 func GenerateEmpty(n int) Matrix {
-	out := make([]Row, n)
+	out, cols := make([]Row, n), n/8
+	if n%8 != 0 {
+		cols++
+	}
+
 	for i := 0; i < n; i++ {
-		out[i] = make([]byte, n/8)
+		out[i] = make([]byte, cols)
 	}
 
 	return Matrix(out)
