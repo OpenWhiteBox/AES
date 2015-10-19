@@ -2,12 +2,22 @@
 package matrix
 
 import (
+	"bytes"
 	"io"
 )
 
 var weight [4]uint64 = [4]uint64{
 	0x6996966996696996, 0x9669699669969669,
 	0x9669699669969669, 0x6996966996696996,
+}
+
+func rowsToColumns(x int) int {
+	out := x / 8
+	if x%8 != 0 {
+		out++
+	}
+
+	return out
 }
 
 type Row []byte
@@ -89,7 +99,7 @@ func (e Matrix) Mul(f Row) Row {
 		panic("Can't multiply by row that is wrong size!")
 	}
 
-	res := Row(make([]byte, out/8))
+	res := Row(make([]byte, rowsToColumns(out)))
 	for i := 0; i < out; i++ {
 		if e[i].DotProduct(f) {
 			res.SetBit(i, true)
@@ -174,13 +184,17 @@ func (e Matrix) LeftStretch() Matrix {
 // matrix, at what column elimination failed (if ever), and whether or not the input is invertible (meaning the augment
 // matrix is the inverse).
 func (e Matrix) gaussJordan() (Matrix, Matrix, int, bool) {
-	a, _ := e.Size()
+	a, b := e.Size()
 
 	aug := GenerateIdentity(a) // The augmentation matrix for e.
 	f := make([]Row, a)        // Duplicate e away so we don't mutate it.
 	copy(f, e)
 
 	for row, _ := range f {
+		if row >= b { // The matrix is tall and thin--we've finished before exhausting all the rows.
+			break
+		}
+
 		// Find a row with a non-zero entry in the (col)th position
 		candId := -1
 		for i, f_i := range f[row:] {
@@ -216,13 +230,56 @@ func (e Matrix) Invert() (Matrix, bool) {
 	return inv, ok
 }
 
+// NullSpace returns one non-trivial element of the matrix's nullspace.
+func (e Matrix) NullSpace() Row {
+	a, b := e.Size()
+
+	zero, full := Row(make([]byte, rowsToColumns(a))), Row(make([]byte, b/8))
+	for i, _ := range full {
+		full[i] = 0xff
+	}
+
+	if bytes.Compare(e.Mul(full), zero) == 0 {
+		return full
+	}
+
+	// Apply Gauss-Jordan Elimination to the matrix to get it in a simpler form.
+	f, _, c, ok := e.gaussJordan()
+
+	if ok { // If the matrix is invertible, we can only return 0.
+		return Row(make([]byte, b/8))
+	}
+
+	// Find an element in the nullspace of the failing sub-matrix.
+	left, right := f.Slice(c + 1) // c+1 because the cth column is always all zero.
+	low, high := right[c:].NullSpace(), []byte{}
+
+	if c != 0 {
+		// Calculate the "weight" of the right side of the matrix.  If it's even/odd, we need the corresponding bit in the
+		// output vector set to 0/1 so the left side of the matrix (a square identity) cancels it out.
+		high = right[:c].Mul(low).Add(left[0:c].Transpose()[c])
+	}
+
+	// The output vector is high || 1 || low, so the upper left and right cancel each other, the bottom right is zero
+	// because we found an element in its nullspace, and the bottom left is zero because its a zero matrix.
+	out := Row(make([]byte, b/8))
+	copy(out, high)
+	out.SetBit(c, true)
+
+	for i := c + 1; i < b; i++ {
+		out.SetBit(i, low.GetBit(i-c-1) == 1)
+	}
+
+	return out
+}
+
 // Transpose returns the transpose of a matrix.
 func (e Matrix) Transpose() Matrix {
 	n, m := e.Size()
 	out := make([]Row, m)
 
 	for i, _ := range out {
-		out[i] = Row(make([]byte, n/8))
+		out[i] = Row(make([]byte, rowsToColumns(n)))
 
 		for j := 0; j < n; j++ {
 			out[i].SetBit(j, e[j].GetBit(i) == 1)
@@ -248,13 +305,8 @@ func (e Matrix) Slice(col int) (Matrix, Matrix) {
 
 	left, right := make([]Row, a), make([]Row, a)
 
-	lSize, rSize := col/8, (b-col)/8
-	if col%8 != 0 {
-		lSize, rSize = lSize+1, rSize+1
-	}
-
 	for i, row := range e {
-		left[i], right[i] = make([]byte, lSize), make([]byte, rSize)
+		left[i], right[i] = make([]byte, rowsToColumns(col)), make([]byte, rowsToColumns(b-col))
 
 		for j := 0; j < col; j++ {
 			left[i].SetBit(j, row.GetBit(j) == 1)
@@ -296,13 +348,10 @@ func GenerateFull(n int) Matrix {
 
 // GenerateEmpty creates a matrix with all entries set to 0.
 func GenerateEmpty(n int) Matrix {
-	out, cols := make([]Row, n), n/8
-	if n%8 != 0 {
-		cols++
-	}
+	out := make([]Row, n)
 
 	for i := 0; i < n; i++ {
-		out[i] = make([]byte, cols)
+		out[i] = make([]byte, rowsToColumns(n))
 	}
 
 	return Matrix(out)
@@ -310,21 +359,27 @@ func GenerateEmpty(n int) Matrix {
 
 // GenerateRandom creates a random non-singular n by n matrix.
 func GenerateRandom(reader io.Reader, n int) Matrix {
-	m := Matrix(make([]Row, n))
-
-	for i := 0; i < n; i++ { // Generate random n x n matrix.
-		row := Row(make([]byte, n/8))
-		reader.Read(row)
-
-		m[i] = row
-	}
-
+	m := GenerateTrueRandom(reader, n)
 	_, ok := m.Invert()
 
 	if ok { // Return this one or try again.
 		return m
 	} else {
 		return GenerateRandom(reader, n) // Performance bottleneck.
+	}
+
+	return m
+}
+
+// GenerateTrueRandom creates a random singular or non-singular n by n matrix.
+func GenerateTrueRandom(reader io.Reader, n int) Matrix {
+	m := Matrix(make([]Row, n))
+
+	for i := 0; i < n; i++ { // Generate random n x n matrix.
+		row := Row(make([]byte, rowsToColumns(n)))
+		reader.Read(row)
+
+		m[i] = row
 	}
 
 	return m

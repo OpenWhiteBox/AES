@@ -2,6 +2,7 @@ package matrix
 
 import (
 	"crypto/rand"
+	"fmt"
 	"testing"
 
 	"github.com/OpenWhiteBox/AES/primitives/number"
@@ -140,6 +141,17 @@ func TestLeftStretch(t *testing.T) {
 	for i := 0; i < 8; i++ {
 		if real[i][0] != cand[i] {
 			t.Fatalf("cand is not the inlining of real!\nreal = %v\ncand = %v", real, cand)
+		}
+	}
+}
+
+func TestNullSpace(t *testing.T) {
+	for i := 0; i < 100; i++ {
+		m := GenerateTrueRandom(rand.Reader, 64)
+		x := m.NullSpace()
+
+		if fmt.Sprintf("%x", m.Mul(x)) != "0000000000000000" {
+			t.Fatalf("Didn't find an actual element of the nullspace!\n x = %x\nMx = %x\n", x, m.Mul(x))
 		}
 	}
 }
