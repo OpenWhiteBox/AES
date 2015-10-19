@@ -245,6 +245,24 @@ func TestRecoverL(t *testing.T) {
 	}
 }
 
+func TestFindAtilde(t *testing.T) {
+	fastConstr := fastTestConstruction()
+
+	L := RecoverL(fastConstr, 1, 0)
+	Atilde := FindAtilde(fastConstr, L)
+
+	beta := CharToBeta[FindCharacteristic(L)]
+	D, _ := DecomposeAffineEncoding(encoding.ByteMultiplication(beta))
+
+	left, right := L.Compose(Atilde), Atilde.Compose(D)
+
+	for i, _ := range left {
+		if len(left[i]) != 1 || len(right[i]) != 1 || left[i][0] != right[i][0] {
+			t.Fatalf("L * Atilde != Atilde * D(beta)!\nL = %x\nR = %x\n", left, right)
+		}
+	}
+}
+
 func BenchmarkGenerateS(b *testing.B) {
 	constr := fastTestConstruction()
 	b.ResetTimer()

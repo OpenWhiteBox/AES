@@ -7,6 +7,14 @@ import (
 	"github.com/OpenWhiteBox/AES/primitives/table"
 )
 
+// Element Characteristic -> Elements with that characteristic.
+var CharToBeta = map[byte]byte{
+	0x74: 0xf5,
+	0xdb: 0x8d,
+	0x34: 0xf6,
+	0xef: 0x8f,
+}
+
 // A new lookup table mapping an input position to an output position with other values in the column held constant.
 type F struct {
 	Constr         chow.Construction
@@ -47,6 +55,22 @@ func (q Qtilde) Decode(i byte) byte {
 	}
 
 	return byte(0)
+}
+
+// FindAtilde calculates a non-trivial matrix Atilde s.t. L <- Atilde = Atilde <- D(beta), where
+// L = A_i <- D(beta) <- A_i^(-1)
+func FindAtilde(constr chow.Construction, L matrix.Matrix) matrix.Matrix {
+	beta := CharToBeta[FindCharacteristic(L)]
+	D, _ := DecomposeAffineEncoding(encoding.ByteMultiplication(beta))
+
+	x := L.RightStretch().Add(D.LeftStretch()).NullSpace()
+
+	m := matrix.Matrix(make([]matrix.Row, len(x)))
+	for i, e := range x {
+		m[i] = matrix.Row{e}
+	}
+
+	return m
 }
 
 // RecoverL recovers the matrix L = A_i <- D(beta) <- A_i^(-1) where A_i is the affine output mask at position i and
