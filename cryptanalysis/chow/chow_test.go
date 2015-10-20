@@ -22,7 +22,7 @@ var (
 func testConstruction() (chow.Construction, []byte) {
 	key := test_vectors.AESVectors[50].Key
 	seed := test_vectors.AESVectors[51].Key
-	constr, _, _ := chow.GenerateKeys(key, seed, chow.SameMasks(chow.IdentityMask))
+	constr, _, _ := chow.GenerateEncryptionKeys(key, seed, chow.SameMasks(chow.IdentityMask))
 
 	return constr, key
 }

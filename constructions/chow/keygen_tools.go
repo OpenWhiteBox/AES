@@ -25,6 +25,10 @@ func shiftRows(i int) int {
 	return []int{0, 13, 10, 7, 4, 1, 14, 11, 8, 5, 2, 15, 12, 9, 6, 3}[i]
 }
 
+func unshiftRows(i int) int {
+	return []int{0, 5, 10, 15, 4, 9, 14, 3, 8, 13, 2, 7, 12, 1, 6, 11}[i]
+}
+
 // generateStream takes a (private) seed and a (possibly public) label and produces an io.Reader giving random bytes,
 // useful for deterministically generating random matrices/encodings, in place of (crypto/rand).Reader.
 //
@@ -72,7 +76,7 @@ func getShuffle(seed, label []byte) encoding.Shuffle {
 }
 
 // Generate the XOR Tables for squashing the result of a Input/Output Mask.
-func blockXORTables(seed []byte, surface Surface) (out [32][15]table.Nibble) {
+func blockXORTables(seed []byte, surface Surface, shift func(int)int) (out [32][15]table.Nibble) {
 	for pos := 0; pos < 32; pos++ {
 		out[pos][0] = encoding.NibbleTable{
 			encoding.ConcatenatedByte{MaskEncoding(seed, 0, pos, surface), MaskEncoding(seed, 1, pos, surface)},
@@ -90,7 +94,7 @@ func blockXORTables(seed []byte, surface Surface) (out [32][15]table.Nibble) {
 
 		var outEnc encoding.Nibble
 		if surface == Inside {
-			outEnc = RoundEncoding(seed, -1, 2*shiftRows(pos/2)+pos%2, Outside)
+			outEnc = RoundEncoding(seed, -1, 2*shift(pos/2)+pos%2, Outside)
 		} else {
 			outEnc = encoding.IdentityByte{}
 		}
@@ -106,12 +110,12 @@ func blockXORTables(seed []byte, surface Surface) (out [32][15]table.Nibble) {
 }
 
 // Generate the XOR Tables for squashing the result of a Tyi Table or MB^(-1) Table.
-func xorTables(seed []byte, surface Surface) (out [9][32][3]table.Nibble) {
+func xorTables(seed []byte, surface Surface, shift func(int)int) (out [9][32][3]table.Nibble) {
 	var outPos func(int) int
 	if surface == Inside {
 		outPos = func(pos int) int { return pos }
 	} else {
-		outPos = func(pos int) int { return 2*shiftRows(pos/2) + pos%2 }
+		outPos = func(pos int) int { return 2*shift(pos/2) + pos%2 }
 	}
 
 	for round := 0; round < 9; round++ {

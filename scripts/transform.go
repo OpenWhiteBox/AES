@@ -178,7 +178,7 @@ func ExtractKey(cand ast.Expr) ([]byte, bool) {
 	seed := make([]byte, 16)
 	rand.Read(seed)
 
-	constr, _, _ := chow.GenerateKeys(key, seed, chow.SameMasks(chow.IdentityMask))
+	constr, _, _ := chow.GenerateEncryptionKeys(key, seed, chow.SameMasks(chow.IdentityMask))
 
 	return constr.Serialize(), true
 }

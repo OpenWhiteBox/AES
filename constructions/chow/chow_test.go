@@ -20,7 +20,7 @@ func TestShiftRows(t *testing.T) {
 	in := []byte{99, 202, 183, 4, 9, 83, 208, 81, 205, 96, 224, 231, 186, 112, 225, 140}
 	out := []byte{99, 83, 224, 140, 9, 96, 225, 4, 205, 112, 183, 81, 186, 202, 208, 231}
 
-	constr, _, _ := GenerateKeys(key, key, SameMasks(IdentityMask))
+	constr, _, _ := GenerateEncryptionKeys(key, key, SameMasks(IdentityMask))
 	constr.ShiftRows(in)
 
 	if !bytes.Equal(out, in) {
@@ -53,7 +53,7 @@ func TestUnmaskedEncrypt(t *testing.T) {
 	cand, real := make([]byte, 16), make([]byte, 16)
 
 	// Calculate the candidate output.
-	constr, _, _ := GenerateKeys(key, seed, SameMasks(IdentityMask))
+	constr, _, _ := GenerateEncryptionKeys(key, seed, SameMasks(IdentityMask))
 	constr.Encrypt(cand, input)
 
 	// Calculate the real output.
@@ -69,7 +69,7 @@ func TestMatchedEncrypt(t *testing.T) {
 	cand, real := make([]byte, 16), make([]byte, 16)
 
 	// Calculate the candidate output.
-	constr, inputMask, outputMask := GenerateKeys(key, seed, MatchingMasks{})
+	constr, inputMask, outputMask := GenerateEncryptionKeys(key, seed, MatchingMasks{})
 
 	inputInv, _ := inputMask.Invert()
 	outputInv, _ := outputMask.Invert()
@@ -94,7 +94,7 @@ func TestMatchedEncrypt(t *testing.T) {
 
 func TestEncrypt(t *testing.T) {
 	for n, vec := range test_vectors.AESVectors {
-		constr, inputMask, outputMask := GenerateKeys(vec.Key, vec.Key, IndependentMasks{RandomMask, RandomMask})
+		constr, inputMask, outputMask := GenerateEncryptionKeys(vec.Key, vec.Key, IndependentMasks{RandomMask, RandomMask})
 
 		inputInv, _ := inputMask.Invert()
 		outputInv, _ := outputMask.Invert()
@@ -113,8 +113,29 @@ func TestEncrypt(t *testing.T) {
 	}
 }
 
+func TestDecrypt(t *testing.T) {
+	for n, vec := range test_vectors.AESVectors {
+		constr, inputMask, outputMask := GenerateDecryptionKeys(vec.Key, vec.Key, IndependentMasks{RandomMask, RandomMask})
+
+		inputInv, _ := inputMask.Invert()
+		outputInv, _ := outputMask.Invert()
+
+		in, out := make([]byte, 16), make([]byte, 16)
+
+		copy(in, inputInv.Mul(matrix.Row(vec.Out))) // Apply input encoding.
+
+		constr.Decrypt(out, in)
+
+		copy(out, outputInv.Mul(matrix.Row(out))) // Remove output encoding.
+
+		if !bytes.Equal(vec.In, out) {
+			t.Fatalf("Real disagrees with result in test vector %v! %x != %x", n, vec.In, out)
+		}
+	}
+}
+
 func TestPersistence(t *testing.T) {
-	constr1, _, _ := GenerateKeys(key, seed, IndependentMasks{RandomMask, RandomMask})
+	constr1, _, _ := GenerateEncryptionKeys(key, seed, IndependentMasks{RandomMask, RandomMask})
 
 	serialized := constr1.Serialize()
 	constr2, _ := Parse(serialized)
@@ -129,16 +150,16 @@ func TestPersistence(t *testing.T) {
 	}
 }
 
-func BenchmarkGenerateKeys(b *testing.B) {
+func BenchmarkGenerateEncryptionKeys(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		constr, _, _ := GenerateKeys(key, seed, IndependentMasks{RandomMask, RandomMask})
+		constr, _, _ := GenerateEncryptionKeys(key, seed, IndependentMasks{RandomMask, RandomMask})
 		constr.Serialize()
 	}
 }
 
 // A "Live" Encryption is one based on table abstractions, so many computations are performed on-demand.
 func BenchmarkLiveEncrypt(b *testing.B) {
-	constr, _, _ := GenerateKeys(key, seed, IndependentMasks{RandomMask, RandomMask})
+	constr, _, _ := GenerateEncryptionKeys(key, seed, IndependentMasks{RandomMask, RandomMask})
 
 	out := make([]byte, 16)
 
@@ -151,7 +172,7 @@ func BenchmarkLiveEncrypt(b *testing.B) {
 
 // A "Dead" Encryption is one based on serialized tables, like we'd have in a real use case.
 func BenchmarkDeadEncrypt(b *testing.B) {
-	constr1, _, _ := GenerateKeys(key, seed, IndependentMasks{RandomMask, RandomMask})
+	constr1, _, _ := GenerateEncryptionKeys(key, seed, IndependentMasks{RandomMask, RandomMask})
 
 	serialized := constr1.Serialize()
 	constr2, _ := Parse(serialized)
@@ -166,7 +187,7 @@ func BenchmarkDeadEncrypt(b *testing.B) {
 }
 
 func BenchmarkShiftRows(b *testing.B) {
-	constr, _, _ := GenerateKeys(key, seed, SameMasks(IdentityMask))
+	constr, _, _ := GenerateEncryptionKeys(key, seed, SameMasks(IdentityMask))
 
 	b.ResetTimer()
 
@@ -176,7 +197,7 @@ func BenchmarkShiftRows(b *testing.B) {
 }
 
 func BenchmarkExpandWord(b *testing.B) {
-	constr1, _, _ := GenerateKeys(key, seed, SameMasks(IdentityMask))
+	constr1, _, _ := GenerateEncryptionKeys(key, seed, SameMasks(IdentityMask))
 
 	serialized := constr1.Serialize()
 	constr2, _ := Parse(serialized)
@@ -192,7 +213,7 @@ func BenchmarkExpandWord(b *testing.B) {
 }
 
 func BenchmarkExpandBlock(b *testing.B) {
-	constr1, _, _ := GenerateKeys(key, seed, IndependentMasks{RandomMask, RandomMask})
+	constr1, _, _ := GenerateEncryptionKeys(key, seed, IndependentMasks{RandomMask, RandomMask})
 
 	serialized := constr1.Serialize()
 	constr2, _ := Parse(serialized)
@@ -208,7 +229,7 @@ func BenchmarkExpandBlock(b *testing.B) {
 }
 
 func BenchmarkSquashWords(b *testing.B) {
-	constr1, _, _ := GenerateKeys(key, seed, SameMasks(IdentityMask))
+	constr1, _, _ := GenerateEncryptionKeys(key, seed, SameMasks(IdentityMask))
 
 	serialized := constr1.Serialize()
 	constr2, _ := Parse(serialized)
@@ -227,7 +248,7 @@ func BenchmarkSquashWords(b *testing.B) {
 }
 
 func BenchmarkSquashBlocks(b *testing.B) {
-	constr1, _, _ := GenerateKeys(key, seed, IndependentMasks{RandomMask, RandomMask})
+	constr1, _, _ := GenerateEncryptionKeys(key, seed, IndependentMasks{RandomMask, RandomMask})
 
 	serialized := constr1.Serialize()
 	constr2, _ := Parse(serialized)

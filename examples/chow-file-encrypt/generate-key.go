@@ -23,7 +23,7 @@ func main() {
 	fmt.Printf("Key: %x\n", key)
 
 	// Create a white-box version of the above key.
-	constr, _, _ := chow.GenerateKeys(key, seed, chow.SameMasks(chow.IdentityMask))
+	constr, _, _ := chow.GenerateEncryptionKeys(key, seed, chow.SameMasks(chow.IdentityMask))
 	keyData := constr.Serialize()
 
 	ioutil.WriteFile(*out, keyData, os.ModePerm)

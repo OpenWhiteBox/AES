@@ -13,7 +13,7 @@ We start by generating a white-boxed key:
 
 ```go
 opts := IndependentMasks{RandomMask, RandomMask} // Random input and output masks.
-constr, input, output := chow.GenerateKeys(key, seed, opts) // key is the AES key, seed is the seed for the RNG.
+constr, input, output := chow.GenerateEncryptionKeys(key, seed, opts) // key is the AES key, seed is the seed for the RNG.
 ```
 
 Which we can use to encrypt data just like a normal AES cipher:
@@ -32,11 +32,11 @@ There are three types of ways to combine masks with the `Encrypt` function: `Ind
 - `SameMasks(IdentityMask)` - The function is completely unmasked.
 - `MatchingMasks{}` - We choose a random mask for the input and use it's inverse as the output mask.
 
-The `constr` output of `GenerateKeys` is compatible with `cipher.Block` so it can automatically be used with any cipher
+The `constr` output of `GenerateEncryptionKeys` is compatible with `cipher.Block` so it can automatically be used with any cipher
 mode Golang supports.
 
 To mask input or recover output from a masked white-box, you multiply the input/output bit vector by the inverse of the
-`input` or `output` matrix returned by `GenerateKeys`.
+`input` or `output` matrix returned by `GenerateEncryptionKeys`.
 
 ```go
 import (

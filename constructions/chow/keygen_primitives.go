@@ -48,6 +48,16 @@ func (tbox TBox) Get(i byte) byte {
 	return tbox.Constr.SubByte(i^tbox.KeyByte1) ^ tbox.KeyByte2
 }
 
+type InvTBox struct {
+	Constr saes.Construction
+	KeyByte1 byte
+	KeyByte2 byte
+}
+
+func (tbox InvTBox) Get(i byte) byte {
+	return tbox.Constr.UnSubByte(i^tbox.KeyByte1) ^ tbox.KeyByte2
+}
+
 // A Tyi Table computes the MixColumns step.
 type TyiTable uint
 
@@ -61,6 +71,24 @@ func (tyi TyiTable) Get(i byte) (out [4]byte) {
 
 	// Merge into one output and rotate according to column.
 	res := [4]byte{a, b, b, c}
+	copy(out[:], append(res[(4-tyi):], res[0:(4-tyi)]...))
+
+	return
+}
+
+type InvTyiTable uint
+
+func (tyi InvTyiTable) Get(i byte) (out [4]byte) {
+	// Calculate dot product of i and []
+	j := number.ByteFieldElem(i)
+
+	a := byte(number.ByteFieldElem(0x0e).Mul(j))
+	b := byte(number.ByteFieldElem(0x09).Mul(j))
+	c := byte(number.ByteFieldElem(0x0d).Mul(j))
+	d := byte(number.ByteFieldElem(0x0b).Mul(j))
+
+	// Merge into one output and rotate according to column.
+	res := [4]byte{a, b, c, d}
 	copy(out[:], append(res[(4-tyi):], res[0:(4-tyi)]...))
 
 	return
@@ -133,7 +161,7 @@ func MaskEncoding(seed []byte, position, subPosition int, surface Surface) encod
 	return getShuffle(seed, label)
 }
 
-func BlockMaskEncoding(seed []byte, position int, surface Surface) encoding.Block {
+func BlockMaskEncoding(seed []byte, position int, surface Surface, shift func(int)int) encoding.Block {
 	out := encoding.ConcatenatedBlock{}
 
 	for i := 0; i < 16; i++ {
@@ -143,7 +171,7 @@ func BlockMaskEncoding(seed []byte, position int, surface Surface) encoding.Bloc
 		}
 
 		if surface == Inside {
-			out[i] = encoding.ComposedBytes{encoding.ByteLinear(MixingBijection(seed, 8, -1, shiftRows(i))), out[i]}
+			out[i] = encoding.ComposedBytes{encoding.ByteLinear(MixingBijection(seed, 8, -1, shift(i))), out[i]}
 		}
 	}
 

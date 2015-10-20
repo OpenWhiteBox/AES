@@ -21,6 +21,14 @@ type Construction struct {
 func (constr Construction) BlockSize() int { return 16 }
 
 func (constr Construction) Encrypt(dst, src []byte) {
+	constr.crypt(dst, src, constr.ShiftRows)
+}
+
+func (constr Construction) Decrypt(dst, src []byte) {
+	constr.crypt(dst, src, constr.UnShiftRows)
+}
+
+func (constr Construction) crypt(dst, src []byte, shift func([]byte)) {
 	copy(dst, src)
 
 	// Remove input encoding.
@@ -28,7 +36,7 @@ func (constr Construction) Encrypt(dst, src []byte) {
 	constr.SquashBlocks(constr.InputXORTable, stretched, dst)
 
 	for round := 0; round < 9; round++ {
-		constr.ShiftRows(dst)
+		shift(dst)
 
 		// Apply the T-Boxes and Tyi Tables to each column of the state matrix.
 		for pos := 0; pos < 16; pos += 4 {
@@ -40,21 +48,24 @@ func (constr Construction) Encrypt(dst, src []byte) {
 		}
 	}
 
-	constr.ShiftRows(dst)
+	shift(dst)
 
 	// Apply the final T-Box transformation and add the output encoding.
 	stretched = constr.ExpandBlock(constr.TBoxOutputMask, dst)
 	constr.SquashBlocks(constr.OutputXORTable, stretched, dst)
 }
 
-func (constr Construction) Decrypt(dst, src []byte) {
-	panic("White-Box decryption isn't allowed!")
-}
-
 func (constr *Construction) ShiftRows(block []byte) {
 	copy(block, []byte{
 		block[0], block[5], block[10], block[15], block[4], block[9], block[14], block[3], block[8], block[13], block[2],
 		block[7], block[12], block[1], block[6], block[11],
+	})
+}
+
+func (constr *Construction) UnShiftRows(block []byte) {
+	copy(block, []byte{
+		block[0], block[13], block[10], block[7], block[4], block[1], block[14], block[11], block[8], block[5], block[2],
+		block[15], block[12], block[9], block[6], block[3],
 	})
 }
 
