@@ -22,6 +22,17 @@ Which we can use to encrypt data just like a normal AES cipher:
 constr.Encrypt(dst, src)
 ```
 
+AES white-boxes are asymmetric, meaning you have to choose whether to generate encryption or decryption keys because
+encryption keys can't be used for decryption and vice versa.  Above, we showed encryption; decryption is similar:
+
+```go
+opts := IndependentMasks{RandomMask, RandomMask}
+constr, input, output := chow.GenerateDecryptionKeys(key, seed, opts)
+..
+
+constr.Decrypt(dst, src)
+```
+
 There are two types of mask: `RandomMask` and `IdentityMask`. `RandomMask` is a random linear bijection, `IdentityMask`
 is the identity bijection.
 
@@ -32,8 +43,8 @@ There are three types of ways to combine masks with the `Encrypt` function: `Ind
 - `SameMasks(IdentityMask)` - The function is completely unmasked.
 - `MatchingMasks{}` - We choose a random mask for the input and use it's inverse as the output mask.
 
-The `constr` output of `GenerateEncryptionKeys` is compatible with `cipher.Block` so it can automatically be used with any cipher
-mode Golang supports.
+The `constr` output of `GenerateEncryptionKeys` is compatible with `cipher.Block` so it can automatically be used with
+any cipher mode Golang supports.
 
 To mask input or recover output from a masked white-box, you multiply the input/output bit vector by the inverse of the
 `input` or `output` matrix returned by `GenerateEncryptionKeys`.
