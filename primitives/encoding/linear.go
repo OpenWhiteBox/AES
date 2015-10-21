@@ -19,12 +19,12 @@ func (bl ByteLinear) Decode(i byte) byte {
 }
 
 type ByteAffine struct {
-	Linear ByteLinear
-	Affine byte
+	Linear   ByteLinear
+	Constant byte
 }
 
-func (ba ByteAffine) Encode(i byte) byte { return ba.Linear.Encode(i) ^ ba.Affine }
-func (ba ByteAffine) Decode(i byte) byte { return ba.Linear.Decode(i ^ ba.Affine) }
+func (ba ByteAffine) Encode(i byte) byte { return ba.Linear.Encode(i) ^ ba.Constant }
+func (ba ByteAffine) Decode(i byte) byte { return ba.Linear.Decode(i ^ ba.Constant) }
 
 type WordLinear matrix.Matrix
 

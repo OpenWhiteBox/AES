@@ -109,7 +109,7 @@ func RecoverEncodings(constr chow.Construction, round, pos int) (encoding.ByteAf
 
 		Ps = append(Ps, in)
 		Qs = append(Qs, matrix.Matrix(out.Linear))
-		q ^= out.Affine
+		q ^= out.Constant
 
 		if i == 0 {
 			q ^= f.Get(0x00)

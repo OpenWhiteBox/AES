@@ -158,8 +158,8 @@ func TestDecomposeAffineEncoding(t *testing.T) {
 		}
 	}
 
-	if ae.Affine != c {
-		t.Fatalf("The affine part is wrong! %v != %v", ae.Affine, c)
+	if ae.Constant != c {
+		t.Fatalf("The affine part is wrong! %v != %v", ae.Constant, c)
 	}
 }
 
@@ -282,7 +282,7 @@ func TestRecoverEncodings(t *testing.T) {
 	// Manually recover the output encoding.
 	Q, Ps := RecoverEncodings(fastConstr, 1, 0)
 
-	if fmt.Sprintf("%x %v", outAff.Linear, outAff.Affine) != fmt.Sprintf("%x %v", Q.Linear, Q.Affine) {
+	if fmt.Sprintf("%x %v", outAff.Linear, outAff.Constant) != fmt.Sprintf("%x %v", Q.Linear, Q.Constant) {
 		t.Fatalf("RecoverEncodings recovered the wrong output encoding!")
 	}
 
