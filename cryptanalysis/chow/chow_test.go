@@ -1,6 +1,7 @@
 package chow
 
 import (
+	"bytes"
 	"crypto/rand"
 	"fmt"
 	"testing"
@@ -274,8 +275,8 @@ func TestRecoverEncodings(t *testing.T) {
 	fastConstr := fastTestConstruction()
 
 	baseConstr := saes.Construction{key}
-
 	roundKeys := baseConstr.StretchedKey()
+
 	outAff := getOutputAffineEncoding(constr, fastConstr, 1, 0)
 
 	// Manually recover the output encoding.
@@ -298,6 +299,30 @@ func TestRecoverEncodings(t *testing.T) {
 		if roundKeys[1][unshiftRows(pos)] != b {
 			t.Fatalf("Constant part of encoding was not key byte!")
 		}
+	}
+}
+
+func TestBackOneRound(t *testing.T) {
+	_, key := testConstruction()
+	baseConstr := saes.Construction{key}
+	roundKeys := baseConstr.StretchedKey()
+
+	for round := 1; round < 11; round++ {
+		a, b := roundKeys[round-1], BackOneRound(roundKeys[round], round)
+		if bytes.Compare(a, b) != 0 {
+			t.Fatalf("Failed to move back one round on round %v!\nReal: %x\nCand: %x\n", round, a, b)
+		}
+	}
+}
+
+func TestRecoverKey(t *testing.T) {
+	_, key := testConstruction()
+	fastConstr := fastTestConstruction()
+
+	cand := RecoverKey(fastConstr)
+
+	if bytes.Compare(key, cand) != 0 {
+		t.Fatalf("Recovered key was wrong!\nReal: %x\nCand: %x\n", key, cand)
 	}
 }
 

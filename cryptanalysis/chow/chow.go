@@ -59,12 +59,44 @@ func (q Qtilde) Decode(i byte) byte {
 	return byte(0)
 }
 
+// RecoverKey returns the AES key used to generate the given white-box construction.
+func RecoverKey(constr chow.Construction) []byte {
+	temp := make([]encoding.Byte, 16)
+
+	// Recover all output affine encodings for round 1.
+	for pos := 0; pos < 16; pos++ {
+		temp[pos], _ = RecoverEncodings(constr, 1, pos)
+	}
+
+	// Recover all input affine encodings up to a key byte for round 2.
+	// Compose it with the above's output.
+	for col := 0; col < 4; col++ {
+		_, in := RecoverEncodings(constr, 2, 4*col)
+
+		for row := 0; row < 4; row++ {
+			backPos := unshiftRows(4*col + row)
+			temp[backPos] = encoding.ComposedBytes{temp[backPos], in[row]}
+		}
+	}
+
+	// Recover round key for round 2.
+	// The output encoding of round 1 composed with the approximate input encoding of round 2 should be an affine
+	// transformation with the identity matrix as the linear part and a key byte as the constant part.
+	roundKey := make([]byte, 16)
+	for pos := 0; pos < 16; pos++ {
+		roundKey[pos] = temp[pos].Encode(0)
+	}
+
+	// Recover the master key from the round key and return.
+	return BackOneRound(BackOneRound(roundKey, 2), 1)
+}
+
 // RecoverEncodings returns the full affine output encoding of affine-encoded f at the given position, as well as the
 // input affine encodings for all neighboring bytes up to a key byte.  Returns (out, []in)
 func RecoverEncodings(constr chow.Construction, round, pos int) (encoding.ByteAffine, []encoding.ByteAffine) {
 	Ps, Qs, q := []encoding.ByteAffine{}, []matrix.Matrix{}, byte(0x00)
 
-	L := RecoverL(constr, 1, pos)
+	L := RecoverL(constr, round, pos)
 	Atilde := FindAtilde(constr, L)
 
 	for i := 0; i < 4; i++ {
@@ -147,30 +179,28 @@ func FindAtilde(constr chow.Construction, L matrix.Matrix) matrix.Matrix {
 func RecoverL(constr chow.Construction, round, pos int) matrix.Matrix {
 	inPos, outPos := pos/4*4, pos/4*4+(pos+1)%4
 
-	_, f00 := RecoverAffineEncoded(constr, encoding.IdentityByte{}, round, inPos+0, pos)
-	_, f01 := RecoverAffineEncoded(constr, encoding.IdentityByte{}, round, inPos+0, outPos)
-	_, f10 := RecoverAffineEncoded(constr, encoding.IdentityByte{}, round, inPos+1, pos)
-	_, f11 := RecoverAffineEncoded(constr, encoding.IdentityByte{}, round, inPos+1, outPos)
+	A := RecoverAffineRel(constr, round, inPos+0, outPos, pos)
+	B := RecoverAffineRel(constr, round, inPos+1, pos, outPos)
 
-	LEnc := encoding.ComposedBytes{
-		TableAsEncoding{table.Invert(f01), f01},
-		TableAsEncoding{f00, table.Invert(f00)},
-		TableAsEncoding{table.Invert(f10), f10},
-		TableAsEncoding{f11, table.Invert(f11)},
-	}
-
+	LEnc := encoding.ComposedBytes{A, B}
 	L, _ := DecomposeAffineEncoding(LEnc)
 
 	return L
 }
 
-// MakeAffineRound reduces the output encodings of a round to affine transformations.
-func MakeAffineRound(constr chow.Construction, inputEnc [16]encoding.Byte, round int) (outEnc [16]encoding.Byte, out [16]table.Byte) {
-	for i, _ := range out {
-		outEnc[shiftRows(i)], out[shiftRows(i)] = RecoverAffineEncoded(constr, inputEnc[i/4*4], round, i/4*4, i)
+// RecoverAffineRel returns the affine relationship that maps y_i to y_j (instances of F with affine output encodings),
+// both taking input in the (inPos)th position and outputting in the (outPos1)th and (outPos2)th position, respectively.
+func RecoverAffineRel(constr chow.Construction, round, inPos, outPos1, outPos2 int) encoding.ByteAffine {
+	_, y_i := RecoverAffineEncoded(constr, encoding.IdentityByte{}, round, inPos, outPos1)
+	_, y_j := RecoverAffineEncoded(constr, encoding.IdentityByte{}, round, inPos, outPos2)
+
+	RelEnc := encoding.ComposedBytes{
+		TableAsEncoding{table.Invert(y_i), nil},
+		TableAsEncoding{y_j, nil},
 	}
 
-	return
+	L, c := DecomposeAffineEncoding(RelEnc)
+	return encoding.ByteAffine{encoding.ByteLinear(L), c}
 }
 
 // RecoverAffineEncoded reduces the output encodings of a function to affine transformations.

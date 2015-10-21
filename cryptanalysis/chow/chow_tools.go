@@ -6,6 +6,8 @@ import (
 	"github.com/OpenWhiteBox/AES/primitives/encoding"
 	"github.com/OpenWhiteBox/AES/primitives/matrix"
 	"github.com/OpenWhiteBox/AES/primitives/table"
+
+	"github.com/OpenWhiteBox/AES/constructions/saes"
 )
 
 type TableAsEncoding struct {
@@ -14,6 +16,28 @@ type TableAsEncoding struct {
 
 func (tae TableAsEncoding) Encode(i byte) byte { return tae.Forwards.Get(i) }
 func (tae TableAsEncoding) Decode(i byte) byte { return tae.Backwards.Get(i) }
+
+var powx = [16]byte{0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36, 0x6c, 0xd8, 0xab, 0x4d, 0x9a, 0x2f}
+
+// BackOneRound takes round key i and returns round key i-1.
+func BackOneRound(roundKey []byte, round int) (out []byte) {
+	out = make([]byte, 16)
+	constr := saes.Construction{}
+
+	// Recover everything except the first word by XORing consecutive blocks.
+	for pos := 4; pos < 16; pos++ {
+		out[pos] = roundKey[pos] ^ roundKey[pos-4]
+	}
+
+	// Recover the first word by XORing the first block of the roundKey with f(last block of roundKey), where f is a
+	// subroutine of AES' key scheduling algorithm.
+	for pos := 0; pos < 4; pos++ {
+		out[pos] = roundKey[pos] ^ constr.SubByte(out[12+(pos+1)%4])
+	}
+	out[0] ^= powx[round-1]
+
+	return
+}
 
 // FunctionFromBasis produces the element of S according a basis and a specified combination of its elements.  It is an
 // isomorphism from (0..2^8-1, xor) -> (S, compose).
