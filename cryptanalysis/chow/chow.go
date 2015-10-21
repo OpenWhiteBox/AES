@@ -1,10 +1,12 @@
 package chow
 
 import (
-	"github.com/OpenWhiteBox/AES/constructions/chow"
 	"github.com/OpenWhiteBox/AES/primitives/encoding"
 	"github.com/OpenWhiteBox/AES/primitives/matrix"
 	"github.com/OpenWhiteBox/AES/primitives/table"
+
+	"github.com/OpenWhiteBox/AES/constructions/chow"
+	"github.com/OpenWhiteBox/AES/constructions/saes"
 )
 
 // Element Characteristic -> Elements with that characteristic.
@@ -55,6 +57,73 @@ func (q Qtilde) Decode(i byte) byte {
 	}
 
 	return byte(0)
+}
+
+// RecoverEncodings returns the full affine output encoding of affine-encoded f at the given position, as well as the
+// input affine encodings for all neighboring bytes up to a key byte.  Returns (out, []in)
+func RecoverEncodings(constr chow.Construction, round, pos int) (encoding.ByteAffine, []encoding.ByteAffine) {
+	Ps, Qs, q := []encoding.ByteAffine{}, []matrix.Matrix{}, byte(0x00)
+
+	L := RecoverL(constr, 1, pos)
+	Atilde := FindAtilde(constr, L)
+
+	for i := 0; i < 4; i++ {
+		j := pos/4*4 + i
+
+		inEnc, _ := RecoverAffineEncoded(constr, encoding.IdentityByte{}, round-1, unshiftRows(j), unshiftRows(j))
+		_, f := RecoverAffineEncoded(constr, inEnc, round, j, pos)
+
+		out, in := FindPartialEncoding(constr, f, L, Atilde)
+
+		Ps = append(Ps, in)
+		Qs = append(Qs, matrix.Matrix(out.Linear))
+		q ^= out.Affine
+
+		if i == 0 {
+			q ^= f.Get(0x00)
+		}
+	}
+
+	DInv, _ := FindDuplicate(Qs).Invert()
+	Q := Atilde.Compose(DInv)
+
+	return encoding.ByteAffine{encoding.ByteLinear(Q), q}, Ps
+}
+
+// FindPartialEncoding takes an affine encoded F and finds the values that strip its output encoding.  It returns the
+// parameters it finds and the input encoding of f up to a key byte.
+func FindPartialEncoding(constr chow.Construction, f table.Byte, L, Atilde matrix.Matrix) (encoding.ByteAffine, encoding.ByteAffine) {
+	fInv := table.Invert(f)
+	id := encoding.ByteLinear(matrix.GenerateIdentity(8))
+	AtildeInv, _ := Atilde.Invert()
+
+	SInv := table.InvertibleTable(chow.InvTBox{saes.Construction{}, 0x00, 0x00})
+	S := table.Invert(SInv)
+
+	// Brute force the constant part of the output encoding and the beta in Atilde = A_i <- D(beta)
+	for c := 0; c < 256; c++ {
+		for d := 1; d < 256; d++ {
+			cand := encoding.ComposedBytes{
+				TableAsEncoding{f, fInv},
+				encoding.ByteAffine{id, byte(c)},
+				encoding.ByteLinear(AtildeInv),
+				encoding.ByteMultiplication(byte(d)), // D below
+				TableAsEncoding{SInv, S},
+			}
+
+			if isAffine(cand) {
+				a, b := DecomposeAffineEncoding(cand)
+				D, _ := DecomposeAffineEncoding(cand[3])
+
+				out := encoding.ByteAffine{encoding.ByteLinear(D), byte(c)}
+				in := encoding.ByteAffine{encoding.ByteLinear(a), byte(b)}
+
+				return out, in
+			}
+		}
+	}
+
+	panic("Failed to strip output encodings!")
 }
 
 // FindAtilde calculates a non-trivial matrix Atilde s.t. L <- Atilde = Atilde <- D(beta), where

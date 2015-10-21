@@ -1,6 +1,8 @@
 package chow
 
 import (
+	"fmt"
+
 	"github.com/OpenWhiteBox/AES/primitives/encoding"
 	"github.com/OpenWhiteBox/AES/primitives/matrix"
 	"github.com/OpenWhiteBox/AES/primitives/table"
@@ -52,6 +54,21 @@ func DecomposeAffineEncoding(e encoding.Byte) (matrix.Matrix, byte) {
 	return m, c
 }
 
+// isAffine returns true if the given encoding is affine and false if not.
+func isAffine(aff encoding.Byte) bool {
+	m, c := DecomposeAffineEncoding(aff)
+	test := encoding.ByteAffine{encoding.ByteLinear(m), c}
+
+	for i := 0; i < 256; i++ {
+		a, b := aff.Encode(byte(i)), test.Encode(byte(i))
+		if a != b {
+			return false
+		}
+	}
+
+	return true
+}
+
 // FindCharacteristic finds the characteristic number of a matrix.  This number is invariant to matrix similarity.
 func FindCharacteristic(A matrix.Matrix) (a byte) {
 	AkEnc := encoding.ComposedBytes{}
@@ -65,7 +82,25 @@ func FindCharacteristic(A matrix.Matrix) (a byte) {
 	return
 }
 
+// FindDuplicate returns the first duplicate matrix it finds in a set of matrices.
+func FindDuplicate(ms []matrix.Matrix) matrix.Matrix {
+	// Forall pairs of matrices without repetition
+	for i, m := range ms {
+		for _, n := range ms[i+1:] {
+			if fmt.Sprintf("%x", m) == fmt.Sprintf("%x", n) {
+				return m
+			}
+		}
+	}
+
+	return nil
+}
+
 // Index in, index out.  Example: shiftRows(5) = 1 because ShiftRows(block) returns [16]byte{block[0], block[5], ...
 func shiftRows(i int) int {
 	return []int{0, 13, 10, 7, 4, 1, 14, 11, 8, 5, 2, 15, 12, 9, 6, 3}[i]
+}
+
+func unshiftRows(i int) int {
+	return []int{0, 5, 10, 15, 4, 9, 14, 3, 8, 13, 2, 7, 12, 1, 6, 11}[i]
 }

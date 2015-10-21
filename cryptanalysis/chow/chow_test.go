@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/OpenWhiteBox/AES/constructions/chow"
 	"github.com/OpenWhiteBox/AES/primitives/encoding"
 	"github.com/OpenWhiteBox/AES/primitives/matrix"
 	"github.com/OpenWhiteBox/AES/primitives/number"
 	"github.com/OpenWhiteBox/AES/primitives/table"
+
+	"github.com/OpenWhiteBox/AES/constructions/chow"
+	"github.com/OpenWhiteBox/AES/constructions/saes"
 
 	test_vectors "github.com/OpenWhiteBox/AES/constructions/test"
 )
@@ -55,6 +57,15 @@ func exposeRound(constr chow.Construction, round, inPos, outPos int) (encoding.B
 	})
 
 	return in, out, R
+}
+
+func getOutputAffineEncoding(constr chow.Construction, fastConstr chow.Construction, round, pos int) encoding.ByteAffine {
+	_, out, _ := exposeRound(constr, round, pos, pos)
+	outEncTilde, _ := RecoverAffineEncoded(fastConstr, encoding.IdentityByte{}, round, pos, pos)
+	outAff := encoding.ComposedBytes{out, encoding.InverseByte{outEncTilde}}
+	A, b := DecomposeAffineEncoding(outAff)
+
+	return encoding.ByteAffine{encoding.ByteLinear(A), b}
 }
 
 func verifyIsAffine(t *testing.T, aff encoding.Byte, err string) {
@@ -214,12 +225,7 @@ func TestRecoverL(t *testing.T) {
 	for i := 0; i < 16; i++ {
 		L := RecoverL(fastConstr, 1, i)
 
-		// Expected affine output encoding of position 0 in round 1.
-		_, out, _ := exposeRound(constr, 1, i, i)
-		outEncTilde, _ := RecoverAffineEncoded(fastConstr, encoding.IdentityByte{}, 1, i, i)
-		outAff := encoding.ComposedBytes{out, encoding.InverseByte{outEncTilde}}
-
-		verifyIsAffine(t, outAff, "outAff %v %v %v")
+		outAff := getOutputAffineEncoding(constr, fastConstr, 1, i)
 
 		// L is supposed to equal A_i <- D(beta) <- A_i^(-1)
 		// We strip the conjugation by A_i and check that D(beta) is multiplication by an element of GF(2^8).
@@ -259,6 +265,38 @@ func TestFindAtilde(t *testing.T) {
 	for i, _ := range left {
 		if len(left[i]) != 1 || len(right[i]) != 1 || left[i][0] != right[i][0] {
 			t.Fatalf("L * Atilde != Atilde * D(beta)!\nL = %x\nR = %x\n", left, right)
+		}
+	}
+}
+
+func TestRecoverEncodings(t *testing.T) {
+	constr, key := testConstruction()
+	fastConstr := fastTestConstruction()
+
+	baseConstr := saes.Construction{key}
+
+	roundKeys := baseConstr.StretchedKey()
+	outAff := getOutputAffineEncoding(constr, fastConstr, 1, 0)
+
+	// Manually recover the output encoding.
+	Q, Ps := RecoverEncodings(fastConstr, 1, 0)
+
+	if fmt.Sprintf("%x %v", outAff.Linear, outAff.Affine) != fmt.Sprintf("%x %v", Q.Linear, Q.Affine) {
+		t.Fatalf("RecoverEncodings recovered the wrong output encoding!")
+	}
+
+	// Verify that all Ps composed with their corresponding output encoding equals XOR by a key byte.
+	id := matrix.GenerateIdentity(8)
+	for pos, P := range Ps {
+		outAff := getOutputAffineEncoding(constr, fastConstr, 0, unshiftRows(pos))
+		A, b := DecomposeAffineEncoding(encoding.ComposedBytes{outAff, P})
+
+		if fmt.Sprintf("%x", id) != fmt.Sprintf("%x", A) {
+			t.Fatalf("Linear part of encoding was not identity!")
+		}
+
+		if roundKeys[1][unshiftRows(pos)] != b {
+			t.Fatalf("Constant part of encoding was not key byte!")
 		}
 	}
 }
