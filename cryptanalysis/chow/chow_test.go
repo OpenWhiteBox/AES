@@ -22,15 +22,15 @@ var (
 	cached   chow.Construction
 )
 
-func testConstruction() (chow.Construction, []byte) {
+func testConstruction() (*chow.Construction, []byte) {
 	key := test_vectors.AESVectors[50].Key
 	seed := test_vectors.AESVectors[51].Key
 	constr, _, _ := chow.GenerateEncryptionKeys(key, seed, chow.SameMasks(chow.IdentityMask))
 
-	return constr, key
+	return &constr, key
 }
 
-func fastTestConstruction() chow.Construction {
+func fastTestConstruction() *chow.Construction {
 	if !isCached {
 		constr1, _ := testConstruction()
 		serialized := constr1.Serialize()
@@ -39,10 +39,10 @@ func fastTestConstruction() chow.Construction {
 		isCached = true
 	}
 
-	return cached
+	return &cached
 }
 
-func exposeRound(constr chow.Construction, round, inPos, outPos int) (encoding.Byte, encoding.Byte, table.InvertibleTable) {
+func exposeRound(constr *chow.Construction, round, inPos, outPos int) (encoding.Byte, encoding.Byte, table.InvertibleTable) {
 	// Actual input and output encoding for round 1 in position i.
 	in := constr.TBoxTyiTable[round][inPos].(encoding.WordTable).In
 	out := constr.TBoxTyiTable[round+1][shiftRows(outPos)].(encoding.WordTable).In
@@ -60,7 +60,7 @@ func exposeRound(constr chow.Construction, round, inPos, outPos int) (encoding.B
 	return in, out, R
 }
 
-func getOutputAffineEncoding(constr chow.Construction, fastConstr chow.Construction, round, pos int) encoding.ByteAffine {
+func getOutputAffineEncoding(constr, fastConstr *chow.Construction, round, pos int) encoding.ByteAffine {
 	_, out, _ := exposeRound(constr, round, pos, pos)
 	outEncTilde, _ := RecoverAffineEncoded(fastConstr, encoding.IdentityByte{}, round, pos, pos)
 	outAff := encoding.ComposedBytes{out, encoding.InverseByte{outEncTilde}}
@@ -345,7 +345,7 @@ func BenchmarkQtilde(b *testing.B) {
 	}
 }
 
-func BenchmarkDecoposeAffineEncoding(b *testing.B) {
+func BenchmarkDecomposeAffineEncoding(b *testing.B) {
 	aff := encoding.ByteAffine{
 		encoding.ByteLinear(matrix.GenerateRandom(rand.Reader, 8)),
 		0x60,
@@ -363,5 +363,49 @@ func BenchmarkFindCharacteristic(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		FindCharacteristic(M)
+	}
+}
+
+func BenchmarkRecoverL(b *testing.B) {
+	constr := fastTestConstruction()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		RecoverL(constr, 1, 0)
+	}
+}
+
+func BenchmarkFindAtilde(b *testing.B) {
+	constr := fastTestConstruction()
+	L := RecoverL(constr, 1, 0)
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		FindAtilde(constr, L)
+	}
+}
+
+func BenchmarkRecoverAffineEncoded(b *testing.B) {
+	constr := fastTestConstruction()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		RecoverAffineEncoded(constr, encoding.IdentityByte{}, 0, 0, 0)
+	}
+}
+
+func BenchmarkFindPartialEncoding(b *testing.B) {
+	constr := fastTestConstruction()
+	L := RecoverL(constr, 1, 0)
+	Atilde := FindAtilde(constr, L)
+	AtildeInv, _ := Atilde.Invert()
+
+	inEnc, _ := RecoverAffineEncoded(constr, encoding.IdentityByte{}, 0, 0, 0)
+	_, f := RecoverAffineEncoded(constr, inEnc, 1, 0, 0)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		FindPartialEncoding(constr, f, L, AtildeInv)
 	}
 }

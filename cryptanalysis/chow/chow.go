@@ -3,6 +3,7 @@ package chow
 import (
 	"github.com/OpenWhiteBox/AES/primitives/encoding"
 	"github.com/OpenWhiteBox/AES/primitives/matrix"
+	"github.com/OpenWhiteBox/AES/primitives/number"
 	"github.com/OpenWhiteBox/AES/primitives/table"
 
 	"github.com/OpenWhiteBox/AES/constructions/chow"
@@ -19,7 +20,7 @@ var CharToBeta = map[byte]byte{
 
 // A new lookup table mapping an input position to an output position with other values in the column held constant.
 type F struct {
-	Constr         chow.Construction
+	Constr         *chow.Construction
 	Round, In, Out int
 	Base           byte
 }
@@ -60,7 +61,7 @@ func (q Qtilde) Decode(i byte) byte {
 }
 
 // RecoverKey returns the AES key used to generate the given white-box construction.
-func RecoverKey(constr chow.Construction) []byte {
+func RecoverKey(constr *chow.Construction) []byte {
 	temp := make([]encoding.Byte, 16)
 
 	// Recover all output affine encodings for round 1.
@@ -93,11 +94,14 @@ func RecoverKey(constr chow.Construction) []byte {
 
 // RecoverEncodings returns the full affine output encoding of affine-encoded f at the given position, as well as the
 // input affine encodings for all neighboring bytes up to a key byte.  Returns (out, []in)
-func RecoverEncodings(constr chow.Construction, round, pos int) (encoding.ByteAffine, []encoding.ByteAffine) {
-	Ps, Qs, q := []encoding.ByteAffine{}, []matrix.Matrix{}, byte(0x00)
+func RecoverEncodings(constr *chow.Construction, round, pos int) (encoding.ByteAffine, []encoding.ByteAffine) {
+	Ps := make([]encoding.ByteAffine, 4)  // Approximate input encodings.
+	Ds := make([]number.ByteFieldElem, 4) // Array of gamma * MC coefficient
+	q := byte(0x00)                       // The constant part of the output encoding.
 
 	L := RecoverL(constr, round, pos)
 	Atilde := FindAtilde(constr, L)
+	AtildeInv, _ := Atilde.Invert()
 
 	for i := 0; i < 4; i++ {
 		j := pos/4*4 + i
@@ -105,29 +109,26 @@ func RecoverEncodings(constr chow.Construction, round, pos int) (encoding.ByteAf
 		inEnc, _ := RecoverAffineEncoded(constr, encoding.IdentityByte{}, round-1, unshiftRows(j), unshiftRows(j))
 		_, f := RecoverAffineEncoded(constr, inEnc, round, j, pos)
 
-		out, in := FindPartialEncoding(constr, f, L, Atilde)
-
-		Ps = append(Ps, in)
-		Qs = append(Qs, matrix.Matrix(out.Linear))
-		q ^= out.Constant
+		var c byte
+		Ds[i], c, Ps[i] = FindPartialEncoding(constr, f, L, AtildeInv)
+		q ^= c
 
 		if i == 0 {
 			q ^= f.Get(0x00)
 		}
 	}
 
-	DInv, _ := FindDuplicate(Qs).Invert()
-	Q := Atilde.Compose(DInv)
+	DInv, _ := DecomposeAffineEncoding(encoding.ByteMultiplication(FindDuplicate(Ds).Invert()))
+	A := Atilde.Compose(DInv)
 
-	return encoding.ByteAffine{encoding.ByteLinear(Q), q}, Ps
+	return encoding.ByteAffine{encoding.ByteLinear(A), q}, Ps
 }
 
 // FindPartialEncoding takes an affine encoded F and finds the values that strip its output encoding.  It returns the
 // parameters it finds and the input encoding of f up to a key byte.
-func FindPartialEncoding(constr chow.Construction, f table.Byte, L, Atilde matrix.Matrix) (encoding.ByteAffine, encoding.ByteAffine) {
+func FindPartialEncoding(constr *chow.Construction, f table.Byte, L, AtildeInv matrix.Matrix) (number.ByteFieldElem, byte, encoding.ByteAffine) {
 	fInv := table.Invert(f)
 	id := encoding.ByteLinear(matrix.GenerateIdentity(8))
-	AtildeInv, _ := Atilde.Invert()
 
 	SInv := table.InvertibleTable(chow.InvTBox{saes.Construction{}, 0x00, 0x00})
 	S := table.Invert(SInv)
@@ -145,12 +146,7 @@ func FindPartialEncoding(constr chow.Construction, f table.Byte, L, Atilde matri
 
 			if isAffine(cand) {
 				a, b := DecomposeAffineEncoding(cand)
-				D, _ := DecomposeAffineEncoding(cand[3])
-
-				out := encoding.ByteAffine{encoding.ByteLinear(D), byte(c)}
-				in := encoding.ByteAffine{encoding.ByteLinear(a), byte(b)}
-
-				return out, in
+				return number.ByteFieldElem(d), byte(c), encoding.ByteAffine{encoding.ByteLinear(a), byte(b)}
 			}
 		}
 	}
@@ -160,7 +156,7 @@ func FindPartialEncoding(constr chow.Construction, f table.Byte, L, Atilde matri
 
 // FindAtilde calculates a non-trivial matrix Atilde s.t. L <- Atilde = Atilde <- D(beta), where
 // L = A_i <- D(beta) <- A_i^(-1)
-func FindAtilde(constr chow.Construction, L matrix.Matrix) matrix.Matrix {
+func FindAtilde(constr *chow.Construction, L matrix.Matrix) matrix.Matrix {
 	beta := CharToBeta[FindCharacteristic(L)]
 	D, _ := DecomposeAffineEncoding(encoding.ByteMultiplication(beta))
 
@@ -176,7 +172,7 @@ func FindAtilde(constr chow.Construction, L matrix.Matrix) matrix.Matrix {
 
 // RecoverL recovers the matrix L = A_i <- D(beta) <- A_i^(-1) where A_i is the affine output mask at position i and
 // D(beta) is the matrix of multiplication by beta in GF(2^8).
-func RecoverL(constr chow.Construction, round, pos int) matrix.Matrix {
+func RecoverL(constr *chow.Construction, round, pos int) matrix.Matrix {
 	inPos, outPos := pos/4*4, pos/4*4+(pos+1)%4
 
 	A := RecoverAffineRel(constr, round, inPos+0, outPos, pos)
@@ -190,7 +186,7 @@ func RecoverL(constr chow.Construction, round, pos int) matrix.Matrix {
 
 // RecoverAffineRel returns the affine relationship that maps y_i to y_j (instances of F with affine output encodings),
 // both taking input in the (inPos)th position and outputting in the (outPos1)th and (outPos2)th position, respectively.
-func RecoverAffineRel(constr chow.Construction, round, inPos, outPos1, outPos2 int) encoding.ByteAffine {
+func RecoverAffineRel(constr *chow.Construction, round, inPos, outPos1, outPos2 int) encoding.ByteAffine {
 	_, y_i := RecoverAffineEncoded(constr, encoding.IdentityByte{}, round, inPos, outPos1)
 	_, y_j := RecoverAffineEncoded(constr, encoding.IdentityByte{}, round, inPos, outPos2)
 
@@ -204,7 +200,7 @@ func RecoverAffineRel(constr chow.Construction, round, inPos, outPos1, outPos2 i
 }
 
 // RecoverAffineEncoded reduces the output encodings of a function to affine transformations.
-func RecoverAffineEncoded(constr chow.Construction, inputEnc encoding.Byte, round, inPos, outPos int) (encoding.Byte, table.InvertibleTable) {
+func RecoverAffineEncoded(constr *chow.Construction, inputEnc encoding.Byte, round, inPos, outPos int) (encoding.Byte, table.InvertibleTable) {
 	S := GenerateS(constr, round, inPos/4*4, outPos)
 	_ = FindBasisAndSort(S)
 
@@ -222,7 +218,7 @@ func RecoverAffineEncoded(constr chow.Construction, inputEnc encoding.Byte, roun
 
 // GenerateS creates the set of elements S, of the form fXX(f00^(-1)(x)) = Q(Q^(-1)(x) + b) for indeterminate x is
 // isomorphic to the additive group (GF(2)^8, xor) under composition.
-func GenerateS(constr chow.Construction, round, inPos, outPos int) [][256]byte {
+func GenerateS(constr *chow.Construction, round, inPos, outPos int) [][256]byte {
 	f00 := table.InvertibleTable(F{constr, round, inPos, outPos, 0x00})
 	f00Inv := table.Invert(f00)
 

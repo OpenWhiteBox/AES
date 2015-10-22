@@ -1,10 +1,9 @@
 package chow
 
 import (
-	"fmt"
-
 	"github.com/OpenWhiteBox/AES/primitives/encoding"
 	"github.com/OpenWhiteBox/AES/primitives/matrix"
+	"github.com/OpenWhiteBox/AES/primitives/number"
 	"github.com/OpenWhiteBox/AES/primitives/table"
 
 	"github.com/OpenWhiteBox/AES/constructions/saes"
@@ -59,23 +58,12 @@ func FunctionFromBasis(i int, basis []table.Byte) table.Byte {
 // DecomposeAffineEncoding is an efficient way to factor an unknown affine encoding into its component linear and
 // affine parts.
 func DecomposeAffineEncoding(e encoding.Byte) (matrix.Matrix, byte) {
-	m := matrix.Matrix{
-		matrix.Row{0}, matrix.Row{0}, matrix.Row{0}, matrix.Row{0},
-		matrix.Row{0}, matrix.Row{0}, matrix.Row{0}, matrix.Row{0},
-	}
-	c := e.Encode(0)
-
+	m, c := matrix.Matrix(make([]matrix.Row, 8)), e.Encode(0)
 	for i := uint(0); i < 8; i++ {
-		x := e.Encode(1<<i) ^ c
-
-		for j := uint(0); j < 8; j++ {
-			if (x>>j)&1 == 1 {
-				m[j][0] += 1 << i
-			}
-		}
+		m[i] = matrix.Row{e.Encode(1<<i) ^ c}
 	}
 
-	return m, c
+	return m.Transpose(), c
 }
 
 // isAffine returns true if the given encoding is affine and false if not.
@@ -106,18 +94,18 @@ func FindCharacteristic(A matrix.Matrix) (a byte) {
 	return
 }
 
-// FindDuplicate returns the first duplicate matrix it finds in a set of matrices.
-func FindDuplicate(ms []matrix.Matrix) matrix.Matrix {
-	// Forall pairs of matrices without repetition
-	for i, m := range ms {
-		for _, n := range ms[i+1:] {
-			if fmt.Sprintf("%x", m) == fmt.Sprintf("%x", n) {
-				return m
+// FindDuplicate returns the first duplicate element it finds in a set of numbers.
+func FindDuplicate(ns []number.ByteFieldElem) number.ByteFieldElem {
+	// Forall pairs without repetition
+	for i, n := range ns {
+		for _, m := range ns[i+1:] {
+			if n == m {
+				return n
 			}
 		}
 	}
 
-	return nil
+	panic("No duplicate numbers!")
 }
 
 // Index in, index out.  Example: shiftRows(5) = 1 because ShiftRows(block) returns [16]byte{block[0], block[5], ...
