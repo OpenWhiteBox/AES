@@ -76,7 +76,7 @@ func getShuffle(seed, label []byte) encoding.Shuffle {
 }
 
 // Generate the XOR Tables for squashing the result of a Input/Output Mask.
-func blockXORTables(seed []byte, surface Surface, shift func(int)int) (out [32][15]table.Nibble) {
+func blockXORTables(seed []byte, surface Surface, shift func(int) int) (out [32][15]table.Nibble) {
 	for pos := 0; pos < 32; pos++ {
 		out[pos][0] = encoding.NibbleTable{
 			encoding.ConcatenatedByte{MaskEncoding(seed, 0, pos, surface), MaskEncoding(seed, 1, pos, surface)},
@@ -110,7 +110,7 @@ func blockXORTables(seed []byte, surface Surface, shift func(int)int) (out [32][
 }
 
 // Generate the XOR Tables for squashing the result of a Tyi Table or MB^(-1) Table.
-func xorTables(seed []byte, surface Surface, shift func(int)int) (out [9][32][3]table.Nibble) {
+func xorTables(seed []byte, surface Surface, shift func(int) int) (out [9][32][3]table.Nibble) {
 	var outPos func(int) int
 	if surface == Inside {
 		outPos = func(pos int) int { return pos }

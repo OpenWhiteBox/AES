@@ -49,7 +49,7 @@ func (tbox TBox) Get(i byte) byte {
 }
 
 type InvTBox struct {
-	Constr saes.Construction
+	Constr   saes.Construction
 	KeyByte1 byte
 	KeyByte2 byte
 }
@@ -161,7 +161,7 @@ func MaskEncoding(seed []byte, position, subPosition int, surface Surface) encod
 	return getShuffle(seed, label)
 }
 
-func BlockMaskEncoding(seed []byte, position int, surface Surface, shift func(int)int) encoding.Block {
+func BlockMaskEncoding(seed []byte, position int, surface Surface, shift func(int) int) encoding.Block {
 	out := encoding.ConcatenatedBlock{}
 
 	for i := 0; i < 16; i++ {

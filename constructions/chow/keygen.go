@@ -21,7 +21,7 @@ type SameMasks MaskType
 // MatchingMasks implies a randomly generated input mask and the inverse mask on the output.
 type MatchingMasks struct{}
 
-func generateKeys(seed []byte, opts KeyGenerationOpts, out *Construction, inputMask, outputMask *matrix.Matrix, shift func(int)int, skinny func(int)table.Byte, wide func(int, int)table.Word) {
+func generateKeys(seed []byte, opts KeyGenerationOpts, out *Construction, inputMask, outputMask *matrix.Matrix, shift func(int) int, skinny func(int) table.Byte, wide func(int, int) table.Word) {
 	// Generate input and output encodings.
 	switch opts.(type) {
 	case IndependentMasks:
@@ -127,7 +127,7 @@ func GenerateEncryptionKeys(key, seed []byte, opts KeyGenerationOpts) (out Const
 		return TBox{constr, roundKeys[9][pos], roundKeys[10][pos]}
 	}
 
-	wide := func (round, pos int) table.Word {
+	wide := func(round, pos int) table.Word {
 		return table.ComposedToWord{
 			TBox{constr, roundKeys[round][pos], 0x00},
 			TyiTable(pos % 4),
