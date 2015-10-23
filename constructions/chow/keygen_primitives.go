@@ -4,18 +4,8 @@ package chow
 import (
 	"github.com/OpenWhiteBox/AES/primitives/encoding"
 	"github.com/OpenWhiteBox/AES/primitives/matrix"
-)
 
-var (
-	encodingCache = make(map[[32]byte]encoding.Shuffle)
-	mbCache       = make(map[[32]byte]matrix.Matrix)
-)
-
-type MaskType int
-
-const (
-	RandomMask MaskType = iota
-	IdentityMask
+	"github.com/OpenWhiteBox/AES/constructions/common"
 )
 
 // MaskTable maps one byte to a block, according to an input or output mask.
@@ -57,51 +47,18 @@ func (xor XORTable) Get(i byte) (out byte) {
 	return (i >> 4) ^ (i & 0xf)
 }
 
-// Generate byte/word mixing bijections.
-// TODO: Ensure that blocks are full-rank.
-func MixingBijection(seed []byte, size, round, position int) matrix.Matrix {
-	label := make([]byte, 16)
-	label[0], label[1], label[2], label[3], label[4] = 'M', 'B', byte(size), byte(round), byte(position)
-
-	key := [32]byte{}
-	copy(key[0:16], seed)
-	copy(key[16:32], label)
-
-	cached, ok := mbCache[key]
-
-	if ok {
-		return cached
-	} else {
-		mbCache[key] = matrix.GenerateRandom(generateStream(seed, label), size)
-		return mbCache[key]
-	}
-}
-
-// Generate input and output masks.
-func GenerateMask(maskType MaskType, seed []byte, surface Surface) matrix.Matrix {
-	if maskType == RandomMask {
-		if surface == Inside {
-			return MixingBijection(seed, 128, 0, 0)
-		} else {
-			return MixingBijection(seed, 128, 10, 0)
-		}
-	} else { // Identity mask.
-		return matrix.GenerateIdentity(128)
-	}
-}
-
 // Encodes the output of an input/output mask.
 //
 //    position: Position in the state array, counted in *bytes*.
 // subPosition: Position in the mask's output for this byte, counted in nibbles.
-func MaskEncoding(seed []byte, position, subPosition int, surface Surface) encoding.Nibble {
+func MaskEncoding(seed []byte, position, subPosition int, surface common.Surface) encoding.Nibble {
 	label := make([]byte, 16)
 	label[0], label[1], label[2], label[3], label[4] = 'M', 'E', byte(position), byte(subPosition), byte(surface)
 
-	return getShuffle(seed, label)
+	return common.GetShuffle(seed, label)
 }
 
-func BlockMaskEncoding(seed []byte, position int, surface Surface, shift func(int) int) encoding.Block {
+func BlockMaskEncoding(seed []byte, position int, surface common.Surface, shift func(int) int) encoding.Block {
 	out := encoding.ConcatenatedBlock{}
 
 	for i := 0; i < 16; i++ {
@@ -110,8 +67,8 @@ func BlockMaskEncoding(seed []byte, position int, surface Surface, shift func(in
 			MaskEncoding(seed, position, 2*i+1, surface),
 		}
 
-		if surface == Inside {
-			out[i] = encoding.ComposedBytes{encoding.ByteLinear(MixingBijection(seed, 8, -1, shift(i))), out[i]}
+		if surface == common.Inside {
+			out[i] = encoding.ComposedBytes{encoding.ByteLinear(common.MixingBijection(seed, 8, -1, shift(i))), out[i]}
 		}
 	}
 
@@ -119,15 +76,15 @@ func BlockMaskEncoding(seed []byte, position int, surface Surface, shift func(in
 }
 
 // Abstraction over the Tyi and MB^(-1) encodings, to match the pattern of the XOR and round encodings.
-func StepEncoding(seed []byte, round, position, subPosition int, surface Surface) encoding.Nibble {
-	if surface == Inside {
+func StepEncoding(seed []byte, round, position, subPosition int, surface common.Surface) encoding.Nibble {
+	if surface == common.Inside {
 		return TyiEncoding(seed, round, position, subPosition)
 	} else {
 		return MBInverseEncoding(seed, round, position, subPosition)
 	}
 }
 
-func WordStepEncoding(seed []byte, round, position int, surface Surface) encoding.Word {
+func WordStepEncoding(seed []byte, round, position int, surface common.Surface) encoding.Word {
 	out := encoding.ConcatenatedWord{}
 
 	for i := 0; i < 4; i++ {
@@ -148,7 +105,7 @@ func TyiEncoding(seed []byte, round, position, subPosition int) encoding.Nibble 
 	label := make([]byte, 16)
 	label[0], label[1], label[2], label[3] = 'T', byte(round), byte(position), byte(subPosition)
 
-	return getShuffle(seed, label)
+	return common.GetShuffle(seed, label)
 }
 
 // Encodes the output of a MB^(-1) Table / the input of an XOR Table.
@@ -159,7 +116,7 @@ func MBInverseEncoding(seed []byte, round, position, subPosition int) encoding.N
 	label := make([]byte, 16)
 	label[0], label[1], label[2], label[3], label[4] = 'M', 'I', byte(round), byte(position), byte(subPosition)
 
-	return getShuffle(seed, label)
+	return common.GetShuffle(seed, label)
 }
 
 // Encodes intermediate results between each successive XOR.
@@ -167,25 +124,25 @@ func MBInverseEncoding(seed []byte, round, position, subPosition int) encoding.N
 // position: Position in the state array, counted in nibbles.
 //     gate: The gate number, or, the number of XORs we've computed so far.
 //  surface: Location relative to the round structure. Inside or Outside.
-func XOREncoding(seed []byte, round, position, gate int, surface Surface) encoding.Nibble {
+func XOREncoding(seed []byte, round, position, gate int, surface common.Surface) encoding.Nibble {
 	label := make([]byte, 16)
 	label[0], label[1], label[2], label[3], label[4] = 'X', byte(round), byte(position), byte(gate), byte(surface)
 
-	return getShuffle(seed, label)
+	return common.GetShuffle(seed, label)
 }
 
 // Encodes the output of an Expand->Squash round. Two Expand->Squash rounds make up one AES round.
 //
 // position: Position in the state array, counted in nibbles.
 //  surface: Location relative to the AES round structure. Inside or Outside.
-func RoundEncoding(seed []byte, round, position int, surface Surface) encoding.Nibble {
+func RoundEncoding(seed []byte, round, position int, surface common.Surface) encoding.Nibble {
 	label := make([]byte, 16)
 	label[0], label[1], label[2], label[3] = 'R', byte(round), byte(position), byte(surface)
 
-	return getShuffle(seed, label)
+	return common.GetShuffle(seed, label)
 }
 
-func ByteRoundEncoding(seed []byte, round, position int, surface Surface) encoding.Byte {
+func ByteRoundEncoding(seed []byte, round, position int, surface common.Surface) encoding.Byte {
 	return encoding.ConcatenatedByte{
 		RoundEncoding(seed, round, 2*position+0, surface),
 		RoundEncoding(seed, round, 2*position+1, surface),

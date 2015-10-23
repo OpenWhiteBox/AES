@@ -9,51 +9,24 @@ import (
 	"github.com/OpenWhiteBox/AES/constructions/saes"
 )
 
-type KeyGenerationOpts interface{}
-
-// IndependentMasks generates the input and output masks independently of each other.
-type IndependentMasks struct {
-	Input, Output MaskType
-}
-
-// SameMasks puts the exact same mask on the input and output of the white-box.
-type SameMasks MaskType
-
-// MatchingMasks implies a randomly generated input mask and the inverse mask on the output.
-type MatchingMasks struct{}
-
-func generateKeys(seed []byte, opts KeyGenerationOpts, out *Construction, inputMask, outputMask *matrix.Matrix, shift func(int) int, skinny func(int) table.Byte, wide func(int, int) table.Word) {
+func generateKeys(seed []byte, opts common.KeyGenerationOpts, out *Construction, inputMask, outputMask *matrix.Matrix, shift func(int) int, skinny func(int) table.Byte, wide func(int, int) table.Word) {
 	// Generate input and output encodings.
-	switch opts.(type) {
-	case IndependentMasks:
-		*inputMask = GenerateMask(opts.(IndependentMasks).Input, seed, Inside)
-		*outputMask = GenerateMask(opts.(IndependentMasks).Output, seed, Outside)
-	case SameMasks:
-		mask := GenerateMask(MaskType(opts.(SameMasks)), seed, Inside)
-		*inputMask, *outputMask = mask, mask
-	case MatchingMasks:
-		mask := GenerateMask(RandomMask, seed, Inside)
-
-		*inputMask = mask
-		*outputMask, _ = mask.Invert()
-	default:
-		panic("Unrecognized key generation options!")
-	}
+	common.GenerateMasks(seed, opts, inputMask, outputMask)
 
 	// Generate the Input Mask table and the 10th T-Box/Output Mask table
 	for pos := 0; pos < 16; pos++ {
 		out.InputMask[pos] = encoding.BlockTable{
 			encoding.IdentityByte{},
-			BlockMaskEncoding(seed, pos, Inside, shift),
+			BlockMaskEncoding(seed, pos, common.Inside, shift),
 			MaskTable{*inputMask, pos},
 		}
 
 		out.TBoxOutputMask[pos] = encoding.BlockTable{
 			encoding.ComposedBytes{
-				encoding.ByteLinear(MixingBijection(seed, 8, 8, pos)),
-				ByteRoundEncoding(seed, 8, pos, Outside),
+				encoding.ByteLinear(common.MixingBijection(seed, 8, 8, pos)),
+				ByteRoundEncoding(seed, 8, pos, common.Outside),
 			},
-			BlockMaskEncoding(seed, pos, Outside, shift),
+			BlockMaskEncoding(seed, pos, common.Outside, shift),
 			table.ComposedToBlock{
 				skinny(pos),
 				MaskTable{*outputMask, pos},
@@ -62,33 +35,33 @@ func generateKeys(seed []byte, opts KeyGenerationOpts, out *Construction, inputM
 	}
 
 	// Generate the XOR Tables for the Input and Output Masks.
-	out.InputXORTable = blockXORTables(seed, Inside, shift)
-	out.OutputXORTable = blockXORTables(seed, Outside, shift)
+	out.InputXORTable = blockXORTables(seed, common.Inside, shift)
+	out.OutputXORTable = blockXORTables(seed, common.Outside, shift)
 
 	// Generate round material.
 	for round := 0; round < 9; round++ {
 		for pos := 0; pos < 16; pos++ {
 			// Generate a word-sized mixing bijection and stick it on the end of the T-Box/Tyi Table.
-			mb := MixingBijection(seed, 32, round, pos/4)
+			mb := common.MixingBijection(seed, 32, round, pos/4)
 
 			// Build the T-Box and Tyi Table for this round and position in the state matrix.
 			out.TBoxTyiTable[round][pos] = encoding.WordTable{
 				encoding.ComposedBytes{
-					encoding.ByteLinear(MixingBijection(seed, 8, round-1, pos)),
+					encoding.ByteLinear(common.MixingBijection(seed, 8, round-1, pos)),
 					encoding.ConcatenatedByte{
-						RoundEncoding(seed, round-1, 2*pos+0, Outside),
-						RoundEncoding(seed, round-1, 2*pos+1, Outside),
+						RoundEncoding(seed, round-1, 2*pos+0, common.Outside),
+						RoundEncoding(seed, round-1, 2*pos+1, common.Outside),
 					},
 				},
 				encoding.ComposedWords{
 					encoding.ConcatenatedWord{
-						encoding.ByteLinear(MixingBijection(seed, 8, round, shift(pos/4*4+0))),
-						encoding.ByteLinear(MixingBijection(seed, 8, round, shift(pos/4*4+1))),
-						encoding.ByteLinear(MixingBijection(seed, 8, round, shift(pos/4*4+2))),
-						encoding.ByteLinear(MixingBijection(seed, 8, round, shift(pos/4*4+3))),
+						encoding.ByteLinear(common.MixingBijection(seed, 8, round, shift(pos/4*4+0))),
+						encoding.ByteLinear(common.MixingBijection(seed, 8, round, shift(pos/4*4+1))),
+						encoding.ByteLinear(common.MixingBijection(seed, 8, round, shift(pos/4*4+2))),
+						encoding.ByteLinear(common.MixingBijection(seed, 8, round, shift(pos/4*4+3))),
 					},
 					encoding.WordLinear(mb),
-					WordStepEncoding(seed, round, pos, Inside),
+					WordStepEncoding(seed, round, pos, common.Inside),
 				},
 				wide(round, pos),
 			}
@@ -98,24 +71,24 @@ func generateKeys(seed []byte, opts KeyGenerationOpts, out *Construction, inputM
 
 			out.MBInverseTable[round][pos] = encoding.WordTable{
 				encoding.ConcatenatedByte{
-					RoundEncoding(seed, round, 2*pos+0, Inside),
-					RoundEncoding(seed, round, 2*pos+1, Inside),
+					RoundEncoding(seed, round, 2*pos+0, common.Inside),
+					RoundEncoding(seed, round, 2*pos+1, common.Inside),
 				},
-				WordStepEncoding(seed, round, pos, Outside),
+				WordStepEncoding(seed, round, pos, common.Outside),
 				MBInverseTable{mbInv, uint(pos) % 4},
 			}
 		}
 	}
 
 	// Generate the High and Low XOR Tables for reach round.
-	out.HighXORTable = xorTables(seed, Inside, shift)
-	out.LowXORTable = xorTables(seed, Outside, shift)
+	out.HighXORTable = xorTables(seed, common.Inside, shift)
+	out.LowXORTable = xorTables(seed, common.Outside, shift)
 }
 
 // GenerateEncryptionKeys creates a white-boxed version of the AES key `key` for encryption, with any non-determinism
 // generated by `seed`.  The `opts` specifies what type of input and output masks we put on the construction and should
 // be either IndependentMasks, SameMasks, or MatchingMasks.
-func GenerateEncryptionKeys(key, seed []byte, opts KeyGenerationOpts) (out Construction, inputMask, outputMask matrix.Matrix) {
+func GenerateEncryptionKeys(key, seed []byte, opts common.KeyGenerationOpts) (out Construction, inputMask, outputMask matrix.Matrix) {
 	constr := saes.Construction{key}
 	roundKeys := constr.StretchedKey()
 
@@ -142,7 +115,7 @@ func GenerateEncryptionKeys(key, seed []byte, opts KeyGenerationOpts) (out Const
 
 // GenerateDecryptionKeys creates a white-boxed version of the AES key `key` for decryption, with any non-determinism
 // generated by `seed`.  The `opts` argument works the same as above.
-func GenerateDecryptionKeys(key, seed []byte, opts KeyGenerationOpts) (out Construction, inputMask, outputMask matrix.Matrix) {
+func GenerateDecryptionKeys(key, seed []byte, opts common.KeyGenerationOpts) (out Construction, inputMask, outputMask matrix.Matrix) {
 	constr := saes.Construction{key}
 	roundKeys := constr.StretchedKey()
 
