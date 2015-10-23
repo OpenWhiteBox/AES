@@ -11,6 +11,11 @@ type Byte interface {
 	Decode(i byte) byte
 }
 
+type Double interface {
+	Encode(i [2]byte) [2]byte
+	Decode(i [2]byte) [2]byte
+}
+
 type Word interface {
 	Encode(i [4]byte) [4]byte
 	Decode(i [4]byte) [4]byte
@@ -26,6 +31,11 @@ type IdentityByte struct{}
 
 func (ib IdentityByte) Encode(i byte) byte { return i }
 func (ib IdentityByte) Decode(i byte) byte { return i }
+
+type IdentityDouble struct{}
+
+func (id IdentityDouble) Encode(i [2]byte) [2]byte { return i }
+func (id IdentityDouble) Decode(i [2]byte) [2]byte { return i }
 
 type IdentityWord struct{}
 

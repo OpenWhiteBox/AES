@@ -44,3 +44,13 @@ type BlockTable struct {
 func (bt BlockTable) Get(i byte) [16]byte {
 	return bt.Out.Encode(bt.Hidden.Get(bt.In.Decode(i)))
 }
+
+type DoubleToWordTable struct {
+	In     Double
+	Out    Word
+	Hidden table.DoubleToWord
+}
+
+func (dtwt DoubleToWordTable) Get(i [2]byte) [4]byte {
+	return dtwt.Out.Encode(dtwt.Hidden.Get(dtwt.In.Decode(i)))
+}
