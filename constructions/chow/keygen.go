@@ -5,6 +5,7 @@ import (
 	"github.com/OpenWhiteBox/AES/primitives/matrix"
 	"github.com/OpenWhiteBox/AES/primitives/table"
 
+	"github.com/OpenWhiteBox/AES/constructions/common"
 	"github.com/OpenWhiteBox/AES/constructions/saes"
 )
 
@@ -124,17 +125,17 @@ func GenerateEncryptionKeys(key, seed []byte, opts KeyGenerationOpts) (out Const
 	}
 
 	skinny := func(pos int) table.Byte {
-		return TBox{constr, roundKeys[9][pos], roundKeys[10][pos]}
+		return common.TBox{constr, roundKeys[9][pos], roundKeys[10][pos]}
 	}
 
 	wide := func(round, pos int) table.Word {
 		return table.ComposedToWord{
-			TBox{constr, roundKeys[round][pos], 0x00},
-			TyiTable(pos % 4),
+			common.TBox{constr, roundKeys[round][pos], 0x00},
+			common.TyiTable(pos % 4),
 		}
 	}
 
-	generateKeys(seed, opts, &out, &inputMask, &outputMask, shiftRows, skinny, wide)
+	generateKeys(seed, opts, &out, &inputMask, &outputMask, common.ShiftRows, skinny, wide)
 
 	return
 }
@@ -149,24 +150,24 @@ func GenerateDecryptionKeys(key, seed []byte, opts KeyGenerationOpts) (out Const
 	constr.UnShiftRows(roundKeys[10])
 
 	skinny := func(pos int) table.Byte {
-		return InvTBox{constr, 0x00, roundKeys[0][pos]}
+		return common.InvTBox{constr, 0x00, roundKeys[0][pos]}
 	}
 
 	wide := func(round, pos int) table.Word {
 		if round == 0 {
 			return table.ComposedToWord{
-				InvTBox{constr, roundKeys[10][pos], roundKeys[9][pos]},
-				InvTyiTable(pos % 4),
+				common.InvTBox{constr, roundKeys[10][pos], roundKeys[9][pos]},
+				common.InvTyiTable(pos % 4),
 			}
 		} else {
 			return table.ComposedToWord{
-				InvTBox{constr, 0x00, roundKeys[9-round][pos]},
-				InvTyiTable(pos % 4),
+				common.InvTBox{constr, 0x00, roundKeys[9-round][pos]},
+				common.InvTyiTable(pos % 4),
 			}
 		}
 	}
 
-	generateKeys(seed, opts, &out, &inputMask, &outputMask, unshiftRows, skinny, wide)
+	generateKeys(seed, opts, &out, &inputMask, &outputMask, common.UnShiftRows, skinny, wide)
 
 	return
 }

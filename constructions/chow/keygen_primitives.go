@@ -4,9 +4,6 @@ package chow
 import (
 	"github.com/OpenWhiteBox/AES/primitives/encoding"
 	"github.com/OpenWhiteBox/AES/primitives/matrix"
-	"github.com/OpenWhiteBox/AES/primitives/number"
-
-	"github.com/OpenWhiteBox/AES/constructions/saes"
 )
 
 var (
@@ -33,63 +30,6 @@ func (mt MaskTable) Get(i byte) (out [16]byte) {
 
 	res := mt.Mask.Mul(matrix.Row(r))
 	copy(out[:], res)
-
-	return
-}
-
-// A T-Box computes the SubBytes and AddRoundKey steps.
-type TBox struct {
-	Constr   saes.Construction
-	KeyByte1 byte
-	KeyByte2 byte
-}
-
-func (tbox TBox) Get(i byte) byte {
-	return tbox.Constr.SubByte(i^tbox.KeyByte1) ^ tbox.KeyByte2
-}
-
-type InvTBox struct {
-	Constr   saes.Construction
-	KeyByte1 byte
-	KeyByte2 byte
-}
-
-func (tbox InvTBox) Get(i byte) byte {
-	return tbox.Constr.UnSubByte(i^tbox.KeyByte1) ^ tbox.KeyByte2
-}
-
-// A Tyi Table computes the MixColumns step.
-type TyiTable uint
-
-func (tyi TyiTable) Get(i byte) (out [4]byte) {
-	// Calculate dot product of i and [0x02 0x01 0x01 0x03]
-	j := number.ByteFieldElem(i)
-
-	a := byte(number.ByteFieldElem(2).Mul(j))
-	b := byte(number.ByteFieldElem(1).Mul(j))
-	c := byte(number.ByteFieldElem(3).Mul(j))
-
-	// Merge into one output and rotate according to column.
-	res := [4]byte{a, b, b, c}
-	copy(out[:], append(res[(4-tyi):], res[0:(4-tyi)]...))
-
-	return
-}
-
-type InvTyiTable uint
-
-func (tyi InvTyiTable) Get(i byte) (out [4]byte) {
-	// Calculate dot product of i and []
-	j := number.ByteFieldElem(i)
-
-	a := byte(number.ByteFieldElem(0x0e).Mul(j))
-	b := byte(number.ByteFieldElem(0x09).Mul(j))
-	c := byte(number.ByteFieldElem(0x0d).Mul(j))
-	d := byte(number.ByteFieldElem(0x0b).Mul(j))
-
-	// Merge into one output and rotate according to column.
-	res := [4]byte{a, b, c, d}
-	copy(out[:], append(res[(4-tyi):], res[0:(4-tyi)]...))
 
 	return
 }

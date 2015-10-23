@@ -12,6 +12,7 @@ import (
 	"github.com/OpenWhiteBox/AES/primitives/table"
 
 	"github.com/OpenWhiteBox/AES/constructions/chow"
+	"github.com/OpenWhiteBox/AES/constructions/common"
 	"github.com/OpenWhiteBox/AES/constructions/saes"
 
 	test_vectors "github.com/OpenWhiteBox/AES/constructions/test"
@@ -45,7 +46,7 @@ func fastTestConstruction() *chow.Construction {
 func exposeRound(constr *chow.Construction, round, inPos, outPos int) (encoding.Byte, encoding.Byte, table.InvertibleTable) {
 	// Actual input and output encoding for round 1 in position i.
 	in := constr.TBoxTyiTable[round][inPos].(encoding.WordTable).In
-	out := constr.TBoxTyiTable[round+1][shiftRows(outPos)].(encoding.WordTable).In
+	out := constr.TBoxTyiTable[round+1][common.ShiftRows(outPos)].(encoding.WordTable).In
 
 	f := F{constr, round, inPos, outPos, 0x00}
 
@@ -289,14 +290,14 @@ func TestRecoverEncodings(t *testing.T) {
 	// Verify that all Ps composed with their corresponding output encoding equals XOR by a key byte.
 	id := matrix.GenerateIdentity(8)
 	for pos, P := range Ps {
-		outAff := getOutputAffineEncoding(constr, fastConstr, 0, unshiftRows(pos))
+		outAff := getOutputAffineEncoding(constr, fastConstr, 0, common.UnShiftRows(pos))
 		A, b := DecomposeAffineEncoding(encoding.ComposedBytes{outAff, P})
 
 		if fmt.Sprintf("%x", id) != fmt.Sprintf("%x", A) {
 			t.Fatalf("Linear part of encoding was not identity!")
 		}
 
-		if roundKeys[1][unshiftRows(pos)] != b {
+		if roundKeys[1][common.UnShiftRows(pos)] != b {
 			t.Fatalf("Constant part of encoding was not key byte!")
 		}
 	}

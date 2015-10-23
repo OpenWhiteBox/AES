@@ -7,6 +7,7 @@ import (
 	"github.com/OpenWhiteBox/AES/primitives/table"
 
 	"github.com/OpenWhiteBox/AES/constructions/chow"
+	"github.com/OpenWhiteBox/AES/constructions/common"
 	"github.com/OpenWhiteBox/AES/constructions/saes"
 )
 
@@ -75,7 +76,7 @@ func RecoverKey(constr *chow.Construction) []byte {
 		_, in := RecoverEncodings(constr, 2, 4*col)
 
 		for row := 0; row < 4; row++ {
-			backPos := unshiftRows(4*col + row)
+			backPos := common.UnShiftRows(4*col + row)
 			temp[backPos] = encoding.ComposedBytes{temp[backPos], in[row]}
 		}
 	}
@@ -106,7 +107,9 @@ func RecoverEncodings(constr *chow.Construction, round, pos int) (encoding.ByteA
 	for i := 0; i < 4; i++ {
 		j := pos/4*4 + i
 
-		inEnc, _ := RecoverAffineEncoded(constr, encoding.IdentityByte{}, round-1, unshiftRows(j), unshiftRows(j))
+		inEnc, _ := RecoverAffineEncoded(
+			constr, encoding.IdentityByte{}, round-1, common.UnShiftRows(j), common.UnShiftRows(j),
+		)
 		_, f := RecoverAffineEncoded(constr, inEnc, round, j, pos)
 
 		var c byte
@@ -130,7 +133,7 @@ func FindPartialEncoding(constr *chow.Construction, f table.Byte, L, AtildeInv m
 	fInv := table.Invert(f)
 	id := encoding.ByteLinear(matrix.GenerateIdentity(8))
 
-	SInv := table.InvertibleTable(chow.InvTBox{saes.Construction{}, 0x00, 0x00})
+	SInv := table.InvertibleTable(common.InvTBox{saes.Construction{}, 0x00, 0x00})
 	S := table.Invert(SInv)
 
 	// Brute force the constant part of the output encoding and the beta in Atilde = A_i <- D(beta)
