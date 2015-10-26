@@ -2,12 +2,14 @@ package xiao
 
 import (
 	"github.com/OpenWhiteBox/AES/primitives/matrix"
-	"github.com/OpenWhitebox/AES/primitives/table"
+	"github.com/OpenWhiteBox/AES/primitives/table"
 )
 
 type Construction struct {
 	ShiftRows  [10]matrix.Matrix
 	TBoxMixCol [10][8]table.DoubleToWord
+
+	FinalMask matrix.Matrix
 }
 
 func (constr Construction) BlockSize() int { return 16 }
@@ -33,6 +35,8 @@ func (constr Construction) crypt(dst, src []byte) {
 			constr.SquashWords(stretched, dst[pos:pos+4])
 		}
 	}
+
+	copy(dst, constr.FinalMask.Mul(matrix.Row(dst)))
 }
 
 func (constr *Construction) ExpandWord(tmc []table.DoubleToWord, word []byte) [2][4]byte {

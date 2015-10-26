@@ -45,3 +45,20 @@ func (tmc TBoxMixCol) Get(i [2]byte) (out [4]byte) {
 
 	return
 }
+
+type TBox struct {
+	TBoxes [2]common.TBox
+	Side
+}
+
+func (t TBox) Get(i [2]byte) (out [4]byte) {
+	k, l := t.TBoxes[0].Get(i[0]), t.TBoxes[1].Get(i[1])
+
+	if t.Side == Left {
+		out[0], out[1] = k, l
+	} else {
+		out[2], out[3] = k, l
+	}
+
+	return
+}
