@@ -1,6 +1,7 @@
 package xiao
 
 import (
+	"github.com/OpenWhiteBox/AES/primitives/matrix"
 	"github.com/OpenWhiteBox/AES/primitives/number"
 
 	"github.com/OpenWhiteBox/AES/constructions/common"
@@ -58,6 +59,29 @@ func (t TBox) Get(i [2]byte) (out [4]byte) {
 		out[0], out[1] = k, l
 	} else {
 		out[2], out[3] = k, l
+	}
+
+	return
+}
+
+func SideFromPos(pos int) Side {
+	if pos%4 < 2 {
+		return Left
+	} else {
+		return Right
+	}
+}
+
+func MaskSwap(seed []byte, size, round int) (out matrix.Matrix) {
+	out = matrix.GenerateEmpty(128)
+
+	for row := 0; row < 128; row += size {
+		col := row / 8
+		m := common.MixingBijection(seed, size, round, row/size)
+
+		for subRow := 0; subRow < size; subRow++ {
+			copy(out[row+subRow][col:], m[subRow])
+		}
 	}
 
 	return
