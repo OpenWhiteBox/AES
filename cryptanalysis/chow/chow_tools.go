@@ -69,7 +69,7 @@ func DecomposeAffineEncoding(e encoding.Byte) (matrix.Matrix, byte) {
 // isAffine returns true if the given encoding is affine and false if not.
 func isAffine(aff encoding.Byte) bool {
 	m, c := DecomposeAffineEncoding(aff)
-	test := encoding.ByteAffine{encoding.ByteLinear(m), c}
+	test := encoding.ByteAffine{encoding.ByteLinear{m, nil}, c}
 
 	for i := 0; i < 256; i++ {
 		a, b := aff.Encode(byte(i)), test.Encode(byte(i))
@@ -86,7 +86,7 @@ func FindCharacteristic(A matrix.Matrix) (a byte) {
 	AkEnc := encoding.ComposedBytes{}
 
 	for k := uint(0); k < 8; k++ {
-		AkEnc = append(AkEnc, encoding.ByteLinear(A))
+		AkEnc = append(AkEnc, encoding.ByteLinear{A, nil})
 		Ak, _ := DecomposeAffineEncoding(AkEnc)
 		a ^= Ak.Trace() << k
 	}

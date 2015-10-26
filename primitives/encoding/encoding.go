@@ -66,6 +66,11 @@ type InverseByte struct{ Byte }
 func (ib InverseByte) Encode(i byte) byte { return ib.Byte.Decode(i) }
 func (ib InverseByte) Decode(i byte) byte { return ib.Byte.Encode(i) }
 
+type InverseDouble struct{ Double }
+
+func (id InverseDouble) Encode(i [2]byte) [2]byte { return id.Double.Decode(i) }
+func (id InverseDouble) Decode(i [2]byte) [2]byte { return id.Double.Encode(i) }
+
 type InverseWord struct{ Word }
 
 func (iw InverseWord) Encode(i [4]byte) [4]byte { return iw.Word.Decode(i) }

@@ -21,9 +21,12 @@ func generateKeys(seed []byte, opts common.KeyGenerationOpts, out *Construction,
 			MaskTable{*inputMask, pos},
 		}
 
+		inEnc := common.MixingBijection(seed, 8, 8, pos)
+		inInv, _ := inEnc.Invert()
+
 		out.TBoxOutputMask[pos] = encoding.BlockTable{
 			encoding.ComposedBytes{
-				encoding.ByteLinear(common.MixingBijection(seed, 8, 8, pos)),
+				encoding.ByteLinear{inEnc, inInv},
 				ByteRoundEncoding(seed, 8, pos, common.Outside),
 			},
 			BlockMaskEncoding(seed, pos, common.Outside, shift),
@@ -44,10 +47,13 @@ func generateKeys(seed []byte, opts common.KeyGenerationOpts, out *Construction,
 			// Generate a word-sized mixing bijection and stick it on the end of the T-Box/Tyi Table.
 			mb := common.MixingBijection(seed, 32, round, pos/4)
 
+			inEnc := common.MixingBijection(seed, 8, round-1, pos)
+			inInv, _ := inEnc.Invert()
+
 			// Build the T-Box and Tyi Table for this round and position in the state matrix.
 			out.TBoxTyiTable[round][pos] = encoding.WordTable{
 				encoding.ComposedBytes{
-					encoding.ByteLinear(common.MixingBijection(seed, 8, round-1, pos)),
+					encoding.ByteLinear{inEnc, inInv},
 					encoding.ConcatenatedByte{
 						RoundEncoding(seed, round-1, 2*pos+0, common.Outside),
 						RoundEncoding(seed, round-1, 2*pos+1, common.Outside),
@@ -55,12 +61,12 @@ func generateKeys(seed []byte, opts common.KeyGenerationOpts, out *Construction,
 				},
 				encoding.ComposedWords{
 					encoding.ConcatenatedWord{
-						encoding.ByteLinear(common.MixingBijection(seed, 8, round, shift(pos/4*4+0))),
-						encoding.ByteLinear(common.MixingBijection(seed, 8, round, shift(pos/4*4+1))),
-						encoding.ByteLinear(common.MixingBijection(seed, 8, round, shift(pos/4*4+2))),
-						encoding.ByteLinear(common.MixingBijection(seed, 8, round, shift(pos/4*4+3))),
+						encoding.ByteLinear{common.MixingBijection(seed, 8, round, shift(pos/4*4+0)), nil},
+						encoding.ByteLinear{common.MixingBijection(seed, 8, round, shift(pos/4*4+1)), nil},
+						encoding.ByteLinear{common.MixingBijection(seed, 8, round, shift(pos/4*4+2)), nil},
+						encoding.ByteLinear{common.MixingBijection(seed, 8, round, shift(pos/4*4+3)), nil},
 					},
-					encoding.WordLinear(mb),
+					encoding.WordLinear{mb, nil},
 					WordStepEncoding(seed, round, pos, common.Inside),
 				},
 				wide(round, pos),
