@@ -52,7 +52,7 @@ func Parse(in []byte) (constr Construction, err error) {
 	constr.OutputXORTable, rest = parseLargeXORTables(rest)
 
 	if rest == nil {
-		err = errors.New("Parsing the table failed!")
+		err = errors.New("Parsing the key failed!")
 	}
 
 	return

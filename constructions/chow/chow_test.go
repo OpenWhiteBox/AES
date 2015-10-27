@@ -26,7 +26,7 @@ func TestShiftRows(t *testing.T) {
 	constr.ShiftRows(in)
 
 	if !bytes.Equal(out, in) {
-		t.Fatalf("Real disagrees with result! %v != %v", out, in)
+		t.Fatalf("Real disagrees with result! %x != %x", out, in)
 	}
 }
 
@@ -123,7 +123,11 @@ func TestPersistence(t *testing.T) {
 	constr1, _, _ := GenerateEncryptionKeys(key, seed, common.IndependentMasks{common.RandomMask, common.RandomMask})
 
 	serialized := constr1.Serialize()
-	constr2, _ := Parse(serialized)
+	constr2, err := Parse(serialized)
+
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
 
 	cand1, cand2 := make([]byte, 16), make([]byte, 16)
 
@@ -131,7 +135,7 @@ func TestPersistence(t *testing.T) {
 	constr2.Encrypt(cand2, input)
 
 	if !bytes.Equal(cand1, cand2) {
-		t.Fatalf("Real disagrees with parsed! %v != %v", cand1, cand2)
+		t.Fatalf("Real disagrees with parsed! %x != %x", cand1, cand2)
 	}
 }
 
