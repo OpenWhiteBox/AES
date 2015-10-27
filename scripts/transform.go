@@ -19,6 +19,7 @@ import (
 	"go/token"
 
 	"github.com/OpenWhiteBox/AES/constructions/chow"
+	"github.com/OpenWhiteBox/AES/constructions/common"
 )
 
 type KeyAndPos struct {
@@ -178,7 +179,7 @@ func ExtractKey(cand ast.Expr) ([]byte, bool) {
 	seed := make([]byte, 16)
 	rand.Read(seed)
 
-	constr, _, _ := chow.GenerateEncryptionKeys(key, seed, chow.SameMasks(chow.IdentityMask))
+	constr, _, _ := chow.GenerateEncryptionKeys(key, seed, common.SameMasks(common.IdentityMask))
 
 	return constr.Serialize(), true
 }

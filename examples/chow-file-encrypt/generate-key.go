@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/OpenWhiteBox/AES/constructions/chow"
+	"github.com/OpenWhiteBox/AES/constructions/common"
 )
 
 var out = flag.String("out", "key.txt", "Where to write the key.")
@@ -23,7 +24,7 @@ func main() {
 	fmt.Printf("Key: %x\n", key)
 
 	// Create a white-box version of the above key.
-	constr, _, _ := chow.GenerateEncryptionKeys(key, seed, chow.SameMasks(chow.IdentityMask))
+	constr, _, _ := chow.GenerateEncryptionKeys(key, seed, common.SameMasks(common.IdentityMask))
 	keyData := constr.Serialize()
 
 	ioutil.WriteFile(*out, keyData, os.ModePerm)

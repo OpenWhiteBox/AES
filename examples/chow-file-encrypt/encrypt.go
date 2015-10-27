@@ -26,11 +26,13 @@ func main() {
 		panic(err)
 	}
 
-	block := chow.Parse(keyData)
+	block, _ := chow.Parse(keyData)
 
 	// Put block cipher in CBC mode.
 	iv := make([]byte, 16)
 	rand.Read(iv)
+
+	fmt.Printf("IV: %x\n", iv)
 
 	mode := cipher.NewCBCEncrypter(block, iv)
 
@@ -53,7 +55,7 @@ func main() {
 	mode.CryptBlocks(data, data)
 
 	// Write encrypted file to disk.
-	ioutil.WriteFile(*out, append(iv, data...), os.ModePerm)
+	ioutil.WriteFile(*out, data, os.ModePerm)
 
 	fmt.Println("Done!")
 }
