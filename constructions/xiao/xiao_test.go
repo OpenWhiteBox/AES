@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/OpenWhiteBox/AES/primitives/matrix"
+	"github.com/OpenWhiteBox/AES/primitives/table"
 
 	"github.com/OpenWhiteBox/AES/constructions/common"
 	"github.com/OpenWhiteBox/AES/constructions/saes"
@@ -19,18 +20,20 @@ func TestTBoxMixCol(t *testing.T) {
 	baseConstr := saes.Construction{}
 
 	left := TBoxMixCol{
-		[2]common.TBox{
+		[2]table.Byte{
 			common.TBox{baseConstr, 0xea, 0x00},
 			common.TBox{baseConstr, 0x8d, 0x00},
 		},
+		MixColumns,
 		Left,
 	}
 
 	right := TBoxMixCol{
-		[2]common.TBox{
+		[2]table.Byte{
 			common.TBox{baseConstr, 0xf5, 0x00},
 			common.TBox{baseConstr, 0x2f, 0x00},
 		},
+		MixColumns,
 		Right,
 	}
 
@@ -62,6 +65,29 @@ func TestEncrypt(t *testing.T) {
 		copy(out, outputInv.Mul(matrix.Row(out))) // Remove output encoding.
 
 		if !bytes.Equal(vec.Out, out) {
+			t.Fatalf("Real disagrees with result in test vector %v! %x != %x", n, vec.Out, out)
+		}
+	}
+}
+
+func TestDecrypt(t *testing.T) {
+	for n, vec := range test_vectors.AESVectors {
+		constr, inputMask, outputMask := GenerateDecryptionKeys(
+			vec.Key, vec.Key, common.IndependentMasks{common.RandomMask, common.RandomMask},
+		)
+
+		inputInv, _ := inputMask.Invert()
+		outputInv, _ := outputMask.Invert()
+
+		in, out := make([]byte, 16), make([]byte, 16)
+
+		copy(in, inputInv.Mul(matrix.Row(vec.Out))) // Apply input encoding.
+
+		constr.Encrypt(out, in)
+
+		copy(out, outputInv.Mul(matrix.Row(out))) // Remove output encoding.
+
+		if !bytes.Equal(vec.In, out) {
 			t.Fatalf("Real disagrees with result in test vector %v! %x != %x", n, vec.Out, out)
 		}
 	}
