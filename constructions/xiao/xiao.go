@@ -22,7 +22,7 @@ func (constr Construction) Decrypt(dst, src []byte) {
 	constr.crypt(dst, src)
 }
 
-func (constr Construction) crypt(dst, src []byte) {
+func (constr *Construction) crypt(dst, src []byte) {
 	copy(dst, src)
 
 	for round := 0; round < 10; round++ {

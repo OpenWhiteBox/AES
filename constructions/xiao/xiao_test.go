@@ -118,3 +118,39 @@ func TestPersistence(t *testing.T) {
 		t.Fatalf("Real disagrees with parsed! %x != %x", cand1, cand2)
 	}
 }
+
+func BenchmarkGenerateEncryptionKeys(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		constr, _, _ := GenerateEncryptionKeys(key, seed, common.IndependentMasks{common.RandomMask, common.RandomMask})
+		constr.Serialize()
+	}
+}
+
+// A "Live" Encryption is one based on table abstractions, so many computations are performed on-demand.
+func BenchmarkLiveEncrypt(b *testing.B) {
+	constr, _, _ := GenerateEncryptionKeys(key, seed, common.IndependentMasks{common.RandomMask, common.RandomMask})
+
+	out := make([]byte, 16)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		constr.Encrypt(out, input)
+	}
+}
+
+// A "Dead" Encryption is one based on serialized tables, like we'd have in a real use case.
+func BenchmarkDeadEncrypt(b *testing.B) {
+	constr1, _, _ := GenerateEncryptionKeys(key, seed, common.IndependentMasks{common.RandomMask, common.RandomMask})
+
+	serialized := constr1.Serialize()
+	constr2, _ := Parse(serialized)
+
+	out := make([]byte, 16)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		constr2.Encrypt(out, input)
+	}
+}
