@@ -1,13 +1,14 @@
 package common
 
 import (
-	"github.com/OpenWhiteBox/AES/primitives/encoding"
 	"github.com/OpenWhiteBox/AES/primitives/matrix"
 )
 
-var (
-	encodingCache = make(map[[32]byte]encoding.Shuffle)
-	mbCache       = make(map[[32]byte]matrix.Matrix)
+type Surface int
+
+const (
+	Inside Surface = iota
+	Outside
 )
 
 type MaskType int
@@ -31,16 +32,16 @@ type SameMasks MaskType
 type MatchingMasks struct{}
 
 // GenerateMasks generates input and output encodings for a white-box AES construction.
-func GenerateMasks(seed []byte, opts KeyGenerationOpts, inputMask, outputMask *matrix.Matrix) {
+func GenerateMasks(rs *RandomSource, opts KeyGenerationOpts, inputMask, outputMask *matrix.Matrix) {
 	switch opts.(type) {
 	case IndependentMasks:
-		*inputMask = GenerateMask(opts.(IndependentMasks).Input, seed, Inside)
-		*outputMask = GenerateMask(opts.(IndependentMasks).Output, seed, Outside)
+		*inputMask = generateMask(rs, opts.(IndependentMasks).Input, Inside)
+		*outputMask = generateMask(rs, opts.(IndependentMasks).Output, Outside)
 	case SameMasks:
-		mask := GenerateMask(MaskType(opts.(SameMasks)), seed, Inside)
+		mask := generateMask(rs, MaskType(opts.(SameMasks)), Inside)
 		*inputMask, *outputMask = mask, mask
 	case MatchingMasks:
-		mask := GenerateMask(RandomMask, seed, Inside)
+		mask := generateMask(rs, RandomMask, Inside)
 
 		*inputMask = mask
 		*outputMask, _ = mask.Invert()
@@ -49,35 +50,54 @@ func GenerateMasks(seed []byte, opts KeyGenerationOpts, inputMask, outputMask *m
 	}
 }
 
-// Generate byte/word mixing bijections.
-// TODO: Ensure that blocks are full-rank.
-func MixingBijection(seed []byte, size, round, position int) matrix.Matrix {
-	label := make([]byte, 16)
-	label[0], label[1], label[2], label[3], label[4] = 'M', 'B', byte(size), byte(round), byte(position)
-
-	key := [32]byte{}
-	copy(key[0:16], seed)
-	copy(key[16:32], label)
-
-	cached, ok := mbCache[key]
-
-	if ok {
-		return cached
-	} else {
-		mbCache[key] = matrix.GenerateRandom(GenerateStream(seed, label), size)
-		return mbCache[key]
-	}
-}
-
-// Generate input and output masks.
-func GenerateMask(maskType MaskType, seed []byte, surface Surface) matrix.Matrix {
+func generateMask(rs *RandomSource, maskType MaskType, surface Surface) matrix.Matrix {
 	if maskType == RandomMask {
+		label := make([]byte, 16)
+
 		if surface == Inside {
-			return MixingBijection(seed, 128, 0, 0)
+			copy(label[:], []byte("MASK Inside"))
+			return rs.Matrix(label, 128)
 		} else {
-			return MixingBijection(seed, 128, 10, 0)
+			copy(label[:], []byte("MASK Outside"))
+			return rs.Matrix(label, 128)
 		}
 	} else { // Identity mask.
 		return matrix.GenerateIdentity(128)
 	}
+}
+
+// Generate byte/word mixing bijections.
+// TODO: Ensure that blocks are full-rank.
+func MixingBijection(rs *RandomSource, size, round, position int) matrix.Matrix {
+	label := make([]byte, 16)
+	label[0], label[1], label[2], label[3], label[4] = 'M', 'B', byte(size), byte(round), byte(position)
+
+	return rs.Matrix(label, size)
+}
+
+type BlockMatrix struct {
+	Linear   matrix.Matrix
+	Constant [16]byte
+	Position int
+}
+
+func (bm BlockMatrix) Get(i byte) (out [16]byte) {
+	r := make([]byte, 16)
+	r[bm.Position] = i
+
+	res := bm.Linear.Mul(matrix.Row(r))
+	copy(out[:], res)
+
+	for i, c := range bm.Constant {
+		out[i] ^= c
+	}
+
+	return
+}
+
+// An XOR Table computes the XOR of two nibbles.
+type XORTable struct{}
+
+func (xor XORTable) Get(i byte) (out byte) {
+	return (i >> 4) ^ (i & 0xf)
 }

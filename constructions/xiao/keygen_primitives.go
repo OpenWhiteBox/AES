@@ -100,12 +100,12 @@ func UnMixColumns(i, j byte) [4]byte {
 	return [4]byte{byte(a), byte(b), byte(c), byte(d)}
 }
 
-func MaskSwap(seed []byte, size, round int) (out matrix.Matrix) {
+func MaskSwap(rs *common.RandomSource, size, round int) (out matrix.Matrix) {
 	out = matrix.GenerateEmpty(128)
 
 	for row := 0; row < 128; row += size {
 		col := row / 8
-		m := common.MixingBijection(seed, size, round, row/size)
+		m := common.MixingBijection(rs, size, round, row/size)
 
 		for subRow := 0; subRow < size; subRow++ {
 			copy(out[row+subRow][col:], m[subRow])
