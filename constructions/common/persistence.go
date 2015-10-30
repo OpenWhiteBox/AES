@@ -5,10 +5,10 @@ import (
 )
 
 const (
-	sliceSize = 4096 // = 256*16
-	xorSize   = 128  // = 256*0.5
+	SliceSize = 4096 // = 256*16
+	XorSize   = 128  // = 256*0.5
 
-	blockMatrixSize = 126976 // = 16*sliceSize + 32*15*xorSize
+	BlockMatrixSize = 126976 // = 16*SliceSize + 32*15*XorSize
 )
 
 func SerializeBlockMatrix(dst []byte, m [16]table.Block, xor [32][15]table.Nibble) int {
@@ -28,24 +28,24 @@ func SerializeBlockMatrix(dst []byte, m [16]table.Block, xor [32][15]table.Nibbl
 }
 
 func ParseBlockMatrix(in []byte) (outM [16]table.Block, outXOR [32][15]table.Nibble, rest []byte) {
-	if in == nil || len(in) < blockMatrixSize {
+	if in == nil || len(in) < BlockMatrixSize {
 		return
 	}
 
 	for i := 0; i < 16; i++ {
-		outM[i] = table.ParsedBlock(in[sliceSize*i : sliceSize*(i+1)])
+		outM[i] = table.ParsedBlock(in[SliceSize*i : SliceSize*(i+1)])
 	}
 
-	rest = in[16*sliceSize:]
+	rest = in[16*SliceSize:]
 
 	for i := 0; i < 32; i++ {
 		for j := 0; j < 15; j++ {
 			loc := 15*i + j
-			outXOR[i][j] = table.ParsedNibble(rest[xorSize*loc : xorSize*(loc+1)])
+			outXOR[i][j] = table.ParsedNibble(rest[XorSize*loc : XorSize*(loc+1)])
 		}
 	}
 
-	rest = rest[32*15*xorSize:]
+	rest = rest[32*15*XorSize:]
 
 	return
 }
