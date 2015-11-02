@@ -1,58 +1,51 @@
 package cloud
 
 import (
-	"github.com/OpenWhiteBox/AES/primitives/matrix"
-	"github.com/OpenWhiteBox/AES/primitives/number"
+	"github.com/OpenWhiteBox/AES/primitives/table"
 )
 
-type Construction struct {
-	RoundKeys [11][]byte
+type Matrix struct {
+	Slices [16]table.Block
+	XORs   [32][15]table.Nibble
 }
 
-var sbConst = []byte{
-	0x63, 0x63, 0x63, 0x63,
-	0x63, 0x63, 0x63, 0x63,
-	0x63, 0x63, 0x63, 0x63,
-	0x63, 0x63, 0x63, 0x63,
-}
+type Construction []Matrix
 
 func (constr Construction) Encrypt(dst, src []byte) {
-	copy(dst, src)
-
-  constr.AddConstant(constr.RoundKeys[0], dst)
-  constr.Invert(dst)
-  copy(dst, Round.Mul(matrix.Row(dst)))
-
-	for i := 1; i < 9; i++ {
-    constr.AddConstant(sbConst, dst)
-    constr.AddConstant(constr.RoundKeys[i], dst)
-
-		constr.Invert(dst)
-		copy(dst, Round.Mul(matrix.Row(dst)))
-	}
-
-  constr.AddConstant(sbConst, dst)
-  constr.AddConstant(constr.RoundKeys[9], dst)
-
-	constr.Invert(dst)
-	copy(dst, LastRound.Mul(matrix.Row(dst)))
-
-	constr.AddConstant(sbConst, dst)
-	constr.AddConstant(constr.RoundKeys[10], dst)
+	constr.crypt(dst, src)
 }
 
 func (constr Construction) Decrypt(dst, src []byte) {
-	panic("Decryption isn't implemented yet!")
+	constr.crypt(dst, src)
 }
 
-func (constr *Construction) AddConstant(c, block []byte) {
-	for i, _ := range block {
-		block[i] = c[i] ^ block[i]
+func (constr *Construction) crypt(dst, src []byte) {
+	copy(dst, src)
+
+	var stretched [16][16]byte
+	for _, m := range *constr {
+		stretched = constr.ExpandBlock(m.Slices, dst)
+		constr.SquashBlocks(m.XORs, stretched, dst)
 	}
 }
 
-func (constr *Construction) Invert(block []byte) {
-	for i, _ := range block {
-		block[i] = byte(number.ByteFieldElem(block[i]).Invert())
+func (constr *Construction) ExpandBlock(slices [16]table.Block, block []byte) (out [16][16]byte) {
+	for i := 0; i < 16; i++ {
+		out[i] = slices[i].Get(block[i])
+	}
+
+	return
+}
+
+func (constr *Construction) SquashBlocks(xorTable [32][15]table.Nibble, blocks [16][16]byte, dst []byte) {
+	copy(dst, blocks[0][:])
+
+	for i := 1; i < 16; i++ {
+		for pos := 0; pos < 16; pos++ {
+			aPartial := dst[pos]&0xf0 | (blocks[i][pos]&0xf0)>>4
+			bPartial := (dst[pos]&0x0f)<<4 | blocks[i][pos]&0x0f
+
+			dst[pos] = xorTable[2*pos+0][i-1].Get(aPartial)<<4 | xorTable[2*pos+1][i-1].Get(bPartial)
+		}
 	}
 }
