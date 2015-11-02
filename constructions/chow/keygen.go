@@ -9,6 +9,8 @@ import (
 	"github.com/OpenWhiteBox/AES/constructions/saes"
 )
 
+var noshift = func(position int) int { return position }
+
 func generateKeys(rs *common.RandomSource, opts common.KeyGenerationOpts, out *Construction, inputMask, outputMask *matrix.Matrix, shift func(int) int, skinny func(int) table.Byte, wide func(int, int) table.Word) {
 	// Generate input and output encodings.
 	common.GenerateMasks(rs, opts, inputMask, outputMask)
@@ -27,7 +29,7 @@ func generateKeys(rs *common.RandomSource, opts common.KeyGenerationOpts, out *C
 		out.TBoxOutputMask[pos] = encoding.BlockTable{
 			encoding.ComposedBytes{
 				encoding.ByteLinear{inEnc, inInv},
-				ByteRoundEncoding(rs, 8, pos, common.Outside),
+				ByteRoundEncoding(rs, 8, pos, common.Outside, noshift),
 			},
 			BlockMaskEncoding(rs, pos, common.Outside, shift),
 			table.ComposedToBlock{
@@ -38,8 +40,17 @@ func generateKeys(rs *common.RandomSource, opts common.KeyGenerationOpts, out *C
 	}
 
 	// Generate the XOR Tables for the Input and Output Masks.
-	out.InputXORTable = blockXORTables(rs, common.Inside, shift)
-	out.OutputXORTable = blockXORTables(rs, common.Outside, shift)
+	out.InputXORTable = common.BlockXORTables(
+		MaskEncoding(rs, common.Inside),
+		XOREncoding(rs, 10, common.Inside),
+		RoundEncoding(rs, -1, common.Outside, shift),
+	)
+
+	out.OutputXORTable = common.BlockXORTables(
+		MaskEncoding(rs, common.Outside),
+		XOREncoding(rs, 10, common.Outside),
+		func(position int) encoding.Nibble { return encoding.IdentityByte{} },
+	)
 
 	// Generate round material.
 	for round := 0; round < 9; round++ {
@@ -54,10 +65,7 @@ func generateKeys(rs *common.RandomSource, opts common.KeyGenerationOpts, out *C
 			out.TBoxTyiTable[round][pos] = encoding.WordTable{
 				encoding.ComposedBytes{
 					encoding.ByteLinear{inEnc, inInv},
-					encoding.ConcatenatedByte{
-						RoundEncoding(rs, round-1, 2*pos+0, common.Outside),
-						RoundEncoding(rs, round-1, 2*pos+1, common.Outside),
-					},
+					ByteRoundEncoding(rs, round-1, pos, common.Outside, noshift),
 				},
 				encoding.ComposedWords{
 					encoding.ConcatenatedWord{
@@ -76,10 +84,7 @@ func generateKeys(rs *common.RandomSource, opts common.KeyGenerationOpts, out *C
 			mbInv, _ := mb.Invert()
 
 			out.MBInverseTable[round][pos] = encoding.WordTable{
-				encoding.ConcatenatedByte{
-					RoundEncoding(rs, round, 2*pos+0, common.Inside),
-					RoundEncoding(rs, round, 2*pos+1, common.Inside),
-				},
+				ByteRoundEncoding(rs, round, pos, common.Inside, noshift),
 				WordStepEncoding(rs, round, pos, common.Outside),
 				MBInverseTable{mbInv, uint(pos) % 4},
 			}
@@ -87,7 +92,7 @@ func generateKeys(rs *common.RandomSource, opts common.KeyGenerationOpts, out *C
 	}
 
 	// Generate the High and Low XOR Tables for reach round.
-	out.HighXORTable = xorTables(rs, common.Inside, shift)
+	out.HighXORTable = xorTables(rs, common.Inside, noshift)
 	out.LowXORTable = xorTables(rs, common.Outside, shift)
 }
 
