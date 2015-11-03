@@ -1,6 +1,7 @@
 package cloud
 
 import (
+	"github.com/OpenWhiteBox/AES/primitives/encoding"
 	"github.com/OpenWhiteBox/AES/primitives/matrix"
 	"github.com/OpenWhiteBox/AES/primitives/table"
 
@@ -9,31 +10,79 @@ import (
 )
 
 type Transform struct {
-	Input    table.Byte
+	Input    [16]table.Byte
 	Linear   matrix.Matrix
 	Constant []byte
 }
 
 func generateMatrices(rs *common.RandomSource, inner []Transform) (out []Matrix) {
-	for _, trans := range inner {
+	size := len(inner)
+
+	for round, trans := range inner {
 		slices := [16]table.Block{}
 		constant := split(rs, trans.Constant)
 
 		for pos := 0; pos < 16; pos++ {
-			slices[pos] = table.ComposedToBlock{
-				trans.Input,
-				common.BlockMatrix{
-					trans.Linear,
-					constant[pos],
-					pos,
+			slices[pos] = encoding.BlockTable{
+				encoding.ComposedBytes{
+					MixingBijection(rs, size, round-1, pos),
+					ByteRoundEncoding(rs, size, round-1, pos),
+				},
+				BlockSliceEncoding(rs, size, round, pos),
+				table.ComposedToBlock{
+					Heads: trans.Input[pos],
+					Tails: common.BlockMatrix{
+						Linear:   trans.Linear,
+						Constant: constant[pos],
+						Position: pos,
+					},
 				},
 			}
 		}
 
-		out = append(out, Matrix{slices, blockXORTables()})
+		xors := common.BlockXORTables(
+			SliceEncoding(rs, round),
+			XOREncoding(rs, round),
+			RoundEncoding(rs, size, round),
+		)
+
+		out = append(out, Matrix{slices, xors})
 	}
 
 	return
+}
+
+func generateAES(inputMask, outputMask *matrix.Matrix, roundKeys [11][]byte) []Transform {
+	id, inv := [16]table.Byte{}, [16]table.Byte{}
+
+	for pos := 0; pos < 16; pos++ {
+		id[pos] = table.IdentityByte{}
+		inv[pos] = Invert{}
+	}
+
+	out := []Transform{
+		Transform{
+			Input:    id,
+			Linear:   *inputMask,
+			Constant: roundKeys[0],
+		},
+	}
+
+	for round := 1; round <= 9; round++ {
+		out = append(out, Transform{
+			Input:    inv,
+			Linear:   Round,
+			Constant: roundKeys[round],
+		})
+	}
+
+	out = append(out, Transform{
+		Input:    inv,
+		Linear:   (*outputMask).Compose(LastRound),
+		Constant: (*outputMask).Mul(matrix.Row(roundKeys[10])),
+	})
+
+	return out
 }
 
 // GenerateEncryptionKeys creates a white-boxed version of the AES key `key` for encryption, with any non-determinism
@@ -53,37 +102,7 @@ func GenerateEncryptionKeys(key, seed []byte, opts common.KeyGenerationOpts) (ou
 
 	common.GenerateMasks(&rs, opts, &inputMask, &outputMask)
 
-	aes := []Transform{
-		Transform{
-			Input:    table.IdentityByte{},
-			Linear:   inputMask,
-			Constant: make([]byte, 16),
-		},
-		Transform{
-			Input:    table.IdentityByte{},
-			Linear:   matrix.GenerateIdentity(128),
-			Constant: roundKeys[0],
-		},
-	}
-
-	for round := 1; round <= 9; round++ {
-		aes = append(aes, Transform{
-			Input:    Invert{},
-			Linear:   Round,
-			Constant: roundKeys[round],
-		})
-	}
-
-	aes = append(aes, Transform{
-		Input:    Invert{},
-		Linear:   LastRound,
-		Constant: roundKeys[10],
-	},
-		Transform{
-			Input:    table.IdentityByte{},
-			Linear:   outputMask,
-			Constant: make([]byte, 16),
-		})
+	aes := generateAES(&inputMask, &outputMask, roundKeys)
 
 	out = generateMatrices(&rs, aes)
 

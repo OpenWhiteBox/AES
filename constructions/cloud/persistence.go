@@ -9,7 +9,7 @@ import (
 )
 
 func (constr *Construction) Serialize() []byte {
-	out, base := make([]byte, len(*constr) * common.BlockMatrixSize), 0
+	out, base := make([]byte, len(*constr)*common.BlockMatrixSize), 0
 
 	for _, M := range *constr {
 		base += common.SerializeBlockMatrix(out[base:], M.Slices, M.XORs)
