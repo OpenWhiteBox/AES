@@ -15,41 +15,19 @@ func generateKeys(rs *common.RandomSource, opts common.KeyGenerationOpts, out *C
 	// Generate input and output encodings.
 	common.GenerateMasks(rs, opts, inputMask, outputMask)
 
-	// Generate the Input Mask table and the 10th T-Box/Output Mask table
+	// Generate the Input Mask slices and XOR tables.
 	for pos := 0; pos < 16; pos++ {
 		out.InputMask[pos] = encoding.BlockTable{
 			encoding.IdentityByte{},
 			BlockMaskEncoding(rs, pos, common.Inside, shift),
 			common.BlockMatrix{*inputMask, [16]byte{}, pos},
 		}
-
-		inEnc := common.MixingBijection(rs, 8, 8, pos)
-		inInv, _ := inEnc.Invert()
-
-		out.TBoxOutputMask[pos] = encoding.BlockTable{
-			encoding.ComposedBytes{
-				encoding.ByteLinear{inEnc, inInv},
-				ByteRoundEncoding(rs, 8, pos, common.Outside, noshift),
-			},
-			BlockMaskEncoding(rs, pos, common.Outside, shift),
-			table.ComposedToBlock{
-				skinny(pos),
-				common.BlockMatrix{*outputMask, [16]byte{}, pos},
-			},
-		}
 	}
 
-	// Generate the XOR Tables for the Input and Output Masks.
 	out.InputXORTable = common.BlockXORTables(
 		MaskEncoding(rs, common.Inside),
 		XOREncoding(rs, 10, common.Inside),
 		RoundEncoding(rs, -1, common.Outside, shift),
-	)
-
-	out.OutputXORTable = common.BlockXORTables(
-		MaskEncoding(rs, common.Outside),
-		XOREncoding(rs, 10, common.Outside),
-		func(position int) encoding.Nibble { return encoding.IdentityByte{} },
 	)
 
 	// Generate round material.
@@ -94,6 +72,30 @@ func generateKeys(rs *common.RandomSource, opts common.KeyGenerationOpts, out *C
 	// Generate the High and Low XOR Tables for reach round.
 	out.HighXORTable = xorTables(rs, common.Inside, noshift)
 	out.LowXORTable = xorTables(rs, common.Outside, shift)
+
+	// Generate the 10th T-Box/Output Mask slices and XOR tables.
+	for pos := 0; pos < 16; pos++ {
+		inEnc := common.MixingBijection(rs, 8, 8, pos)
+		inInv, _ := inEnc.Invert()
+
+		out.TBoxOutputMask[pos] = encoding.BlockTable{
+			encoding.ComposedBytes{
+				encoding.ByteLinear{inEnc, inInv},
+				ByteRoundEncoding(rs, 8, pos, common.Outside, noshift),
+			},
+			BlockMaskEncoding(rs, pos, common.Outside, shift),
+			table.ComposedToBlock{
+				skinny(pos),
+				common.BlockMatrix{*outputMask, [16]byte{}, pos},
+			},
+		}
+	}
+
+	out.OutputXORTable = common.BlockXORTables(
+		MaskEncoding(rs, common.Outside),
+		XOREncoding(rs, 10, common.Outside),
+		func(position int) encoding.Nibble { return encoding.IdentityByte{} },
+	)
 }
 
 // GenerateEncryptionKeys creates a white-boxed version of the AES key `key` for encryption, with any non-determinism
