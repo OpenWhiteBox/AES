@@ -1,62 +1,50 @@
 package common
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
-	"io"
-
 	"github.com/OpenWhiteBox/AES/primitives/encoding"
+	"github.com/OpenWhiteBox/AES/primitives/table"
 )
 
-type Surface int
-
-const (
-	Inside Surface = iota
-	Outside
-)
-
-// generateStream takes a (private) seed and a (possibly public) label and produces an io.Reader giving random bytes,
-// useful for deterministically generating random matrices/encodings, in place of (crypto/rand).Reader.
+// SliceEncoding(position, subPosition int) encoding.Nibble
+// Encodes the output of a matrix slice.
 //
-// It does this by using the seed as an AES key and the label as the IV in CTR mode.  The io.Reader is providing the
-// AES-CTR encryption of /dev/null.
-type devNull struct{}
+//    position: Position in the state array, counted in *bytes*.
+// subPosition: Position in the matrix's output for this byte, counted in nibbles.
 
-func (dn devNull) Read(p []byte) (n int, err error) {
-	for i := 0; i < len(p); i++ {
-		p[i] = 0
+// XOREncoding(position, gate int) encoding.Nibble
+// Encodes intermediate results between each successive XOR.
+//
+// position: Position in the state array, counted in nibbles.
+//     gate: The gate number, or, the number of XORs we've computed so far.
+
+// RoundEncoding(position int) encoding.Nibble
+// Encodes the output of a matrix multiplication.
+//
+// position: Position in the state array, counted in nibbles.
+
+// Generate the XOR Tables for squashing the result of a BlockMatrix.
+func BlockXORTables(SliceEncoding, XOREncoding func(int, int) encoding.Nibble, RoundEncoding func(int) encoding.Nibble) (out [32][15]table.Nibble) {
+	for pos := 0; pos < 32; pos++ {
+		out[pos][0] = encoding.NibbleTable{
+			encoding.ConcatenatedByte{SliceEncoding(0, pos), SliceEncoding(1, pos)},
+			XOREncoding(pos, 0),
+			XORTable{},
+		}
+
+		for i := 1; i < 14; i++ {
+			out[pos][i] = encoding.NibbleTable{
+				encoding.ConcatenatedByte{XOREncoding(pos, i-1), SliceEncoding(i+1, pos)},
+				XOREncoding(pos, i),
+				XORTable{},
+			}
+		}
+
+		out[pos][14] = encoding.NibbleTable{
+			encoding.ConcatenatedByte{XOREncoding(pos, 13), SliceEncoding(15, pos)},
+			RoundEncoding(pos),
+			XORTable{},
+		}
 	}
 
-	return len(p), nil
-}
-
-func GenerateStream(seed, label []byte) io.Reader {
-	// Generate sub-key
-	subKey := make([]byte, 16)
-	c, _ := aes.NewCipher(seed)
-	c.Encrypt(subKey, label)
-
-	// Create pseudo-random byte stream keyed by sub-key.
-	block, _ := aes.NewCipher(subKey)
-	stream := cipher.StreamReader{
-		cipher.NewCTR(block, label),
-		devNull{},
-	}
-
-	return stream
-}
-
-func GetShuffle(seed, label []byte) encoding.Shuffle {
-	key := [32]byte{}
-	copy(key[0:16], seed)
-	copy(key[16:32], label)
-
-	cached, ok := encodingCache[key]
-
-	if ok {
-		return cached
-	} else {
-		encodingCache[key] = encoding.GenerateShuffle(GenerateStream(seed, label))
-		return encodingCache[key]
-	}
+	return
 }
