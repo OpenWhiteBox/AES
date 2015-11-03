@@ -110,6 +110,29 @@ func TestEncrypt(t *testing.T) {
 	}
 }
 
+func TestDecrypt(t *testing.T) {
+	for n, vec := range test_vectors.AESVectors {
+		constr, inputMask, outputMask := GenerateDecryptionKeys(
+			vec.Key, vec.Key, common.IndependentMasks{common.RandomMask, common.RandomMask},
+		)
+
+		inputInv, _ := inputMask.Invert()
+		outputInv, _ := outputMask.Invert()
+
+		in, out := make([]byte, 16), make([]byte, 16)
+
+		copy(in, inputInv.Mul(matrix.Row(vec.Out))) // Apply input encoding.
+
+		constr.Decrypt(out, in)
+
+		copy(out, outputInv.Mul(matrix.Row(out))) // Remove output encoding.
+
+		if !bytes.Equal(vec.In, out) {
+			t.Fatalf("Real disagrees with result in test vector %v! %x != %x", n, vec.In, out)
+		}
+	}
+}
+
 func TestPersistence(t *testing.T) {
 	constr1, _, _ := GenerateEncryptionKeys(key, seed, common.IndependentMasks{common.RandomMask, common.RandomMask})
 
@@ -127,5 +150,41 @@ func TestPersistence(t *testing.T) {
 
 	if !bytes.Equal(cand1, cand2) {
 		t.Fatalf("Real disagrees with parsed! %x != %x", cand1, cand2)
+	}
+}
+
+func BenchmarkGenerateEncryptionKeys(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		constr, _, _ := GenerateEncryptionKeys(key, seed, common.IndependentMasks{common.RandomMask, common.RandomMask})
+		constr.Serialize()
+	}
+}
+
+// A "Live" Encryption is one based on table abstractions, so many computations are performed on-demand.
+func BenchmarkLiveEncrypt(b *testing.B) {
+	constr, _, _ := GenerateEncryptionKeys(key, seed, common.IndependentMasks{common.RandomMask, common.RandomMask})
+
+	out := make([]byte, 16)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		constr.Encrypt(out, input)
+	}
+}
+
+// A "Dead" Encryption is one based on serialized tables, like we'd have in a real use case.
+func BenchmarkDeadEncrypt(b *testing.B) {
+	constr1, _, _ := GenerateEncryptionKeys(key, seed, common.IndependentMasks{common.RandomMask, common.RandomMask})
+
+	serialized := constr1.Serialize()
+	constr2, _ := Parse(serialized)
+
+	out := make([]byte, 16)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		constr2.Encrypt(out, input)
 	}
 }
