@@ -183,28 +183,41 @@ func (e Matrix) LeftStretch() Matrix {
 // gaussJordan reduces the matrix according to the Gauss-Jordan Method.  Returns the transformed matrix, the augment
 // matrix, at what column elimination failed (if ever), and whether or not the input is invertible (meaning the augment
 // matrix is the inverse).
-func (e Matrix) gaussJordan() (Matrix, Matrix, int, bool) {
+func (e Matrix) gaussJordan(lower, upper int) (Matrix, Matrix, int, bool) {
 	a, b := e.Size()
 
 	aug := GenerateIdentity(a) // The augmentation matrix for e.
 	f := make([]Row, a)        // Duplicate e away so we don't mutate it.
 	copy(f, e)
 
-	for row, _ := range f {
+	for i, _ := range f[lower:upper] {
+		row := i + lower
+
 		if row >= b { // The matrix is tall and thin--we've finished before exhausting all the rows.
 			break
 		}
 
 		// Find a row with a non-zero entry in the (col)th position
 		candId := -1
-		for i, f_i := range f[row:] {
-			if f_i.GetBit(row) == 1 {
-				candId = i + row
+		for j, f_j := range f[row:] {
+			if f_j.GetBit(row) == 1 {
+				candId = j + row
 				break
 			}
 		}
 
-		if candId == -1 { // If we can't find one, fail and return our partial work.
+		if candId == -1 && lower > 0 {
+			for j, f_j := range f[:lower] {
+				if f_j.GetBit(row) == 1 {
+					candId = j
+					break
+				}
+			}
+
+			if candId == -1 {
+				return f, aug, row, false
+			}
+		} else if candId == -1 { // If we can't find one and there's nowhere else, fail and return our partial work.
 			return f, aug, row, false
 		}
 
@@ -226,8 +239,40 @@ func (e Matrix) gaussJordan() (Matrix, Matrix, int, bool) {
 
 // Invert computes the multiplicative inverse of a matrix, if it exists.
 func (e Matrix) Invert() (Matrix, bool) {
-	_, inv, _, ok := e.gaussJordan()
+	_, inv, _, ok := e.gaussJordan(0, len(e))
 	return inv, ok
+}
+
+// InvertAt will return a partial inverse of a matrix, only exposing certain parts of the input.
+func (e Matrix) InvertAt(positions ...int) (Matrix, bool) {
+	if len(positions) == 0 {
+		return GenerateIdentity(len(e)), true
+	}
+
+	eInv, ok := e.Invert()
+	if !ok {
+		return nil, ok
+	}
+
+	f, g1, _, ok := e.gaussJordan(8*positions[0], 8*(positions[0]+1))
+	if !ok {
+		return nil, ok
+	}
+
+	f = f.Transpose()
+	f, g2, _, ok := f.gaussJordan(8*positions[0], 8*(positions[0]+1))
+	if !ok {
+		return nil, ok
+	}
+
+	g := g1.Compose(e).Compose(g2.Transpose()).Compose(eInv)
+
+	out, ok := f.Transpose().InvertAt(positions[1:]...)
+	if !ok {
+		return nil, ok
+	}
+
+	return out.Compose(g), true
 }
 
 // NullSpace returns one non-trivial element of the matrix's nullspace.
@@ -244,7 +289,7 @@ func (e Matrix) NullSpace() Row {
 	}
 
 	// Apply Gauss-Jordan Elimination to the matrix to get it in a simpler form.
-	f, _, c, ok := e.gaussJordan()
+	f, _, c, ok := e.gaussJordan(0, len(e))
 
 	if ok { // If the matrix is invertible, we can only return 0.
 		return Row(make([]byte, b/8))

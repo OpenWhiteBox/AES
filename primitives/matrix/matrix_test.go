@@ -3,7 +3,9 @@ package matrix
 import (
 	"crypto/rand"
 	"fmt"
+	mrand "math/rand"
 	"testing"
+	"time"
 
 	"github.com/OpenWhiteBox/AES/primitives/number"
 )
@@ -78,6 +80,40 @@ func TestBlockInvert(t *testing.T) {
 			if nm[j] != r[j] || mn[j] != r[j] {
 				t.Fatalf("M * M^-1 != M^-1 * M != I")
 			}
+		}
+	}
+}
+
+func TestBlockInvertAt(t *testing.T) {
+	m := GenerateRandom(rand.Reader, 128)
+
+	// Generate a test vector.
+	input := make([]byte, 16)
+	rand.Reader.Read(input)
+
+	hidden := m.Mul(Row(input))
+
+	// Choose a random subset of 0...16 to invert.
+	r := mrand.New(mrand.NewSource(time.Now().Unix()))
+	perm := r.Perm(16)
+
+	h, ok := m.InvertAt(perm[0:8]...)
+	if !ok {
+		t.Fatalf("Failed to partially invert matrix!")
+	}
+
+	// Pass test vector through partial inversion; Verify output.
+	output := h.Mul(hidden)
+
+	for _, pos := range perm[0:8] {
+		if output[pos] != input[pos] {
+			t.Fatalf("Value in distinguished position wasn't inverted!")
+		}
+	}
+
+	for _, pos := range perm[8:16] {
+		if output[pos] == input[pos] {
+			t.Fatalf("Value in undistinguished position probably shouldn't have been inverted...")
 		}
 	}
 }
