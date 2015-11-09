@@ -3,6 +3,7 @@ package matrix
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 )
 
@@ -367,6 +368,24 @@ func (e Matrix) Slice(col int) (Matrix, Matrix) {
 // Size returns the dimensions of the matrix in (Rows, Columns) order.
 func (e Matrix) Size() (int, int) {
 	return len(e), e[0].Size()
+}
+
+func (e Matrix) String() string {
+	out := []rune{}
+
+	for _, row := range e {
+		for _, elem := range row {
+			b := []rune(fmt.Sprintf("%8.8b", elem))
+
+			for pos := 7; pos >= 0; pos-- {
+				out = append(out, b[pos])
+			}
+		}
+
+		out = append(out, '\n')
+	}
+
+	return string(out)
 }
 
 // GenerateIdentity creates the n by n identity matrix.
