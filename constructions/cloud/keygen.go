@@ -82,6 +82,8 @@ func GenerateEncryptionKeys(key, seed []byte, opts common.KeyGenerationOpts) (ou
 
 	aes := basicEncryption(&inputMask, &outputMask, roundKeys, 1)
 
+	randomizeFieldInversions(&rs, aes)
+
 	out = generateMatrices(&rs, aes)
 
 	return
@@ -108,6 +110,8 @@ func GenerateDecryptionKeys(key, seed []byte, opts common.KeyGenerationOpts) (ou
 	}
 
 	aes := basicDecryption(&inputMask, &outputMask, roundKeys, 1)
+
+	randomizeFieldInversions(&rs, aes)
 
 	out = generateMatrices(&rs, aes)
 
