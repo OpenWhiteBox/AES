@@ -6,6 +6,21 @@ import (
 	"github.com/OpenWhiteBox/AES/constructions/common"
 )
 
+func RandomPermutation(rs *common.RandomSource, round int) []int {
+	out := make([]int, 16)
+
+	label := make([]byte, 16)
+	label[0], label[1] = 'Q', byte(round)
+
+	s := rs.Shuffle(label)
+
+	for i := byte(0); i < 16; i++ {
+		out[i] = int(s.Encode(i))
+	}
+
+	return out
+}
+
 // See constructions/common/keygen_tools.go
 func SliceEncoding(rs *common.RandomSource, round int) func(int, int) encoding.Nibble {
 	return func(position, subPosition int) encoding.Nibble {

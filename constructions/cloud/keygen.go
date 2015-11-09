@@ -12,15 +12,23 @@ import (
 type Transform struct {
 	Input    [16]table.Byte
 	Linear   matrix.Matrix
-	Constant []byte
+	Constant [16]byte
 }
 
 func generateMatrices(rs *common.RandomSource, inner []Transform) (out []Matrix) {
 	size := len(inner)
 
+	lastRound := [16]byte{}
+
 	for round, trans := range inner {
 		slices := [16]table.Block{}
-		constant := split(rs, trans.Constant)
+
+		var constant [][16]byte
+		if round < size-1 {
+			constant = splitSecret(rs, trans.Constant, 17)
+		} else {
+			constant = splitSecret(rs, trans.Constant, 16)
+		}
 
 		for pos := 0; pos < 16; pos++ {
 			slices[pos] = encoding.BlockTable{
@@ -30,7 +38,7 @@ func generateMatrices(rs *common.RandomSource, inner []Transform) (out []Matrix)
 				},
 				BlockSliceEncoding(rs, size, round, pos),
 				table.ComposedToBlock{
-					Heads: trans.Input[pos],
+					Heads: table.ComposedBytes{AddTable(lastRound[pos]), trans.Input[pos]},
 					Tails: common.BlockMatrix{
 						Linear:   trans.Linear,
 						Constant: constant[pos],
@@ -47,6 +55,10 @@ func generateMatrices(rs *common.RandomSource, inner []Transform) (out []Matrix)
 		)
 
 		out = append(out, Matrix{slices, xors})
+
+		if round < size-1 {
+			copy(lastRound[:], constant[16][:])
+		}
 	}
 
 	return
@@ -68,7 +80,7 @@ func GenerateEncryptionKeys(key, seed []byte, opts common.KeyGenerationOpts) (ou
 		}
 	}
 
-	aes := basicEncryption(&inputMask, &outputMask, roundKeys)
+	aes := basicEncryption(&inputMask, &outputMask, roundKeys, 1)
 
 	out = generateMatrices(&rs, aes)
 
@@ -95,7 +107,7 @@ func GenerateDecryptionKeys(key, seed []byte, opts common.KeyGenerationOpts) (ou
 		}
 	}
 
-	aes := basicDecryption(&inputMask, &outputMask, roundKeys)
+	aes := basicDecryption(&inputMask, &outputMask, roundKeys, 1)
 
 	out = generateMatrices(&rs, aes)
 
