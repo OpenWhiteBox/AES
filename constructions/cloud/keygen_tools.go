@@ -132,21 +132,35 @@ func basicDecryption(inputMask, outputMask *matrix.Matrix, roundKeys [11][]byte,
 	return out
 }
 
+func ignoreAtPositions(positions ...int) func(int, int) bool {
+	return func(row, col int) bool {
+		for _, pos := range positions {
+			if row == pos || col == pos {
+				return true
+			}
+		}
+
+		return false
+	}
+}
+
 // randomizeFieldInversions takes a padded unobfuscated AES circuit as input and moves field inversions around so that
 // an entire round's inversions won't happen at the same time.
 func randomizeFieldInversions(rs *common.RandomSource, aes []Transform) {
+	label := make([]byte, 16)
+	label[0], label[1] = 'F', 'I'
+
 	for round := 0; round < 10; round++ {
 		perm := RandomPermutation(rs, round) // The first 8 values are inverted immediately, the last 8 are deferred.
-		mask, _ := aes[2*round+0].Linear.Invert()
 
-		a, _ := mask.InvertAt(perm[:8]...)            // `a` only exposes some of the round's unmasked input.
-		b, _ := a.Compose(mask).InvertAt(perm[8:]...) // `b` exposes what `a` didn't w/o full-knowledge of the masked input.
+		label[2] = byte(round)
+		mask, maskInv := matrix.GenerateRandomPartial(rs.Stream(label), 128, ignoreAtPositions(perm[:8]...))
 
-		aes[2*round+0].Linear, aes[2*round+1].Linear = a, b // `mask` is now split into two matrix multiplications.
-		aes[2*round+1].Input, aes[2*round+2].Input = idBlock(), idBlock()
+		aes[2*round+0].Linear = mask.Compose(aes[2*round+0].Linear) // Will only expose some of the round's unmixed input.
+		aes[2*round+1].Linear = maskInv                             // Will expose what the above didn't.
 
 		for _, pos := range perm[:8] {
-			aes[2*round+1].Input[pos] = Invert{}             // Since `a` exposed this position so we can invert it.
+			aes[2*round+1].Input[pos] = Invert{}             // This position is exposed so we can invert it.
 			aes[2*round+2].Input[pos] = table.IdentityByte{} // This position was already inverted above so we leave it alone.
 		}
 
@@ -155,8 +169,8 @@ func randomizeFieldInversions(rs *common.RandomSource, aes []Transform) {
 			aes[2*round+1].Constant[pos] = aes[2*round+0].Constant[pos]
 			aes[2*round+0].Constant[pos] = 0x00
 
-			aes[2*round+1].Input[pos] = table.IdentityByte{} // `a` left this hidden so we have to ignore it.
-			aes[2*round+2].Input[pos] = Invert{}             // `b` finally exposed this position so we can invert it.
+			aes[2*round+1].Input[pos] = table.IdentityByte{} // This was left hidden so we have to ignore it.
+			aes[2*round+2].Input[pos] = Invert{}             // This is finally exposed this position so we can invert it.
 		}
 	}
 }
