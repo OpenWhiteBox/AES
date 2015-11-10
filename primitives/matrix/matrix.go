@@ -419,19 +419,37 @@ func (e Matrix) Size() (int, int) {
 }
 
 func (e Matrix) String() string {
+	_, b := e.Size()
+
 	out := []rune{}
 
+	for i := -2; i < b; i++ {
+		out = append(out, '-')
+	}
+	out = append(out, '\n')
+
 	for _, row := range e {
+		out = append(out, '|')
+
 		for _, elem := range row {
 			b := []rune(fmt.Sprintf("%8.8b", elem))
 
 			for pos := 7; pos >= 0; pos-- {
-				out = append(out, b[pos])
+				if b[pos] == '0' {
+					out = append(out, ' ')
+				} else {
+					out = append(out, '•')
+				}
 			}
 		}
 
-		out = append(out, '\n')
+		out = append(out, '|', '\n')
 	}
+
+	for i := -2; i < b; i++ {
+		out = append(out, '-')
+	}
+	out = append(out, '\n')
 
 	return string(out)
 }
