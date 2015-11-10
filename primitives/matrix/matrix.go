@@ -472,15 +472,34 @@ func GenerateEmpty(n int) Matrix {
 // GenerateRandom creates a random non-singular n by n matrix.
 func GenerateRandom(reader io.Reader, n int) Matrix {
 	m := GenerateTrueRandom(reader, n)
-	_, ok := m.Invert()
 
-	if ok { // Return this one or try again.
-		return m
-	} else {
+	_, ok := m.Invert()
+	if !ok { // Try again
 		return GenerateRandom(reader, n) // Performance bottleneck.
 	}
 
-	return m
+	return m // This one works!
+}
+
+// GenerateRandomPartial creates an invertible matrix which is random in some locations and the identity in others,
+// depending on an ignore function.
+func GenerateRandomPartial(reader io.Reader, n int, ignore func(int, int) bool) (Matrix, Matrix) {
+	m := GenerateIdentity(n)
+
+	for row := 0; row < n; row++ {
+		for col := 0; col < n/8; col++ {
+			if !ignore(row/8, col) {
+				reader.Read(m[row][col : col+1])
+			}
+		}
+	}
+
+	mInv, ok := m.Invert()
+	if !ok {
+		return GenerateRandomPartial(reader, n, ignore)
+	}
+
+	return m, mInv
 }
 
 // GenerateTrueRandom creates a random singular or non-singular n by n matrix.
