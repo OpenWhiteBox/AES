@@ -25,12 +25,13 @@ type Row []byte
 
 // Add adds two vectors from GF(2)^n.
 func (e Row) Add(f Row) Row {
-	if len(e) != len(f) {
+	le, lf := len(e), len(f)
+	if le != lf {
 		panic("Can't add rows that are different sizes!")
 	}
 
-	out := make([]byte, len(e))
-	for i := 0; i < len(e); i++ {
+	out := make([]byte, le)
+	for i := 0; i < le; i++ {
 		out[i] = e[i] ^ f[i]
 	}
 
@@ -39,12 +40,13 @@ func (e Row) Add(f Row) Row {
 
 // Mul component-wise multiplies two vectors.
 func (e Row) Mul(f Row) Row {
-	if len(e) != len(f) {
+	le, lf := len(e), len(f)
+	if le != lf {
 		panic("Can't multiply rows that are different sizes!")
 	}
 
-	out := make([]byte, len(e))
-	for i := 0; i < len(e); i++ {
+	out := make([]byte, le)
+	for i := 0; i < le; i++ {
 		out[i] = e[i] & f[i]
 	}
 
@@ -112,8 +114,10 @@ func (e Matrix) Mul(f Row) Row {
 
 // Add adds two binary matrices from GF(2)^nxm.
 func (e Matrix) Add(f Matrix) Matrix {
-	out := make([]Row, len(e))
-	for i := 0; i < len(e); i++ {
+	a, _ := e.Size()
+
+	out := make([]Row, a)
+	for i := 0; i < a; i++ {
 		out[i] = e[i].Add(f[i])
 	}
 
@@ -181,14 +185,31 @@ func (e Matrix) LeftStretch() Matrix {
 	return out
 }
 
-// gaussJordan reduces the matrix according to the Gauss-Jordan Method.  Returns the transformed matrix, the augment
-// matrix, at what column elimination failed (if ever), and whether or not the input is invertible (meaning the augment
-// matrix is the inverse).
-func (e Matrix) gaussJordan(lower, upper int) (Matrix, Matrix, int, bool) {
+// ignore functions for controlling gaussJordan.
+func ignoreNowhere(row int) bool {
+	return false
+}
+
+func ignoreAtPositions(positions ...int) func(int) bool {
+	return func(row int) bool {
+		pos := row / 8
+
+		for _, cand := range positions {
+			if pos == cand {
+				return true
+			}
+		}
+
+		return false
+	}
+}
+
+// gaussJordan reduces the matrix according to the Gauss-Jordan Method.  Returns the transformed matrix, at what column
+// elimination failed (if ever), and whether it succeeded (meaning the augment matrix computes the transformation).
+func (e Matrix) gaussJordan(aug Matrix, lower, upper int, ignore func(int) bool) (Matrix, int, bool) {
 	a, b := e.Size()
 
-	aug := GenerateIdentity(a) // The augmentation matrix for e.
-	f := make([]Row, a)        // Duplicate e away so we don't mutate it.
+	f := make([]Row, a) // Duplicate e away so we don't mutate it.
 	copy(f, e)
 
 	for i, _ := range f[lower:upper] {
@@ -201,7 +222,7 @@ func (e Matrix) gaussJordan(lower, upper int) (Matrix, Matrix, int, bool) {
 		// Find a row with a non-zero entry in the (col)th position
 		candId := -1
 		for j, f_j := range f[row:] {
-			if f_j.GetBit(row) == 1 {
+			if !ignore(j+row) && f_j.GetBit(row) == 1 {
 				candId = j + row
 				break
 			}
@@ -209,17 +230,17 @@ func (e Matrix) gaussJordan(lower, upper int) (Matrix, Matrix, int, bool) {
 
 		if candId == -1 && lower > 0 {
 			for j, f_j := range f[:lower] {
-				if f_j.GetBit(row) == 1 {
+				if !ignore(j) && f_j.GetBit(row) == 1 {
 					candId = j
 					break
 				}
 			}
 
 			if candId == -1 {
-				return f, aug, row, false
+				return f, row, false
 			}
 		} else if candId == -1 { // If we can't find one and there's nowhere else, fail and return our partial work.
-			return f, aug, row, false
+			return f, row, false
 		}
 
 		// Move it to the top
@@ -228,52 +249,79 @@ func (e Matrix) gaussJordan(lower, upper int) (Matrix, Matrix, int, bool) {
 
 		// Cancel out the (row)th position for every row above and below it.
 		for i, _ := range f {
-			if i != row && f[i].GetBit(row) == 1 {
+			if !ignore(i) && i != row && f[i].GetBit(row) == 1 {
 				f[i] = f[i].Add(f[row])
 				aug[i] = aug[i].Add(aug[row])
 			}
 		}
 	}
 
-	return f, aug, -1, true
+	return f, -1, true
+}
+
+// ClearAt returns two matrices G1 and G2 such that G1 * E * G2 is E with the columns and rows at the given positions
+// transformed into the identity.
+func (e Matrix) ClearAt(positions ...int) (Matrix, Matrix, Matrix, bool) {
+	var ok bool
+	a, b := e.Size()
+
+	if len(positions) == 0 {
+		return e, GenerateIdentity(a), GenerateIdentity(b), true
+	}
+
+	f := Matrix(make([]Row, a))
+	g1, g2 := GenerateIdentity(a), GenerateIdentity(a)
+
+	copy(f, e)
+
+	for i, pos := range positions {
+		f, _, ok = f.gaussJordan(g1, 8*pos, 8*(pos+1), ignoreAtPositions(positions[:i]...))
+		if !ok {
+			return nil, nil, nil, false
+		}
+	}
+
+	f = f.Transpose()
+
+	for i, pos := range positions {
+		f, _, ok = f.gaussJordan(g2, 8*pos, 8*(pos+1), ignoreAtPositions(positions[:i]...))
+		if !ok {
+			return nil, nil, nil, false
+		}
+	}
+
+	return f.Transpose(), g1, g2.Transpose(), true
 }
 
 // Invert computes the multiplicative inverse of a matrix, if it exists.
 func (e Matrix) Invert() (Matrix, bool) {
-	_, inv, _, ok := e.gaussJordan(0, len(e))
+	a, _ := e.Size()
+
+	inv := GenerateIdentity(a)
+	_, _, ok := e.gaussJordan(inv, 0, a, ignoreNowhere)
 	return inv, ok
 }
 
 // InvertAt will return a partial inverse of a matrix, only exposing certain parts of the input.
 func (e Matrix) InvertAt(positions ...int) (Matrix, bool) {
+	a, _ := e.Size()
 	if len(positions) == 0 {
-		return GenerateIdentity(len(e)), true
+		return GenerateIdentity(a), true
 	}
 
 	eInv, ok := e.Invert()
 	if !ok {
-		return nil, ok
+		return nil, false
 	}
 
-	f, g1, _, ok := e.gaussJordan(8*positions[0], 8*(positions[0]+1))
+	partial, _, _, ok := e.ClearAt(positions...)
 	if !ok {
-		return nil, ok
+		return nil, false
 	}
 
-	f = f.Transpose()
-	f, g2, _, ok := f.gaussJordan(8*positions[0], 8*(positions[0]+1))
-	if !ok {
-		return nil, ok
-	}
+	g := partial.Compose(eInv)
 
-	g := g1.Compose(e).Compose(g2.Transpose()).Compose(eInv)
-
-	out, ok := f.Transpose().InvertAt(positions[1:]...)
-	if !ok {
-		return nil, ok
-	}
-
-	return out.Compose(g), true
+	return g, true
 }
 
 // NullSpace returns one non-trivial element of the matrix's nullspace.
@@ -290,7 +338,7 @@ func (e Matrix) NullSpace() Row {
 	}
 
 	// Apply Gauss-Jordan Elimination to the matrix to get it in a simpler form.
-	f, _, c, ok := e.gaussJordan(0, len(e))
+	f, c, ok := e.gaussJordan(GenerateIdentity(a), 0, a, ignoreNowhere)
 
 	if ok { // If the matrix is invertible, we can only return 0.
 		return Row(make([]byte, b/8))

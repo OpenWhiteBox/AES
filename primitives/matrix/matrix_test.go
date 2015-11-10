@@ -204,3 +204,25 @@ func TestTrace(t *testing.T) {
 		t.Fatalf("Reported wrong trace for n! Should be 0, got %v", n.Trace())
 	}
 }
+
+func BenchmarkInvert(b *testing.B) {
+	m := GenerateRandom(rand.Reader, 64)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		m.Invert()
+	}
+}
+
+func BenchmarkInvertAt(b *testing.B) {
+	m := GenerateRandom(rand.Reader, 64)
+	r := mrand.New(mrand.NewSource(time.Now().Unix()))
+	cut := r.Perm(8)[0:4]
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		m.InvertAt(cut...)
+	}
+}
