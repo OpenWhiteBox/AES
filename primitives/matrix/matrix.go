@@ -185,28 +185,9 @@ func (e Matrix) LeftStretch() Matrix {
 	return out
 }
 
-// ignore functions for controlling gaussJordan.
-func ignoreNowhere(row int) bool {
-	return false
-}
-
-func ignoreAtPositions(positions ...int) func(int) bool {
-	return func(row int) bool {
-		pos := row / 8
-
-		for _, cand := range positions {
-			if pos == cand {
-				return true
-			}
-		}
-
-		return false
-	}
-}
-
 // gaussJordan reduces the matrix according to the Gauss-Jordan Method.  Returns the transformed matrix, at what column
 // elimination failed (if ever), and whether it succeeded (meaning the augment matrix computes the transformation).
-func (e Matrix) gaussJordan(aug Matrix, lower, upper int, ignore func(int) bool) (Matrix, int, bool) {
+func (e Matrix) gaussJordan(aug Matrix, lower, upper int, ignore RowIgnore) (Matrix, int, bool) {
 	a, b := e.Size()
 
 	f := make([]Row, a) // Duplicate e away so we don't mutate it.
@@ -275,7 +256,7 @@ func (e Matrix) ClearAt(positions ...int) (Matrix, Matrix, Matrix, bool) {
 	copy(f, e)
 
 	for i, pos := range positions {
-		f, _, ok = f.gaussJordan(g1, 8*pos, 8*(pos+1), ignoreAtPositions(positions[:i]...))
+		f, _, ok = f.gaussJordan(g1, 8*pos, 8*(pos+1), IgnoreRows(positions[:i]...))
 		if !ok {
 			return nil, nil, nil, false
 		}
@@ -284,7 +265,7 @@ func (e Matrix) ClearAt(positions ...int) (Matrix, Matrix, Matrix, bool) {
 	f = f.Transpose()
 
 	for i, pos := range positions {
-		f, _, ok = f.gaussJordan(g2, 8*pos, 8*(pos+1), ignoreAtPositions(positions[:i]...))
+		f, _, ok = f.gaussJordan(g2, 8*pos, 8*(pos+1), IgnoreRows(positions[:i]...))
 		if !ok {
 			return nil, nil, nil, false
 		}
@@ -298,7 +279,7 @@ func (e Matrix) Invert() (Matrix, bool) {
 	a, _ := e.Size()
 
 	inv := GenerateIdentity(a)
-	_, _, ok := e.gaussJordan(inv, 0, a, ignoreNowhere)
+	_, _, ok := e.gaussJordan(inv, 0, a, IgnoreNoRows)
 	return inv, ok
 }
 
@@ -338,7 +319,7 @@ func (e Matrix) NullSpace() Row {
 	}
 
 	// Apply Gauss-Jordan Elimination to the matrix to get it in a simpler form.
-	f, c, ok := e.gaussJordan(GenerateIdentity(a), 0, a, ignoreNowhere)
+	f, c, ok := e.gaussJordan(GenerateIdentity(a), 0, a, IgnoreNoRows)
 
 	if ok { // If the matrix is invertible, we can only return 0.
 		return Row(make([]byte, b/8))
@@ -456,9 +437,17 @@ func (e Matrix) String() string {
 
 // GenerateIdentity creates the n by n identity matrix.
 func GenerateIdentity(n int) Matrix {
+	return GeneratePartialIdentity(n, IgnoreNoRows)
+}
+
+// GeneratePartialIdentity creates the n by n identity matrix on some rows and leaves others zero.
+func GeneratePartialIdentity(n int, ignore RowIgnore) Matrix {
 	out := GenerateEmpty(n)
+
 	for i := 0; i < n; i++ {
-		out[i].SetBit(i, true)
+		if !ignore(i) {
+			out[i].SetBit(i, true)
+		}
 	}
 
 	return out
@@ -501,8 +490,8 @@ func GenerateRandom(reader io.Reader, n int) Matrix {
 
 // GenerateRandomPartial creates an invertible matrix which is random in some locations and the identity in others,
 // depending on an ignore function.
-func GenerateRandomPartial(reader io.Reader, n int, ignore func(int, int) bool) (Matrix, Matrix) {
-	m := GenerateIdentity(n)
+func GenerateRandomPartial(reader io.Reader, n int, ignore ByteIgnore, idIgnore RowIgnore) (Matrix, Matrix) {
+	m := GeneratePartialIdentity(n, idIgnore)
 
 	for row := 0; row < n; row++ {
 		for col := 0; col < n/8; col++ {
@@ -514,7 +503,7 @@ func GenerateRandomPartial(reader io.Reader, n int, ignore func(int, int) bool) 
 
 	mInv, ok := m.Invert()
 	if !ok {
-		return GenerateRandomPartial(reader, n, ignore)
+		return GenerateRandomPartial(reader, n, ignore, idIgnore)
 	}
 
 	return m, mInv
