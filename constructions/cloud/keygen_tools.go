@@ -144,9 +144,11 @@ func ignoreAtPositions(positions ...int) func(int, int) bool {
 	}
 }
 
-// randomizeFieldInversions takes a padded unobfuscated AES circuit as input and moves field inversions around so that
-// an entire round's inversions won't happen at the same time.
-func randomizeFieldInversions(rs *common.RandomSource, aes []Transform, padding []int) {
+// randomizeFieldInversions takes a padded unobfuscated AES circuit as input and moves the field inversions around so
+// that an entire round's inversions won't happen at the same time.  Returns the partitions it chose.
+func randomizeFieldInversions(rs *common.RandomSource, aes []Transform, padding []int) [][][]int { // [round][pad]
+	partitions := make([][][]int, 10)
+
 	label := make([]byte, 16)
 	label[0], label[1] = 'F', 'I'
 	stream := rs.Stream(label)
@@ -154,6 +156,8 @@ func randomizeFieldInversions(rs *common.RandomSource, aes []Transform, padding 
 	base := 0
 
 	for round := 0; round < 10; round++ {
+		partitions[round] = make([][]int, padding[round]+1)
+
 		// Note on perm and mon:  These two variables give us all of the information we need to randomize where we leave
 		// field inversions.  Elements of perm correspond to positions in the state array and elements of mon correspond
 		// to indices in perm.  If we're on padding block i and mon[i:i+1] = [x, y], then padding block i will expose and
@@ -170,6 +174,8 @@ func randomizeFieldInversions(rs *common.RandomSource, aes []Transform, padding 
 		}
 
 		for pad := 0; pad < padding[round]; pad++ {
+			partitions[round][pad] = perm[mon[pad]:mon[pad+1]]
+
 			mask, maskInv := matrix.GenerateRandomPartial(stream, 128, ignoreAtPositions(perm[:mon[pad+1]]...))
 
 			aes[base+pad+0].Linear = mask.Compose(aes[base+pad+0].Linear) // Only exposes some of the round's unmixed input.
@@ -187,10 +193,14 @@ func randomizeFieldInversions(rs *common.RandomSource, aes []Transform, padding 
 		}
 
 		// Invert what's left.
+		partitions[round][padding[round]] = perm[mon[padding[round]]:]
+
 		for _, pos := range perm[mon[padding[round]]:] {
 			aes[base+padding[round]+1].Input[pos] = Invert{}
 		}
 
 		base += padding[round] + 1
 	}
+
+	return partitions
 }
