@@ -101,6 +101,8 @@ func (rs *RandomSource) Matrix(label []byte, size int) matrix.Matrix {
 func (rs *RandomSource) Dirichlet(label []byte, length, sum int) []int {
 	if length == 0 && sum != 0 {
 		panic("Dirichlet: Can't sample distribution of zero variables and get a non-zero sum!")
+	} else if sum == 0 {
+		return make([]int, length)
 	}
 
 	out := make([]int, length)
@@ -117,6 +119,10 @@ func (rs *RandomSource) Dirichlet(label []byte, length, sum int) []int {
 		for pos := 0; pos < length; pos++ {
 			out[pos] = int(buff[pos])
 			candSum += out[pos]
+		}
+
+		if candSum == 0 { // Avoid division by zero error.
+			return
 		}
 
 		for pos := 0; pos < length; pos++ {
