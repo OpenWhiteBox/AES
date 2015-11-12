@@ -69,7 +69,7 @@ func addPadding(out *[]Transform, padding int) {
 }
 
 // basicEncryption returns an unobfuscated array of linear/non-linear transformations that compute AES encryption.
-func basicEncryption(inputMask, outputMask *matrix.Matrix, roundKeys [11][]byte, padding int) []Transform {
+func basicEncryption(inputMask, outputMask *matrix.Matrix, roundKeys [11][]byte, padding []int) []Transform {
 	out := []Transform{
 		Transform{
 			Input:    idBlock(),
@@ -78,7 +78,7 @@ func basicEncryption(inputMask, outputMask *matrix.Matrix, roundKeys [11][]byte,
 		},
 	}
 	copy(out[len(out)-1].Constant[:], roundKeys[0])
-	addPadding(&out, padding)
+	addPadding(&out, padding[0])
 
 	for round := 1; round <= 9; round++ {
 		out = append(out, Transform{
@@ -87,7 +87,7 @@ func basicEncryption(inputMask, outputMask *matrix.Matrix, roundKeys [11][]byte,
 			Constant: [16]byte{},
 		})
 		copy(out[len(out)-1].Constant[:], roundKeys[round])
-		addPadding(&out, padding)
+		addPadding(&out, padding[round])
 	}
 
 	out = append(out, Transform{
@@ -101,7 +101,7 @@ func basicEncryption(inputMask, outputMask *matrix.Matrix, roundKeys [11][]byte,
 }
 
 // basicDecryption returns an unobfuscated array of linear/non-linear transformations that compute AES decryption.
-func basicDecryption(inputMask, outputMask *matrix.Matrix, roundKeys [11][]byte, padding int) []Transform {
+func basicDecryption(inputMask, outputMask *matrix.Matrix, roundKeys [11][]byte, padding []int) []Transform {
 	out := []Transform{
 		Transform{
 			Input:    idBlock(),
@@ -110,7 +110,7 @@ func basicDecryption(inputMask, outputMask *matrix.Matrix, roundKeys [11][]byte,
 		},
 	}
 	copy(out[len(out)-1].Constant[:], roundKeys[10])
-	addPadding(&out, padding)
+	addPadding(&out, padding[0])
 
 	for round := 9; round > 0; round-- {
 		out = append(out, Transform{
@@ -119,7 +119,7 @@ func basicDecryption(inputMask, outputMask *matrix.Matrix, roundKeys [11][]byte,
 			Constant: [16]byte{},
 		})
 		copy(out[len(out)-1].Constant[:], roundKeys[round])
-		addPadding(&out, padding)
+		addPadding(&out, padding[10-round])
 	}
 
 	out = append(out, Transform{
@@ -146,31 +146,51 @@ func ignoreAtPositions(positions ...int) func(int, int) bool {
 
 // randomizeFieldInversions takes a padded unobfuscated AES circuit as input and moves field inversions around so that
 // an entire round's inversions won't happen at the same time.
-func randomizeFieldInversions(rs *common.RandomSource, aes []Transform) {
+func randomizeFieldInversions(rs *common.RandomSource, aes []Transform, padding []int) {
 	label := make([]byte, 16)
 	label[0], label[1] = 'F', 'I'
+	stream := rs.Stream(label)
+
+	base := 0
 
 	for round := 0; round < 10; round++ {
-		perm := RandomPermutation(rs, round) // The first 8 values are inverted immediately, the last 8 are deferred.
+		// Note on perm and mon:  These two variables give us all of the information we need to randomize where we leave
+		// field inversions.  Elements of perm correspond to positions in the state array and elements of mon correspond
+		// to indices in perm.  If we're on padding block i and mon[i:i+1] = [x, y], then padding block i will expose and
+		// invert elements perm[x:y], assuming perm[:x] are already inverted and perm[y:] are to be left masked.
+		label := make([]byte, 16)
+		label[0], label[1] = 'M', byte(round)
+		mon := append([]int{0}, rs.Monotone(label, padding[round]+1, 16)...)
 
-		label[2] = byte(round)
-		mask, maskInv := matrix.GenerateRandomPartial(rs.Stream(label), 128, ignoreAtPositions(perm[:8]...))
+		perm := RandomPermutation(rs, round)
 
-		aes[2*round+0].Linear = mask.Compose(aes[2*round+0].Linear) // Will only expose some of the round's unmixed input.
-		aes[2*round+1].Linear = maskInv                             // Will expose what the above didn't.
-
-		for _, pos := range perm[:8] {
-			aes[2*round+1].Input[pos] = Invert{}             // This position is exposed so we can invert it.
-			aes[2*round+2].Input[pos] = table.IdentityByte{} // This position was already inverted above so we leave it alone.
+		// Clear all the inversions in our domain.  We will add them back as we see fit.
+		for pad := 0; pad <= padding[round]; pad++ {
+			aes[base+pad+1].Input = idBlock()
 		}
 
-		for _, pos := range perm[8:] {
-			// Split the round key in the same way the field inversions were split.
-			aes[2*round+1].Constant[pos] = aes[2*round+0].Constant[pos]
-			aes[2*round+0].Constant[pos] = 0x00
+		for pad := 0; pad < padding[round]; pad++ {
+			mask, maskInv := matrix.GenerateRandomPartial(stream, 128, ignoreAtPositions(perm[:mon[pad+1]]...))
 
-			aes[2*round+1].Input[pos] = table.IdentityByte{} // This was left hidden so we have to ignore it.
-			aes[2*round+2].Input[pos] = Invert{}             // This is finally exposed this position so we can invert it.
+			aes[base+pad+0].Linear = mask.Compose(aes[base+pad+0].Linear) // Only exposes some of the round's unmixed input.
+			aes[base+pad+1].Linear = maskInv                              // Will expose what the above didn't.
+
+			for _, pos := range perm[mon[pad]:mon[pad+1]] {
+				aes[base+pad+1].Input[pos] = Invert{} // This position is exposed so we can invert it.
+			}
+
+			for _, pos := range perm[mon[pad+1]:] {
+				// Since we don't need it yet, move the rest of the round key down.
+				aes[base+pad+1].Constant[pos] = aes[base+pad+0].Constant[pos]
+				aes[base+pad+0].Constant[pos] = 0x00
+			}
 		}
+
+		// Invert what's left.
+		for _, pos := range perm[mon[padding[round]]:] {
+			aes[base+padding[round]+1].Input[pos] = Invert{}
+		}
+
+		base += padding[round] + 1
 	}
 }
