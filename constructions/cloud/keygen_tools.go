@@ -3,9 +3,8 @@ package cloud
 import (
 	"github.com/OpenWhiteBox/AES/primitives/matrix"
 	"github.com/OpenWhiteBox/AES/primitives/number"
+	"github.com/OpenWhiteBox/AES/primitives/random"
 	"github.com/OpenWhiteBox/AES/primitives/table"
-
-	"github.com/OpenWhiteBox/AES/constructions/common"
 )
 
 type Invert struct{}
@@ -22,7 +21,7 @@ func (at AddTable) Get(i byte) byte {
 
 // splitSecret takes a secret (like a round key) and splits it into many shares.  All must be XORed together to recover
 // the original value.
-func splitSecret(rs *common.RandomSource, c [16]byte, n int) (out [][16]byte) {
+func splitSecret(rs *random.Source, c [16]byte, n int) (out [][16]byte) {
 	out = append(out, c)
 	rand := rs.Stream(c[:])
 
@@ -132,21 +131,9 @@ func basicDecryption(inputMask, outputMask *matrix.Matrix, roundKeys [11][]byte,
 	return out
 }
 
-func ignoreAtPositions(positions ...int) func(int, int) bool {
-	return func(row, col int) bool {
-		for _, pos := range positions {
-			if row == pos || col == pos {
-				return true
-			}
-		}
-
-		return false
-	}
-}
-
 // randomizeFieldInversions takes a padded unobfuscated AES circuit as input and moves the field inversions around so
 // that an entire round's inversions won't happen at the same time.  Returns the partitions it chose.
-func randomizeFieldInversions(rs *common.RandomSource, aes []Transform, padding []int) [][][]int { // [round][pad]
+func randomizeFieldInversions(rs *random.Source, aes []Transform, padding []int) [][][]int { // [round][pad]
 	partitions := make([][][]int, 10)
 
 	label := make([]byte, 16)
@@ -176,7 +163,7 @@ func randomizeFieldInversions(rs *common.RandomSource, aes []Transform, padding 
 		for pad := 0; pad < padding[round]; pad++ {
 			partitions[round][pad] = perm[mon[pad]:mon[pad+1]]
 
-			mask, maskInv := matrix.GenerateRandomPartial(stream, 128, ignoreAtPositions(perm[:mon[pad+1]]...))
+			mask, maskInv := matrix.GenerateRandomPartial(stream, 128, matrix.IgnoreBytes(perm[:mon[pad+1]]...), matrix.IgnoreNoRows)
 
 			aes[base+pad+0].Linear = mask.Compose(aes[base+pad+0].Linear) // Only exposes some of the round's unmixed input.
 			aes[base+pad+1].Linear = maskInv                              // Will expose what the above didn't.

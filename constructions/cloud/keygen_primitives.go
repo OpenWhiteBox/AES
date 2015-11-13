@@ -2,11 +2,12 @@ package cloud
 
 import (
 	"github.com/OpenWhiteBox/AES/primitives/encoding"
+	"github.com/OpenWhiteBox/AES/primitives/random"
 
 	"github.com/OpenWhiteBox/AES/constructions/common"
 )
 
-func RandomPermutation(rs *common.RandomSource, round int) []int {
+func RandomPermutation(rs *random.Source, round int) []int {
 	out := make([]int, 16)
 
 	label := make([]byte, 16)
@@ -21,7 +22,7 @@ func RandomPermutation(rs *common.RandomSource, round int) []int {
 	return out
 }
 
-func RandomPaddingSizes(rs *common.RandomSource, padding int) []int {
+func RandomPaddingSizes(rs *random.Source, padding int) []int {
 	label := make([]byte, 16)
 	label[0], label[1] = 'P', 'S'
 
@@ -29,7 +30,7 @@ func RandomPaddingSizes(rs *common.RandomSource, padding int) []int {
 }
 
 // See constructions/common/keygen_tools.go
-func SliceEncoding(rs *common.RandomSource, round int) func(int, int) encoding.Nibble {
+func SliceEncoding(rs *random.Source, round int) func(int, int) encoding.Nibble {
 	return func(position, subPosition int) encoding.Nibble {
 		label := make([]byte, 16)
 		label[0], label[1], label[2], label[3] = 'S', byte(round), byte(position), byte(subPosition)
@@ -39,7 +40,7 @@ func SliceEncoding(rs *common.RandomSource, round int) func(int, int) encoding.N
 }
 
 // See constructions/common/keygen_tools.go
-func XOREncoding(rs *common.RandomSource, round int) func(int, int) encoding.Nibble {
+func XOREncoding(rs *random.Source, round int) func(int, int) encoding.Nibble {
 	return func(position, gate int) encoding.Nibble {
 		label := make([]byte, 16)
 		label[0], label[1], label[2], label[3] = 'X', byte(round), byte(position), byte(gate)
@@ -49,7 +50,7 @@ func XOREncoding(rs *common.RandomSource, round int) func(int, int) encoding.Nib
 }
 
 // See constructions/common/keygen_tools.go
-func RoundEncoding(rs *common.RandomSource, size, round int) func(int) encoding.Nibble {
+func RoundEncoding(rs *random.Source, size, round int) func(int) encoding.Nibble {
 	return func(position int) encoding.Nibble {
 		if round == -1 || round == size-1 {
 			return encoding.IdentityByte{}
@@ -62,7 +63,7 @@ func RoundEncoding(rs *common.RandomSource, size, round int) func(int) encoding.
 	}
 }
 
-func MixingBijection(rs *common.RandomSource, size, round, position int) encoding.Byte {
+func MixingBijection(rs *random.Source, size, round, position int) encoding.Byte {
 	if round == -1 || round == size-1 {
 		return encoding.IdentityByte{}
 	} else {
@@ -73,7 +74,7 @@ func MixingBijection(rs *common.RandomSource, size, round, position int) encodin
 	}
 }
 
-func BlockSliceEncoding(rs *common.RandomSource, size, round, position int) encoding.Block {
+func BlockSliceEncoding(rs *random.Source, size, round, position int) encoding.Block {
 	out := encoding.ConcatenatedBlock{}
 
 	for i := 0; i < 16; i++ {
@@ -89,7 +90,7 @@ func BlockSliceEncoding(rs *common.RandomSource, size, round, position int) enco
 	return out
 }
 
-func ByteRoundEncoding(rs *common.RandomSource, size, round, position int) encoding.Byte {
+func ByteRoundEncoding(rs *random.Source, size, round, position int) encoding.Byte {
 	return encoding.ConcatenatedByte{
 		RoundEncoding(rs, size, round)(2*position + 0),
 		RoundEncoding(rs, size, round)(2*position + 1),
