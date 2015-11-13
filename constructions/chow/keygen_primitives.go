@@ -4,6 +4,7 @@ package chow
 import (
 	"github.com/OpenWhiteBox/AES/primitives/encoding"
 	"github.com/OpenWhiteBox/AES/primitives/matrix"
+	"github.com/OpenWhiteBox/AES/primitives/random"
 
 	"github.com/OpenWhiteBox/AES/constructions/common"
 )
@@ -25,7 +26,7 @@ func (mbinv MBInverseTable) Get(i byte) (out [4]byte) {
 }
 
 // See constructions/common/keygen_tools.go
-func MaskEncoding(rs *common.RandomSource, surface common.Surface) func(int, int) encoding.Nibble {
+func MaskEncoding(rs *random.Source, surface common.Surface) func(int, int) encoding.Nibble {
 	return func(position, subPosition int) encoding.Nibble {
 		label := make([]byte, 16)
 		label[0], label[1], label[2], label[3], label[4] = 'M', 'E', byte(position), byte(subPosition), byte(surface)
@@ -35,7 +36,7 @@ func MaskEncoding(rs *common.RandomSource, surface common.Surface) func(int, int
 }
 
 // See constructions/common/keygen_tools.go
-func XOREncoding(rs *common.RandomSource, round int, surface common.Surface) func(int, int) encoding.Nibble {
+func XOREncoding(rs *random.Source, round int, surface common.Surface) func(int, int) encoding.Nibble {
 	return func(position, gate int) encoding.Nibble {
 		label := make([]byte, 16)
 		label[0], label[1], label[2], label[3], label[4] = 'X', byte(round), byte(position), byte(gate), byte(surface)
@@ -45,7 +46,7 @@ func XOREncoding(rs *common.RandomSource, round int, surface common.Surface) fun
 }
 
 // See constructions/common/keygen_tools.go
-func RoundEncoding(rs *common.RandomSource, round int, surface common.Surface, shift func(int) int) func(int) encoding.Nibble {
+func RoundEncoding(rs *random.Source, round int, surface common.Surface, shift func(int) int) func(int) encoding.Nibble {
 	return func(position int) encoding.Nibble {
 		position = 2*shift(position/2) + position%2
 
@@ -56,7 +57,7 @@ func RoundEncoding(rs *common.RandomSource, round int, surface common.Surface, s
 	}
 }
 
-func BlockMaskEncoding(rs *common.RandomSource, position int, surface common.Surface, shift func(int) int) encoding.Block {
+func BlockMaskEncoding(rs *random.Source, position int, surface common.Surface, shift func(int) int) encoding.Block {
 	out := encoding.ConcatenatedBlock{}
 
 	for i := 0; i < 16; i++ {
@@ -77,7 +78,7 @@ func BlockMaskEncoding(rs *common.RandomSource, position int, surface common.Sur
 }
 
 // Abstraction over the Tyi and MB^(-1) encodings, to match the pattern of the XOR and round encodings.
-func StepEncoding(rs *common.RandomSource, round, position, subPosition int, surface common.Surface) encoding.Nibble {
+func StepEncoding(rs *random.Source, round, position, subPosition int, surface common.Surface) encoding.Nibble {
 	if surface == common.Inside {
 		return TyiEncoding(rs, round, position, subPosition)
 	} else {
@@ -85,7 +86,7 @@ func StepEncoding(rs *common.RandomSource, round, position, subPosition int, sur
 	}
 }
 
-func WordStepEncoding(rs *common.RandomSource, round, position int, surface common.Surface) encoding.Word {
+func WordStepEncoding(rs *random.Source, round, position int, surface common.Surface) encoding.Word {
 	out := encoding.ConcatenatedWord{}
 
 	for i := 0; i < 4; i++ {
@@ -102,7 +103,7 @@ func WordStepEncoding(rs *common.RandomSource, round, position int, surface comm
 //
 //    position: Position in the state array, counted in *bytes*.
 // subPosition: Position in the T-Box/Tyi Table's ouptput for this byte, counted in nibbles.
-func TyiEncoding(rs *common.RandomSource, round, position, subPosition int) encoding.Nibble {
+func TyiEncoding(rs *random.Source, round, position, subPosition int) encoding.Nibble {
 	label := make([]byte, 16)
 	label[0], label[1], label[2], label[3] = 'T', byte(round), byte(position), byte(subPosition)
 
@@ -113,14 +114,14 @@ func TyiEncoding(rs *common.RandomSource, round, position, subPosition int) enco
 //
 //    position: Position in the state array, counted in *bytes*.
 // subPosition: Position in the MB^(-1) Table's ouptput for this byte, counted in nibbles.
-func MBInverseEncoding(rs *common.RandomSource, round, position, subPosition int) encoding.Nibble {
+func MBInverseEncoding(rs *random.Source, round, position, subPosition int) encoding.Nibble {
 	label := make([]byte, 16)
 	label[0], label[1], label[2], label[3], label[4] = 'M', 'I', byte(round), byte(position), byte(subPosition)
 
 	return rs.Shuffle(label)
 }
 
-func ByteRoundEncoding(rs *common.RandomSource, round, position int, surface common.Surface, shift func(int) int) encoding.Byte {
+func ByteRoundEncoding(rs *random.Source, round, position int, surface common.Surface, shift func(int) int) encoding.Byte {
 	return encoding.ConcatenatedByte{
 		RoundEncoding(rs, round, surface, shift)(2*position + 0),
 		RoundEncoding(rs, round, surface, shift)(2*position + 1),

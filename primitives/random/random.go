@@ -1,4 +1,4 @@
-package common
+package random
 
 import (
 	"crypto/aes"
@@ -19,7 +19,7 @@ func (dn devNull) Read(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-type RandomSource struct {
+type Source struct {
 	Name string
 	Seed []byte
 
@@ -27,14 +27,14 @@ type RandomSource struct {
 	matrixCache   map[[16]byte]matrix.Matrix
 }
 
-func NewRandomSource(name string, seed []byte) RandomSource {
-	return RandomSource{
+func NewSource(name string, seed []byte) Source {
+	return Source{
 		name, seed, make(map[[16]byte]encoding.Shuffle), make(map[[16]byte]matrix.Matrix),
 	}
 }
 
 // subKey generates a random key from the context and label that can be used for cryptographic primitives.
-func (rs *RandomSource) subKey(label []byte) []byte {
+func (rs *Source) subKey(label []byte) []byte {
 	subKey := make([]byte, 16)
 	c, _ := aes.NewCipher(rs.Seed)
 	c.Encrypt(subKey, label)
@@ -53,7 +53,7 @@ func (rs *RandomSource) subKey(label []byte) []byte {
 //
 // It does this by using the seed as an AES key and the label as the IV in CTR mode.  The io.Reader is providing the
 // AES-CTR encryption of /dev/null.
-func (rs *RandomSource) Stream(label []byte) io.Reader {
+func (rs *Source) Stream(label []byte) io.Reader {
 	subKey := rs.subKey(label)
 
 	// Create pseudo-random byte stream keyed by sub-key.
@@ -67,7 +67,7 @@ func (rs *RandomSource) Stream(label []byte) io.Reader {
 }
 
 // Shuffle takes a (possibly public) label and produces a random shuffle of the integers [0, 16).
-func (rs *RandomSource) Shuffle(label []byte) encoding.Shuffle {
+func (rs *Source) Shuffle(label []byte) encoding.Shuffle {
 	key := [16]byte{}
 	copy(key[:], label)
 
@@ -81,8 +81,8 @@ func (rs *RandomSource) Shuffle(label []byte) encoding.Shuffle {
 	}
 }
 
-// Matrix takes a (possibly public) label and produces a random non-singular 128x128 matrix.
-func (rs *RandomSource) Matrix(label []byte, size int) matrix.Matrix {
+// Matrix takes a (possibly public) label and produces a random non-singular matrix.
+func (rs *Source) Matrix(label []byte, size int) matrix.Matrix {
 	key := [16]byte{}
 	copy(key[:], label)
 
@@ -98,7 +98,7 @@ func (rs *RandomSource) Matrix(label []byte, size int) matrix.Matrix {
 
 // Dirichlet takes a (possibly public) label and produces the output of a uniform dirichlet distribution with `length`
 // variables, summing to `sum`.
-func (rs *RandomSource) Dirichlet(label []byte, length, sum int) []int {
+func (rs *Source) Dirichlet(label []byte, length, sum int) []int {
 	if length == 0 && sum != 0 {
 		panic("Dirichlet: Can't sample distribution of zero variables and get a non-zero sum!")
 	} else if sum == 0 {
@@ -114,6 +114,8 @@ func (rs *RandomSource) Dirichlet(label []byte, length, sum int) []int {
 	guess := func() {
 		buff := make([]byte, length)
 		s.Read(buff)
+
+		buff[length-1] /= 3
 
 		candSum := 0
 		for pos := 0; pos < length; pos++ {
@@ -152,7 +154,7 @@ func (rs *RandomSource) Dirichlet(label []byte, length, sum int) []int {
 
 // Monotone takes a (possibly public) label and produces a random monotone function which is `length` units long and
 // maximizes at `max`.
-func (rs *RandomSource) Monotone(label []byte, length, max int) []int {
+func (rs *Source) Monotone(label []byte, length, max int) []int {
 	out := rs.Dirichlet(label, length, max)
 
 	for i := 1; i < length; i++ {

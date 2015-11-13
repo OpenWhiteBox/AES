@@ -3,13 +3,14 @@ package chow
 
 import (
 	"github.com/OpenWhiteBox/AES/primitives/encoding"
+	"github.com/OpenWhiteBox/AES/primitives/random"
 	"github.com/OpenWhiteBox/AES/primitives/table"
 
 	"github.com/OpenWhiteBox/AES/constructions/common"
 )
 
 // Generate the XOR Tables for squashing the result of a Tyi Table or MB^(-1) Table.
-func xorTables(rs *common.RandomSource, surface common.Surface, shift func(int) int) (out [9][32][3]table.Nibble) {
+func xorTables(rs *random.Source, surface common.Surface, shift func(int) int) (out [9][32][3]table.Nibble) {
 	for round := 0; round < 9; round++ {
 		for pos := 0; pos < 32; pos++ {
 			out[round][pos][0] = encoding.NibbleTable{

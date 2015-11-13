@@ -2,6 +2,7 @@ package common
 
 import (
 	"github.com/OpenWhiteBox/AES/primitives/matrix"
+	"github.com/OpenWhiteBox/AES/primitives/random"
 )
 
 type Surface int
@@ -32,7 +33,7 @@ type SameMasks MaskType
 type MatchingMasks struct{}
 
 // GenerateMasks generates input and output encodings for a white-box AES construction.
-func GenerateMasks(rs *RandomSource, opts KeyGenerationOpts, inputMask, outputMask *matrix.Matrix) {
+func GenerateMasks(rs *random.Source, opts KeyGenerationOpts, inputMask, outputMask *matrix.Matrix) {
 	switch opts.(type) {
 	case IndependentMasks:
 		*inputMask = generateMask(rs, opts.(IndependentMasks).Input, Inside)
@@ -50,7 +51,7 @@ func GenerateMasks(rs *RandomSource, opts KeyGenerationOpts, inputMask, outputMa
 	}
 }
 
-func generateMask(rs *RandomSource, maskType MaskType, surface Surface) matrix.Matrix {
+func generateMask(rs *random.Source, maskType MaskType, surface Surface) matrix.Matrix {
 	if maskType == RandomMask {
 		label := make([]byte, 16)
 
@@ -68,7 +69,7 @@ func generateMask(rs *RandomSource, maskType MaskType, surface Surface) matrix.M
 
 // Generate byte/word mixing bijections.
 // TODO: Ensure that blocks are full-rank.
-func MixingBijection(rs *RandomSource, size, round, position int) matrix.Matrix {
+func MixingBijection(rs *random.Source, size, round, position int) matrix.Matrix {
 	label := make([]byte, 16)
 	label[0], label[1], label[2], label[3], label[4] = 'M', 'B', byte(size), byte(round), byte(position)
 
