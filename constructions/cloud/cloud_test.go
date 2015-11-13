@@ -88,7 +88,7 @@ func TestShiftRows(t *testing.T) {
 }
 
 func TestEncrypt(t *testing.T) {
-	for n, vec := range test_vectors.AESVectors {
+	for n, vec := range test_vectors.GetAESVectors(testing.Short()) {
 		constr, inputMask, outputMask := GenerateEncryptionKeys(
 			vec.Key, vec.Key, common.IndependentMasks{common.RandomMask, common.RandomMask},
 		)
@@ -111,7 +111,7 @@ func TestEncrypt(t *testing.T) {
 }
 
 func TestDecrypt(t *testing.T) {
-	for n, vec := range test_vectors.AESVectors {
+	for n, vec := range test_vectors.GetAESVectors(testing.Short()) {
 		constr, inputMask, outputMask := GenerateDecryptionKeys(
 			vec.Key, vec.Key, common.IndependentMasks{common.RandomMask, common.RandomMask},
 		)

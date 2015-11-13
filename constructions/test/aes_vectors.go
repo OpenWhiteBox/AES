@@ -6,6 +6,14 @@ type AESVector struct {
 	Out []byte
 }
 
+func GetAESVectors(short bool) []AESVector {
+	if short {
+		return AESVectors[50:60] // The first 10 all have zero key--50 to 60 seem to have more variety.
+	} else {
+		return AESVectors
+	}
+}
+
 var AESVectors []AESVector = []AESVector{
 	AESVector{
 		[]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},

@@ -273,6 +273,10 @@ func TestFindAtilde(t *testing.T) {
 }
 
 func TestRecoverEncodings(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping the RecoverEncodings test in short mode because its too slow!")
+	}
+
 	constr, key := testConstruction()
 	fastConstr := fastTestConstruction()
 
@@ -318,6 +322,10 @@ func TestBackOneRound(t *testing.T) {
 }
 
 func TestRecoverKey(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping the RecoverKey test in short mode because its too slow!")
+	}
+
 	_, key := testConstruction()
 	fastConstr := fastTestConstruction()
 
