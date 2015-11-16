@@ -84,7 +84,8 @@ func GenerateEncryptionKeys(key, seed []byte, opts common.KeyGenerationOpts) (ou
 	padding := RandomPaddingSizes(&rs, 10)
 	aes := basicEncryption(&inputMask, &outputMask, roundKeys, padding)
 
-	randomizeFieldInversions(&rs, aes, padding)
+	partitions := randomizeFieldInversions(&rs, aes, padding)
+	blurRoundBoundaries(&rs, aes, partitions)
 
 	out = generateMatrices(&rs, aes)
 
@@ -114,7 +115,8 @@ func GenerateDecryptionKeys(key, seed []byte, opts common.KeyGenerationOpts) (ou
 	padding := RandomPaddingSizes(&rs, 10)
 	aes := basicDecryption(&inputMask, &outputMask, roundKeys, padding)
 
-	randomizeFieldInversions(&rs, aes, padding)
+	partitions := randomizeFieldInversions(&rs, aes, padding)
+	blurRoundBoundaries(&rs, aes, partitions)
 
 	out = generateMatrices(&rs, aes)
 

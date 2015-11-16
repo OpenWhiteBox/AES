@@ -178,3 +178,33 @@ func randomizeFieldInversions(rs *random.Source, aes []Transform, padding []int)
 
 	return partitions
 }
+
+// blurRoundBoundaries takes an AES circuit with randomized field inversions and blurs the round boundaries with
+// large mixing bijections that go through the gaps between inversions.
+func blurRoundBoundaries(rs *random.Source, aes []Transform, partitions [][][]int) {
+	label := make([]byte, 16)
+	label[0], label[1] = 'B', 'R'
+	stream := rs.Stream(label)
+
+	base := 0
+
+	// Trim off the part of the partition referring to the last block of the AES array. It causes a fencepost error below.
+	i := len(partitions) - 1
+	j := len(partitions[i]) - 1
+
+	partitions[i] = partitions[i][0:j]
+
+	// Add random mixing bijections (avoiding field inversions) between each block.
+	for _, padding := range partitions {
+		for _, block := range padding {
+			mask, maskInv := matrix.GenerateRandomPartial(
+				stream, 128, matrix.IgnoreBytes(block...), matrix.IgnoreNoRows,
+			)
+
+			aes[base].Linear = mask.Compose(aes[base].Linear)
+			aes[base+1].Linear = aes[base+1].Linear.Compose(maskInv)
+
+			base++
+		}
+	}
+}
