@@ -2,10 +2,23 @@ package cloud
 
 import (
 	"github.com/OpenWhiteBox/AES/primitives/encoding"
+	"github.com/OpenWhiteBox/AES/primitives/number"
 	"github.com/OpenWhiteBox/AES/primitives/random"
 
 	"github.com/OpenWhiteBox/AES/constructions/common"
 )
+
+type InvertTable struct{}
+
+func (inv InvertTable) Get(i byte) byte {
+	return byte(number.ByteFieldElem(i).Invert())
+}
+
+type AddTable byte
+
+func (at AddTable) Get(i byte) byte {
+	return i ^ byte(at)
+}
 
 func RandomPermutation(rs *random.Source, round int) []int {
 	out := make([]int, 16)

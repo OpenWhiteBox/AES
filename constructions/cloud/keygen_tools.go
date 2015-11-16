@@ -2,22 +2,9 @@ package cloud
 
 import (
 	"github.com/OpenWhiteBox/AES/primitives/matrix"
-	"github.com/OpenWhiteBox/AES/primitives/number"
 	"github.com/OpenWhiteBox/AES/primitives/random"
 	"github.com/OpenWhiteBox/AES/primitives/table"
 )
-
-type Invert struct{}
-
-func (inv Invert) Get(i byte) byte {
-	return byte(number.ByteFieldElem(i).Invert())
-}
-
-type AddTable byte
-
-func (at AddTable) Get(i byte) byte {
-	return i ^ byte(at)
-}
 
 // splitSecret takes a secret (like a round key) and splits it into many shares.  All must be XORed together to recover
 // the original value.
@@ -37,6 +24,8 @@ func splitSecret(rs *random.Source, c [16]byte, n int) (out [][16]byte) {
 	return
 }
 
+// idBlock, invBlock, and addPadding are helper functions for basicEncrypt and basicDecrypt.
+
 func idBlock() (out [16]table.Byte) {
 	for pos := 0; pos < 16; pos++ {
 		out[pos] = table.IdentityByte{}
@@ -47,23 +36,19 @@ func idBlock() (out [16]table.Byte) {
 
 func invBlock() (out [16]table.Byte) {
 	for pos := 0; pos < 16; pos++ {
-		out[pos] = Invert{}
+		out[pos] = InvertTable{}
 	}
 
 	return
 }
 
-func idTransform() Transform {
-	return Transform{
-		Input:    idBlock(),
-		Linear:   matrix.GenerateIdentity(128),
-		Constant: [16]byte{},
-	}
-}
-
 func addPadding(out *[]Transform, padding int) {
 	for i := 0; i < padding; i++ {
-		*out = append(*out, idTransform())
+		*out = append(*out, Transform{
+			Input:    idBlock(),
+			Linear:   matrix.GenerateIdentity(128),
+			Constant: [16]byte{},
+		})
 	}
 }
 
@@ -163,13 +148,15 @@ func randomizeFieldInversions(rs *random.Source, aes []Transform, padding []int)
 		for pad := 0; pad < padding[round]; pad++ {
 			partitions[round][pad] = perm[mon[pad]:mon[pad+1]]
 
-			mask, maskInv := matrix.GenerateRandomPartial(stream, 128, matrix.IgnoreBytes(perm[:mon[pad+1]]...), matrix.IgnoreNoRows)
+			mask, maskInv := matrix.GenerateRandomPartial(
+				stream, 128, matrix.IgnoreBytes(perm[:mon[pad+1]]...), matrix.IgnoreNoRows,
+			)
 
 			aes[base+pad+0].Linear = mask.Compose(aes[base+pad+0].Linear) // Only exposes some of the round's unmixed input.
 			aes[base+pad+1].Linear = maskInv                              // Will expose what the above didn't.
 
 			for _, pos := range perm[mon[pad]:mon[pad+1]] {
-				aes[base+pad+1].Input[pos] = Invert{} // This position is exposed so we can invert it.
+				aes[base+pad+1].Input[pos] = InvertTable{} // This position is exposed so we can invert it.
 			}
 
 			for _, pos := range perm[mon[pad+1]:] {
@@ -183,7 +170,7 @@ func randomizeFieldInversions(rs *random.Source, aes []Transform, padding []int)
 		partitions[round][padding[round]] = perm[mon[padding[round]]:]
 
 		for _, pos := range perm[mon[padding[round]]:] {
-			aes[base+padding[round]+1].Input[pos] = Invert{}
+			aes[base+padding[round]+1].Input[pos] = InvertTable{}
 		}
 
 		base += padding[round] + 1

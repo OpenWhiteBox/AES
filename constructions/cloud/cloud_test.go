@@ -36,7 +36,7 @@ func TestSubBytes(t *testing.T) {
 	copy(cand, vect)
 
 	for pos := 0; pos < 16; pos++ {
-		cand[pos] = Invert{}.Get(cand[pos])
+		cand[pos] = InvertTable{}.Get(cand[pos])
 	}
 
 	copy(cand, SubBytes.Mul(matrix.Row(cand)))
