@@ -2,10 +2,7 @@ package matrix
 
 import (
 	"crypto/rand"
-	"fmt"
-	mrand "math/rand"
 	"testing"
-	"time"
 
 	"github.com/OpenWhiteBox/AES/primitives/number"
 )
@@ -84,40 +81,6 @@ func TestBlockInvert(t *testing.T) {
 	}
 }
 
-func TestBlockInvertAt(t *testing.T) {
-	m := GenerateRandom(rand.Reader, 128)
-
-	// Generate a test vector.
-	input := make([]byte, 16)
-	rand.Reader.Read(input)
-
-	hidden := m.Mul(Row(input))
-
-	// Choose a random subset of 0...16 to invert.
-	r := mrand.New(mrand.NewSource(time.Now().Unix()))
-	perm := r.Perm(16)
-
-	h, ok := m.InvertAt(perm[0:8]...)
-	if !ok {
-		t.Fatalf("Failed to partially invert matrix!")
-	}
-
-	// Pass test vector through partial inversion; Verify output.
-	output := h.Mul(hidden)
-
-	for _, pos := range perm[0:8] {
-		if output[pos] != input[pos] {
-			t.Fatalf("Value in distinguished position wasn't inverted!")
-		}
-	}
-
-	for _, pos := range perm[8:16] {
-		if output[pos] == input[pos] {
-			t.Fatalf("Value in undistinguished position probably shouldn't have been inverted...")
-		}
-	}
-}
-
 func TestTranspose(t *testing.T) {
 	m := GenerateIdentity(8)
 	m[0].SetBit(7, true)
@@ -186,7 +149,7 @@ func TestNullSpace(t *testing.T) {
 		m := GenerateTrueRandom(rand.Reader, 64)
 		x := m.NullSpace()
 
-		if fmt.Sprintf("%x", m.Mul(x)) != "0000000000000000" {
+		if m.Mul(x).String() != Row(make([]byte, 8)).String() {
 			t.Fatalf("Didn't find an actual element of the nullspace!\n x = %x\nMx = %x\n", x, m.Mul(x))
 		}
 	}
@@ -212,17 +175,5 @@ func BenchmarkInvert(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		m.Invert()
-	}
-}
-
-func BenchmarkInvertAt(b *testing.B) {
-	m := GenerateRandom(rand.Reader, 64)
-	r := mrand.New(mrand.NewSource(time.Now().Unix()))
-	cut := r.Perm(8)[0:4]
-
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		m.InvertAt(cut...)
 	}
 }
