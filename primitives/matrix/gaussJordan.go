@@ -15,7 +15,7 @@ func (e Matrix) gaussJordan(aug Matrix, lower, upper int, ignore RowIgnore) (Mat
 			break
 		}
 
-		// Find a row with a non-zero entry in the (col)th position
+		// Find a row with a non-zero entry in the (row)th position
 		candId := -1
 		for j, f_j := range f[row:] {
 			if !ignore(j+row) && f_j.GetBit(row) == 1 {
