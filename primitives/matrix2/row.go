@@ -48,6 +48,17 @@ func (e Row) DotProduct(f Row) number.ByteFieldElem {
 	return res
 }
 
+// Height returns the position of the first non-zero entry in the row, or -1 if the row is zero.
+func (e Row) Height() int {
+	for i, e_i := range e {
+		if !e_i.IsZero() {
+			return i
+		}
+	}
+
+	return -1
+}
+
 func (e Row) IsZero() bool {
 	for _, e_i := range e {
 		if !e_i.IsZero() {

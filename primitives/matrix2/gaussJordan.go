@@ -1,50 +1,68 @@
 package matrix2
 
 // gaussJordan reduces the matrix according to the Gauss-Jordan Method.  Returns the augment matrix, the transformed
-// matrix, at what column elimination failed (if ever), and whether it succeeded (meaning the augment matrix computes
-// the transformation).
-func (e Matrix) gaussJordan() (Matrix, Matrix, int, bool) {
+// matrix, and the failing pivot (-1 if none).
+func (e Matrix) gaussJordan() (aug, f Matrix, frees []int) {
 	out, in := e.Size()
-	aug := GenerateIdentity(out)
 
-	f := make([]Row, out) // Duplicate e away so we don't mutate it.
+	aug = GenerateIdentity(in)
+
+	f = Matrix(make([]Row, out)) // Duplicate e away so we don't mutate it.
 	copy(f, e)
 
-	for row, _ := range f {
-		if row >= in { // The matrix is tall and thin--we've finished before exhausting all the rows.
-			break
+	row, col := 0, 0
+
+	for row < out && col < in {
+		// Find a non-zero element to move into the pivot position.
+		i := f.findPivot(row, col)
+		if i == -1 { // Failed to find a pivot.
+			frees = append(frees, col)
+			col++
+
+			continue
 		}
 
-		// Find a row with a non-zero entry in the (row)th position.
-		candId := -1
-		for j, f_j := range f[row:] {
-			if !f_j[row].IsZero() {
-				candId = j + row
-				break
-			}
-		}
+		// Move it into position.
+		f.swapRows(row, i)
+		aug.swapRows(row, i)
 
-		if candId == -1 { // If we can't find one, fail and return our partial work.
-			return aug, f, row, false
-		}
-
-		// Move it to the top
-		f[row], f[candId] = f[candId], f[row]
-		aug[row], aug[candId] = aug[candId], aug[row]
-
-		// Normalize the entry in this rows (row)th position.
-		correction := f[row][row].Invert()
+		// Normalize the entry in this rows (pivot)th position.
+		correction := f[row][col].Invert()
 		f[row] = f[row].ScalarMul(correction)
 		aug[row] = aug[row].ScalarMul(correction)
 
 		// Cancel out the (row)th position for every row above and below it.
-		for i, _ := range f {
-			if i != row && !f[i][row].IsZero() {
-				aug[i] = aug[i].Add(aug[row].ScalarMul(f[i][row]))
-				f[i] = f[i].Add(f[row].ScalarMul(f[i][row]))
+		for j, _ := range f {
+			if j != row && !f[j][col].IsZero() {
+				aug[j] = aug[j].Add(aug[row].ScalarMul(f[j][col]))
+				f[j] = f[j].Add(f[row].ScalarMul(f[j][col]))
 			}
+		}
+
+		row++
+		col++
+	}
+
+	// Add the rest of the free variables for completion.
+	for x := out; x < in; x++ {
+		frees = append(frees, x)
+	}
+
+	return
+}
+
+func (e Matrix) findPivot(row, col int) int {
+	out, _ := e.Size()
+
+	for i := row; i < out; i++ {
+		if !e[i][col].IsZero() {
+			return i
 		}
 	}
 
-	return aug, f, -1, true
+	return -1
+}
+
+func (e Matrix) swapRows(row1, row2 int) {
+	e[row1], e[row2] = e[row2], e[row1]
 }

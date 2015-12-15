@@ -2,41 +2,30 @@ package matrix2
 
 import (
 	"testing"
+
+	"crypto/rand"
+
+	"github.com/OpenWhiteBox/AES/primitives/number"
 )
 
-func TestGaussJordan(t *testing.T) {
-	m := Matrix{
-		Row{0x01, 0x02},
-		Row{0x02, 0x01},
-	}
-
-	aug, _, _, ok := m.gaussJordan()
-
-	if !ok {
-		t.Fatalf("gaussJordan returned ok=false")
-	}
-	in := Row{0x01, 0x01}
-	out := aug.Mul(m.Mul(in))
-
-	if !in.Add(out).IsZero() {
-		t.Fatalf("gaussJordan returned an incorrect inverse matrix")
-	}
-}
-
 func TestNullSpace(t *testing.T) {
-	m := Matrix{
-		Row{0x01, 0x02},
-		Row{0x02, 0x04},
+	m := GenerateTrueRandom(rand.Reader, 32)
+	m[2] = m[3].ScalarMul(number.ByteFieldElem(0x03)) // Force matrix to be singular.
+	m[4] = m[3].ScalarMul(number.ByteFieldElem(0x07))
+
+	basis := m.NullSpace()
+
+	if len(basis) < 2 {
+		t.Fatalf("NullSpace returned a basis that's too small")
 	}
 
-	r := m.NullSpace()
-	mr := m.Mul(r)
+	a := m.Mul(basis[0])
+	b := m.Mul(basis[1])
+	c := m.Mul(
+		basis[0].Add(basis[1]),
+	)
 
-	if r.IsZero() {
-		t.Fatalf("NullSpace returned trivial element of nullspace")
-	}
-
-	if !mr.IsZero() {
-		t.Fatalf("NullSpace returned an incorrect element of nullspace")
+	if !a.IsZero() || !b.IsZero() || !c.IsZero() {
+		t.Fatalf("NullSpace returned a malformed basis.")
 	}
 }
