@@ -48,6 +48,22 @@ func (e Row) DotProduct(f Row) number.ByteFieldElem {
 	return res
 }
 
+// IsPermutation returns true if the row is a permutation of all the elements of GF(2^8) and false otherwise.
+func (e Row) IsPermutation() bool {
+	sums := [256]int{}
+	for _, e_i := range e {
+		sums[e_i]++
+	}
+
+	for _, x := range sums {
+		if x != 1 {
+			return false
+		}
+	}
+
+	return true
+}
+
 // Height returns the position of the first non-zero entry in the row, or -1 if the row is zero.
 func (e Row) Height() int {
 	for i, e_i := range e {
@@ -57,6 +73,21 @@ func (e Row) Height() int {
 	}
 
 	return -1
+}
+
+// Equal returns true if two rows are equal and false otherwise.
+func (e Row) Equal(f Row) bool {
+	if e.Size() != f.Size() {
+		panic("Can't compare rows that are different sizes!")
+	}
+
+	for i := 0; i < e.Size(); i++ {
+		if e[i] != f[i] {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (e Row) IsZero() bool {
