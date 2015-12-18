@@ -6,8 +6,6 @@ import (
 	"github.com/OpenWhiteBox/AES/primitives/encoding"
 	matrix "github.com/OpenWhiteBox/AES/primitives/matrix2"
 	"github.com/OpenWhiteBox/AES/primitives/number"
-
-	"github.com/OpenWhiteBox/AES/constructions/sas"
 )
 
 // NewSBox returns a new S-Box from a permutation vector.
@@ -37,7 +35,7 @@ func xorArray(a, b [16]byte) (out [16]byte) {
 }
 
 // EncryptAtPosition returns the encryption of a plaintext which is zero, except for plaintext[pos] = val.
-func EncryptAtPosition(constr sas.Construction, pos int, val byte) (out [16]byte) {
+func EncryptAtPosition(constr Construction, pos int, val byte) (out [16]byte) {
 	in := [16]byte{}
 	in[pos] = val
 

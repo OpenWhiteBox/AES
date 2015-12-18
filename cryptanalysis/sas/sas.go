@@ -6,11 +6,13 @@ import (
 	binmatrix "github.com/OpenWhiteBox/AES/primitives/matrix"
 	matrix "github.com/OpenWhiteBox/AES/primitives/matrix2"
 	"github.com/OpenWhiteBox/AES/primitives/number"
-
-	"github.com/OpenWhiteBox/AES/constructions/sas"
 )
 
-func DecomposeSAS(constr sas.Construction) (encoding.Block, binmatrix.Matrix, [16]byte, encoding.Block) {
+type Construction interface {
+	Encrypt([]byte, []byte)
+}
+
+func DecomposeSAS(constr Construction) (encoding.Block, binmatrix.Matrix, [16]byte, encoding.Block) {
 	outer := encoding.ConcatenatedBlock(RecoverLastSBoxes(constr))
 	inner := encoding.ConcatenatedBlock(RecoverFirstSBoxes(constr, outer))
 
@@ -19,7 +21,7 @@ func DecomposeSAS(constr sas.Construction) (encoding.Block, binmatrix.Matrix, [1
 	return inner, linear, constant, outer
 }
 
-func RecoverAffine(constr sas.Construction, inner, outer encoding.Block) (binmatrix.Matrix, [16]byte) {
+func RecoverAffine(constr Construction, inner, outer encoding.Block) (binmatrix.Matrix, [16]byte) {
 	// Find constant part of affine transformation.
 	constant := [16]byte{}
 
@@ -49,7 +51,7 @@ func RecoverAffine(constr sas.Construction, inner, outer encoding.Block) (binmat
 }
 
 // RecoverFirstSBoxes recovers the input S-Boxes for the construction given the trailing S-Boxes.
-func RecoverFirstSBoxes(constr sas.Construction, outer encoding.Block) (out [16]encoding.Byte) {
+func RecoverFirstSBoxes(constr Construction, outer encoding.Block) (out [16]encoding.Byte) {
 	for i, _ := range out {
 		out[i] = RecoverFirstSBox(constr, outer, i)
 	}
@@ -64,7 +66,7 @@ func RecoverFirstSBoxes(constr sas.Construction, outer encoding.Block) (out [16]
 // pos:    The position to recover the s-box from.
 //
 // Returns the S-Box as a byte encoding.
-func RecoverFirstSBox(constr sas.Construction, outer encoding.Block, pos int) encoding.Byte {
+func RecoverFirstSBox(constr Construction, outer encoding.Block, pos int) encoding.Byte {
 	balance := matrix.Matrix{}
 	basis := []matrix.Row(matrix.GenerateIdentity(256))
 
@@ -103,7 +105,7 @@ func RecoverFirstSBox(constr sas.Construction, outer encoding.Block, pos int) en
 //
 // Returns an array of rows where the ith and jth positions are one iff:
 //   x[pos] = i, y[pos] = j   =>   E(x) + E(y) = target
-func GenerateInnerBalance(constr sas.Construction, outer encoding.Block, pos int, target [16]byte) (out []matrix.Row) {
+func GenerateInnerBalance(constr Construction, outer encoding.Block, pos int, target [16]byte) (out []matrix.Row) {
 	for i := 0; i < 255; i++ { // 255 rather than 256 because the for loop below will be degenerate if i = 255.
 		x := outer.Decode(EncryptAtPosition(constr, pos, byte(i)))
 
@@ -137,7 +139,7 @@ func GenerateInnerBalance(constr sas.Construction, outer encoding.Block, pos int
 }
 
 // RecoverLastSBoxes takes an SAS block cipher as input and returns the trailing S-boxes of each position.
-func RecoverLastSBoxes(constr sas.Construction) (out [16]encoding.Byte) {
+func RecoverLastSBoxes(constr Construction) (out [16]encoding.Byte) {
 	ms := GenerateOuterBalance(constr)
 
 	for i, m := range ms {
@@ -163,7 +165,7 @@ func unfinished(pointers [16]int) bool {
 // A balance matrix is a row of balances specifying an S-Box.
 // The dot product of each row of the balance matrix with [ S'(0) S'(1) ... S'(255) ] equals zero, where S' is the
 // inverse of the S-Box.
-func GenerateOuterBalance(constr sas.Construction) (out [16]matrix.Matrix) {
+func GenerateOuterBalance(constr Construction) (out [16]matrix.Matrix) {
 	// Set defaults for out.
 	for i, _ := range out {
 		out[i] = matrix.GenerateEmpty(256)
