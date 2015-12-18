@@ -11,18 +11,23 @@ import (
 )
 
 // NewSBox returns a new S-Box from a permutation vector.
-func NewSBox(v matrix.Row) (out encoding.SBox) {
+func NewSBox(v matrix.Row, backwards bool) (out encoding.SBox) {
 	for i, v_i := range v[0:256] {
-		out.DecKey[i] = byte(v_i) // EncKey and DecKey are backwards because we recover the inverse of the S-box.
+		out.EncKey[i] = byte(v_i)
 	}
 
 	for i, j := range out.EncKey {
-		out.EncKey[j] = byte(i)
+		out.DecKey[j] = byte(i)
+	}
+
+	if backwards { // Reverse EncKey and DecKey if we recover S^-1
+		out.EncKey, out.DecKey = out.DecKey, out.EncKey
 	}
 
 	return
 }
 
+// xorArray returns the xor of two byte arrays.
 func xorArray(a, b [16]byte) (out [16]byte) {
 	for i := 0; i < 16; i++ {
 		out[i] = a[i] ^ b[i]
@@ -31,6 +36,7 @@ func xorArray(a, b [16]byte) (out [16]byte) {
 	return
 }
 
+// EncryptAtPosition returns the encryption of a plaintext which is zero, except for plaintext[pos] = val.
 func EncryptAtPosition(constr sas.Construction, pos int, val byte) (out [16]byte) {
 	in := [16]byte{}
 	in[pos] = val
