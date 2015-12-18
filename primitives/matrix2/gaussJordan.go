@@ -1,11 +1,18 @@
 package matrix2
 
+import (
+	"github.com/OpenWhiteBox/AES/primitives/number"
+)
+
 // gaussJordan reduces the matrix according to the Gauss-Jordan Method.  Returns the augment matrix, the transformed
 // matrix, and the failing pivot (-1 if none).
 func (e Matrix) gaussJordan() (aug, f Matrix, frees []int) {
 	out, in := e.Size()
 
 	aug = GenerateIdentity(in)
+	for x := in; x < out; x++ {
+		aug = append(aug, Row(make([]number.ByteFieldElem, in)))
+	}
 
 	f = Matrix(make([]Row, out)) // Duplicate e away so we don't mutate it.
 	copy(f, e)

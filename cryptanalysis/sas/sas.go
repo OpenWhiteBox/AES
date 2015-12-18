@@ -2,8 +2,6 @@
 package sas
 
 import (
-	"crypto/rand"
-
 	"github.com/OpenWhiteBox/AES/primitives/encoding"
 	matrix "github.com/OpenWhiteBox/AES/primitives/matrix2"
 	"github.com/OpenWhiteBox/AES/primitives/number"
@@ -11,14 +9,75 @@ import (
 	"github.com/OpenWhiteBox/AES/constructions/sas"
 )
 
-// NewSBox returns a new S-Box from a permutation vector.
-func NewSBox(v matrix.Row) (out encoding.SBox) {
-	for i, v_i := range v {
-		out.DecKey[i] = byte(v_i) // EncKey and DecKey are backwards because we recover the inverse of the S-box.
+// RecoverFirstSBox recovers the input S-Box at position pos.
+//
+// constr: An SAS construction.
+// outer:  The outer s-box of the construction.
+// pos:    The position to recover the s-box from.
+//
+// Returns the S-Box as a byte encoding.
+func RecoverFirstSBox(constr sas.Construction, outer encoding.Block, pos int) encoding.Byte {
+	cap := 6
+	// When the cap=1, the size of the basis of the nullspace is about 130 vectors. As cap increases, the basis asymptotes
+	// around 10 vectors. cap=6 seems to be the most efficient tradeoff between time spent collecting vectors and time
+	// spent searching the nullspace.
+
+	balance := matrix.Matrix{}
+	x := outer.Decode(EncryptAtPosition(constr, pos, 0x00))
+
+	for c := 1; c <= cap; c++ {
+		y := outer.Decode(EncryptAtPosition(constr, pos, byte(c)))
+		target := xorArray(x, y)
+
+		rows := FindTargetBalances(constr, outer, pos, target)
+		for _, row := range rows {
+			index := make([]number.ByteFieldElem, cap)
+			index[c-1] = 0x01
+
+			balance = append(balance, append(row, index...))
+		}
 	}
 
-	for i, j := range out.EncKey {
-		out.EncKey[j] = byte(i)
+	return NewSBox(FindPermutation(balance.NullSpace()))
+}
+
+// FindTargetBalances finds pairs of inputs x,y such that E(x) + E(y) = target by toggling the (pos)th position.
+//
+// constr: An SAS construction.
+// outer:  The outer s-box of the construction.
+// pos:    The position in the plaintexts to toggle.
+// target: The target ciphertext.
+//
+// Returns an array of rows where the ith and jth positions are one iff:
+//   x[pos] = i, y[pos] = j   =>   E(x) + E(y) = target
+func FindTargetBalances(constr sas.Construction, outer encoding.Block, pos int, target [16]byte) (out []matrix.Row) {
+	for i := 1; i < 255; i++ { // 255 rather than 256 because the for loop below will be degenerate if i = 255.
+		x := outer.Decode(EncryptAtPosition(constr, pos, byte(i)))
+
+		// Skip this if we've already found it.
+		found := false
+		for _, row := range out {
+			if !row[i].IsZero() {
+				found = true
+				break
+			}
+		}
+
+		if found {
+			continue
+		}
+
+		for j := i + 1; j < 256; j++ {
+			y := outer.Decode(EncryptAtPosition(constr, pos, byte(j)))
+
+			if xorArray(x, y) == target {
+				row := matrix.Row(make([]number.ByteFieldElem, 256))
+				row[i], row[j] = 0x01, 0x01
+
+				out = append(out, row)
+				break
+			}
+		}
 	}
 
 	return
@@ -26,7 +85,7 @@ func NewSBox(v matrix.Row) (out encoding.SBox) {
 
 // RecoverLastSBoxes takes an SAS block cipher as input and returns the trailing S-boxes of each position.
 func RecoverLastSBoxes(constr sas.Construction) (out [16]encoding.Byte) {
-	ms := GenerateBalanceMatrices(constr.Encrypt)
+	ms := GenerateBalanceMatrices(constr)
 
 	for i, m := range ms {
 		out[i] = NewSBox(FindPermutation(m.NullSpace()))
@@ -47,7 +106,9 @@ func unfinished(pointers [16]int) bool {
 
 // GenerateBalanceMatrices takes an SAS block cipher as input and finds a balance matrix for the trailing S-Box of each
 // position.
-func GenerateBalanceMatrices(f func([]byte, []byte)) (out [16]matrix.Matrix) {
+//
+// A balance matrix is...
+func GenerateBalanceMatrices(constr sas.Construction) (out [16]matrix.Matrix) {
 	// Set defaults for out.
 	for i, _ := range out {
 		out[i] = matrix.GenerateEmpty(256)
@@ -59,8 +120,8 @@ func GenerateBalanceMatrices(f func([]byte, []byte)) (out [16]matrix.Matrix) {
 		ct := make([]byte, 16)
 
 		for _, pt := range pts {
-			f(ct, pt) // C[..]PC[..] -(S)-> C[..]PC[..] -(A)->   D[..]   -(S)-> D[..]
-			f(ct, ct) //    D[..]    -(S)->    D[..]    -(A)->   B[..]   -(S)-> x[..]
+			constr.Encrypt(ct, pt) // C[..]PC[..] -(S)-> C[..]PC[..] -(A)->   D[..]   -(S)-> D[..]
+			constr.Encrypt(ct, ct) //    D[..]    -(S)->    D[..]    -(A)->   B[..]   -(S)-> x[..]
 
 			// Accumulate the linear relationships of all the ciphertexts in the next empty row of the matrix.
 			for i, pointer := range pointers {
@@ -89,48 +150,4 @@ func GenerateBalanceMatrices(f func([]byte, []byte)) (out [16]matrix.Matrix) {
 	}
 
 	return
-}
-
-// GenerateRandomPlaintexts returns a random multiset of C[..]PC[..] plaintexts with the P at the given position.
-func GenerateRandomPlaintexts(pos int) (out [][]byte) {
-	master := make([]byte, 16)
-	rand.Read(master)
-
-	for i := 0; i < 256; i++ {
-		pt := make([]byte, 16)
-		copy(pt, master)
-
-		pt[pos] = byte(i)
-
-		out = append(out, pt)
-	}
-
-	return
-}
-
-// FindPermutation takes a set of vectors and finds a linear combination of them that gives a permutation vector.
-func FindPermutation(basis []matrix.Row) matrix.Row {
-	for true {
-		v := RandomLinearCombination(basis)
-
-		if v.IsPermutation() {
-			return v
-		}
-	}
-
-	return nil
-}
-
-// RandomLinearCombination returns a random linear combination of a set of basis vectors.
-func RandomLinearCombination(basis []matrix.Row) matrix.Row {
-	coeffs := make([]byte, len(basis))
-	rand.Read(coeffs)
-
-	v := matrix.Row(make([]number.ByteFieldElem, basis[0].Size()))
-
-	for i, c_i := range coeffs {
-		v = v.Add(basis[i].ScalarMul(number.ByteFieldElem(c_i)))
-	}
-
-	return v
 }
