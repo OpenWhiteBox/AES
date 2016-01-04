@@ -3,10 +3,50 @@
 package encoding
 
 import (
-	"crypto/rand"
 	"io"
-	"math/big"
 )
+
+func marshall(x byte, mod int) int {
+	y := int(x)
+
+	// Trim every bit off of y that mod doesn't have.
+	for i := uint(2); i < 8; i++ {
+		if mod < (1 << i) {
+			y &= (1 << i) - 1
+			break
+		}
+	}
+
+	return y
+}
+
+func generatePermutation(reader io.Reader, size int) []byte {
+	out := make([]byte, size)
+	for i := 0; i < size; i++ {
+		out[i] = byte(i)
+	}
+
+	ptr := 0
+	for ptr < size {
+		buffer := make([]byte, 32)
+		reader.Read(buffer)
+
+		for _, b := range buffer {
+			c := marshall(b, size-ptr) + ptr
+
+			if c < size {
+				out[ptr], out[c] = out[c], out[ptr]
+				ptr++
+
+				if ptr == size {
+					break
+				}
+			}
+		}
+	}
+
+	return out
+}
 
 type Shuffle struct {
 	EncKey, DecKey [16]byte
@@ -21,14 +61,10 @@ func (s Shuffle) Decode(i byte) byte {
 }
 
 func GenerateShuffle(reader io.Reader) (s Shuffle) {
-	s.EncKey = [16]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
-	s.DecKey = [16]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
+	// Generate a random permutation as the encryption key.
+	copy(s.EncKey[:], generatePermutation(reader, 16))
 
-	for i := int64(15); i > 0; i-- { // Performance bottleneck.
-		j, _ := rand.Int(reader, big.NewInt(i+1))
-		s.EncKey[i], s.EncKey[j.Int64()] = s.EncKey[j.Int64()], s.EncKey[i]
-	}
-
+	// Invert the encryption key; set it as the decryption key.
 	for i, j := range s.EncKey {
 		s.DecKey[j] = byte(i)
 	}
@@ -49,15 +85,10 @@ func (s SBox) Decode(i byte) byte {
 }
 
 func GenerateSBox(reader io.Reader) (s SBox) {
-	for i := 0; i < 256; i++ {
-		s.EncKey[i] = byte(i)
-	}
+	// Generate a random permutation as the encryption key.
+	copy(s.EncKey[:], generatePermutation(reader, 256))
 
-	for i := int64(255); i > 0; i-- {
-		j, _ := rand.Int(reader, big.NewInt(i+1))
-		s.EncKey[i], s.EncKey[j.Int64()] = s.EncKey[j.Int64()], s.EncKey[i]
-	}
-
+	// Invert the encryption key; set it as the decryption key.
 	for i, j := range s.EncKey {
 		s.DecKey[j] = byte(i)
 	}

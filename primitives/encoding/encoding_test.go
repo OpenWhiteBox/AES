@@ -31,3 +31,15 @@ func TestByteLinear(t *testing.T) {
 		}
 	}
 }
+
+func BenchmarkGenerateSBox(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		GenerateSBox(rand.Reader)
+	}
+}
+
+func BenchmarkGenerateShuffle(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		GenerateShuffle(rand.Reader)
+	}
+}
