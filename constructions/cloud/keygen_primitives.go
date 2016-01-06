@@ -2,6 +2,7 @@ package cloud
 
 import (
 	"github.com/OpenWhiteBox/AES/primitives/encoding"
+	"github.com/OpenWhiteBox/AES/primitives/matrix"
 	"github.com/OpenWhiteBox/AES/primitives/number"
 	"github.com/OpenWhiteBox/AES/primitives/random"
 
@@ -39,7 +40,20 @@ func RandomPaddingSizes(rs *random.Source, padding int) []int {
 	label := make([]byte, 16)
 	label[0], label[1] = 'P', 'S'
 
-	return rs.Dirichlet(label, 10, padding)
+	return rs.Dirichlet(label, 11, padding)
+}
+
+// Returns B composed with A.
+func ComposeAffine(Blinear, Alinear matrix.Matrix, Bconstant, Aconstant [16]byte) (matrix.Matrix, [16]byte) {
+	BAlinear := Blinear.Compose(Alinear)
+	BAconstant := [16]byte{}
+	copy(BAconstant[:], Blinear.Mul(matrix.Row(Aconstant[:])))
+
+	for k, v := range Bconstant {
+		BAconstant[k] ^= v
+	}
+
+	return BAlinear, BAconstant
 }
 
 // See constructions/common/keygen_tools.go
