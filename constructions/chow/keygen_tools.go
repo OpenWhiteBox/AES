@@ -19,7 +19,7 @@ func xorTables(rs *random.Source, surface common.Surface, shift func(int) int) (
 					StepEncoding(rs, round, pos/8*4+1, pos%8, surface),
 				},
 				XOREncoding(rs, round, surface)(pos, 0),
-				common.XORTable{},
+				common.NibbleXORTable{},
 			}
 
 			out[round][pos][1] = encoding.NibbleTable{
@@ -28,7 +28,7 @@ func xorTables(rs *random.Source, surface common.Surface, shift func(int) int) (
 					StepEncoding(rs, round, pos/8*4+2, pos%8, surface),
 				},
 				XOREncoding(rs, round, surface)(pos, 1),
-				common.XORTable{},
+				common.NibbleXORTable{},
 			}
 
 			out[round][pos][2] = encoding.NibbleTable{
@@ -37,7 +37,7 @@ func xorTables(rs *random.Source, surface common.Surface, shift func(int) int) (
 					StepEncoding(rs, round, pos/8*4+3, pos%8, surface),
 				},
 				RoundEncoding(rs, round, surface, shift)(pos),
-				common.XORTable{},
+				common.NibbleXORTable{},
 			}
 		}
 	}

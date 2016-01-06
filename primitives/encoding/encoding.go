@@ -139,6 +139,16 @@ func (cb ConcatenatedByte) Decode(i byte) byte {
 	return (cb.Left.Decode(i>>4) << 4) | cb.Right.Decode(i&0xf)
 }
 
+type ConcatenatedDouble [2]Byte
+
+func (cd ConcatenatedDouble) Encode(i [2]byte) [2]byte {
+	return [2]byte{cd[0].Encode(i[0]), cd[1].Encode(i[1])}
+}
+
+func (cd ConcatenatedDouble) Decode(i [2]byte) [2]byte {
+	return [2]byte{cd[0].Decode(i[0]), cd[1].Decode(i[1])}
+}
+
 type ConcatenatedWord [4]Byte
 
 func (cw ConcatenatedWord) Encode(i [4]byte) [4]byte {

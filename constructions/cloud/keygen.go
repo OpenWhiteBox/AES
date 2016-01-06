@@ -35,7 +35,7 @@ func generateMatrices(rs *random.Source, inner []Transform) (out []Matrix) {
 			slices[pos] = encoding.BlockTable{
 				encoding.ComposedBytes{
 					MixingBijection(rs, size, round-1, pos),
-					ByteRoundEncoding(rs, size, round-1, pos),
+					RoundEncoding(rs, size, round-1)(pos),
 				},
 				BlockSliceEncoding(rs, size, round, pos),
 				table.ComposedToBlock{
@@ -49,7 +49,7 @@ func generateMatrices(rs *random.Source, inner []Transform) (out []Matrix) {
 			}
 		}
 
-		xors := common.BlockXORTables(
+		xors := common.BlockByteXORTables(
 			SliceEncoding(rs, round),
 			XOREncoding(rs, round),
 			RoundEncoding(rs, size, round),

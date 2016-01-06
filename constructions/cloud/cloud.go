@@ -2,11 +2,13 @@ package cloud
 
 import (
 	"github.com/OpenWhiteBox/AES/primitives/table"
+
+	"github.com/OpenWhiteBox/AES/constructions/common"
 )
 
 type Matrix struct {
 	Slices [16]table.Block
-	XORs   [32][15]table.Nibble
+	XORs   common.BlockXORTables
 }
 
 type Construction []Matrix
@@ -25,7 +27,7 @@ func (constr *Construction) crypt(dst, src []byte) {
 	var stretched [16][16]byte
 	for _, m := range *constr {
 		stretched = constr.ExpandBlock(m.Slices, dst)
-		constr.SquashBlocks(m.XORs, stretched, dst)
+		m.XORs.SquashBlocks(stretched, dst)
 	}
 }
 
@@ -35,17 +37,4 @@ func (constr *Construction) ExpandBlock(slices [16]table.Block, block []byte) (o
 	}
 
 	return
-}
-
-func (constr *Construction) SquashBlocks(xorTable [32][15]table.Nibble, blocks [16][16]byte, dst []byte) {
-	copy(dst, blocks[0][:])
-
-	for i := 1; i < 16; i++ {
-		for pos := 0; pos < 16; pos++ {
-			aPartial := dst[pos]&0xf0 | (blocks[i][pos]&0xf0)>>4
-			bPartial := (dst[pos]&0x0f)<<4 | blocks[i][pos]&0x0f
-
-			dst[pos] = xorTable[2*pos+0][i-1].Get(aPartial)<<4 | xorTable[2*pos+1][i-1].Get(bPartial)
-		}
-	}
 }

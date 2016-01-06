@@ -23,13 +23,18 @@ type Source struct {
 	Name string
 	Seed []byte
 
-	encodingCache map[[16]byte]encoding.Shuffle
-	matrixCache   map[[16]byte]matrix.Matrix
+	shuffleCache map[[16]byte]encoding.Shuffle
+	sboxCache    map[[16]byte]encoding.SBox
+	matrixCache  map[[16]byte]matrix.Matrix
 }
 
 func NewSource(name string, seed []byte) Source {
 	return Source{
-		name, seed, make(map[[16]byte]encoding.Shuffle), make(map[[16]byte]matrix.Matrix),
+		Name:         name,
+		Seed:         seed,
+		shuffleCache: make(map[[16]byte]encoding.Shuffle),
+		sboxCache:    make(map[[16]byte]encoding.SBox),
+		matrixCache:  make(map[[16]byte]matrix.Matrix),
 	}
 }
 
@@ -59,8 +64,8 @@ func (rs *Source) Stream(label []byte) io.Reader {
 	// Create pseudo-random byte stream keyed by sub-key.
 	block, _ := aes.NewCipher(subKey)
 	stream := cipher.StreamReader{
-		cipher.NewCTR(block, label),
-		devNull{},
+		S: cipher.NewCTR(block, label),
+		R: devNull{},
 	}
 
 	return stream
@@ -71,13 +76,28 @@ func (rs *Source) Shuffle(label []byte) encoding.Shuffle {
 	key := [16]byte{}
 	copy(key[:], label)
 
-	cached, ok := rs.encodingCache[key]
+	cached, ok := rs.shuffleCache[key]
 
 	if ok {
 		return cached
 	} else {
-		rs.encodingCache[key] = encoding.GenerateShuffle(rs.Stream(label))
-		return rs.encodingCache[key]
+		rs.shuffleCache[key] = encoding.GenerateShuffle(rs.Stream(label))
+		return rs.shuffleCache[key]
+	}
+}
+
+// SBox takes a (possibly public) label and produces a random s-box.
+func (rs *Source) SBox(label []byte) encoding.SBox {
+	key := [16]byte{}
+	copy(key[:], label)
+
+	cached, ok := rs.sboxCache[key]
+
+	if ok {
+		return cached
+	} else {
+		rs.sboxCache[key] = encoding.GenerateSBox(rs.Stream(label))
+		return rs.sboxCache[key]
 	}
 }
 

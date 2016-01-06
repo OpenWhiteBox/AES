@@ -235,22 +235,3 @@ func BenchmarkSquashWords(b *testing.B) {
 		copy(dst[0:4], input)
 	}
 }
-
-func BenchmarkSquashBlocks(b *testing.B) {
-	constr1, _, _ := GenerateEncryptionKeys(key, seed, common.IndependentMasks{common.RandomMask, common.RandomMask})
-
-	serialized := constr1.Serialize()
-	constr2, _ := Parse(serialized)
-
-	dst := make([]byte, 16)
-	copy(dst, input)
-
-	stretched := constr2.ExpandBlock(constr2.InputMask, dst)
-
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		constr2.SquashBlocks(constr2.InputXORTable, stretched, dst)
-		copy(dst, input)
-	}
-}

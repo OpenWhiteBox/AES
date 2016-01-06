@@ -20,7 +20,7 @@ func (constr *Construction) Serialize() []byte {
 	out, base := make([]byte, fullSize), 0
 
 	// Input Mask
-	base += common.SerializeBlockMatrix(out[base:], constr.InputMask, constr.InputXORTable)
+	base += common.SerializeBlockMatrix(out[base:], constr.InputMask, constr.InputXORTables)
 
 	// First half of round
 	base += serializeStepTables(out[base:], constr.TBoxTyiTable)
@@ -31,7 +31,7 @@ func (constr *Construction) Serialize() []byte {
 	base += serializeXORTables(out[base:], constr.LowXORTable)
 
 	// Output Mask
-	common.SerializeBlockMatrix(out[base:], constr.TBoxOutputMask, constr.OutputXORTable)
+	common.SerializeBlockMatrix(out[base:], constr.TBoxOutputMask, constr.OutputXORTables)
 
 	return out
 }
@@ -39,7 +39,7 @@ func (constr *Construction) Serialize() []byte {
 func Parse(in []byte) (constr Construction, err error) {
 	var rest []byte
 
-	constr.InputMask, constr.InputXORTable, rest = common.ParseBlockMatrix(in)
+	constr.InputMask, constr.InputXORTables, rest = common.ParseBlockNibbleMatrix(in)
 
 	constr.TBoxTyiTable, rest = parseStepTables(rest)
 	constr.HighXORTable, rest = parseXORTables(rest)
@@ -47,7 +47,7 @@ func Parse(in []byte) (constr Construction, err error) {
 	constr.MBInverseTable, rest = parseStepTables(rest)
 	constr.LowXORTable, rest = parseXORTables(rest)
 
-	constr.TBoxOutputMask, constr.OutputXORTable, rest = common.ParseBlockMatrix(rest)
+	constr.TBoxOutputMask, constr.OutputXORTables, rest = common.ParseBlockNibbleMatrix(rest)
 
 	if rest == nil {
 		err = errors.New("Parsing the key failed!")

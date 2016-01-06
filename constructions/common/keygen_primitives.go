@@ -95,10 +95,3 @@ func (bm BlockMatrix) Get(i byte) (out [16]byte) {
 
 	return
 }
-
-// An XOR Table computes the XOR of two nibbles.
-type XORTable struct{}
-
-func (xor XORTable) Get(i byte) (out byte) {
-	return (i >> 4) ^ (i & 0xf)
-}

@@ -43,35 +43,35 @@ func RandomPaddingSizes(rs *random.Source, padding int) []int {
 }
 
 // See constructions/common/keygen_tools.go
-func SliceEncoding(rs *random.Source, round int) func(int, int) encoding.Nibble {
-	return func(position, subPosition int) encoding.Nibble {
+func SliceEncoding(rs *random.Source, round int) func(int, int) encoding.Byte {
+	return func(position, subPosition int) encoding.Byte {
 		label := make([]byte, 16)
 		label[0], label[1], label[2], label[3] = 'S', byte(round), byte(position), byte(subPosition)
 
-		return rs.Shuffle(label)
+		return rs.SBox(label)
 	}
 }
 
 // See constructions/common/keygen_tools.go
-func XOREncoding(rs *random.Source, round int) func(int, int) encoding.Nibble {
-	return func(position, gate int) encoding.Nibble {
+func XOREncoding(rs *random.Source, round int) func(int, int) encoding.Byte {
+	return func(position, gate int) encoding.Byte {
 		label := make([]byte, 16)
 		label[0], label[1], label[2], label[3] = 'X', byte(round), byte(position), byte(gate)
 
-		return rs.Shuffle(label)
+		return rs.SBox(label)
 	}
 }
 
 // See constructions/common/keygen_tools.go
-func RoundEncoding(rs *random.Source, size, round int) func(int) encoding.Nibble {
-	return func(position int) encoding.Nibble {
+func RoundEncoding(rs *random.Source, size, round int) func(int) encoding.Byte {
+	return func(position int) encoding.Byte {
 		if round == -1 || round == size-1 {
 			return encoding.IdentityByte{}
 		} else {
 			label := make([]byte, 16)
 			label[0], label[1], label[2] = 'R', byte(round), byte(position)
 
-			return rs.Shuffle(label)
+			return rs.SBox(label)
 		}
 	}
 }
@@ -89,23 +89,14 @@ func MixingBijection(rs *random.Source, size, round, position int) encoding.Byte
 
 func BlockSliceEncoding(rs *random.Source, size, round, position int) encoding.Block {
 	out := encoding.ConcatenatedBlock{}
+	sliceEncoding := SliceEncoding(rs, round)
 
 	for i := 0; i < 16; i++ {
 		out[i] = encoding.ComposedBytes{
 			MixingBijection(rs, size, round, i),
-			encoding.ConcatenatedByte{
-				SliceEncoding(rs, round)(position, 2*i+0),
-				SliceEncoding(rs, round)(position, 2*i+1),
-			},
+			sliceEncoding(position, i),
 		}
 	}
 
 	return out
-}
-
-func ByteRoundEncoding(rs *random.Source, size, round, position int) encoding.Byte {
-	return encoding.ConcatenatedByte{
-		RoundEncoding(rs, size, round)(2*position + 0),
-		RoundEncoding(rs, size, round)(2*position + 1),
-	}
 }

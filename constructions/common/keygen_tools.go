@@ -2,7 +2,6 @@ package common
 
 import (
 	"github.com/OpenWhiteBox/AES/primitives/encoding"
-	"github.com/OpenWhiteBox/AES/primitives/table"
 )
 
 // SliceEncoding(position, subPosition int) encoding.Nibble
@@ -23,26 +22,53 @@ import (
 // position: Position in the state array, counted in nibbles.
 
 // Generate the XOR Tables for squashing the result of a BlockMatrix.
-func BlockXORTables(SliceEncoding, XOREncoding func(int, int) encoding.Nibble, RoundEncoding func(int) encoding.Nibble) (out [32][15]table.Nibble) {
+func BlockNibbleXORTables(SliceEncoding, XOREncoding func(int, int) encoding.Nibble, RoundEncoding func(int) encoding.Nibble) (out NibbleXORTables) {
 	for pos := 0; pos < 32; pos++ {
 		out[pos][0] = encoding.NibbleTable{
 			encoding.ConcatenatedByte{SliceEncoding(0, pos), SliceEncoding(1, pos)},
 			XOREncoding(pos, 0),
-			XORTable{},
+			NibbleXORTable{},
 		}
 
 		for i := 1; i < 14; i++ {
 			out[pos][i] = encoding.NibbleTable{
 				encoding.ConcatenatedByte{XOREncoding(pos, i-1), SliceEncoding(i+1, pos)},
 				XOREncoding(pos, i),
-				XORTable{},
+				NibbleXORTable{},
 			}
 		}
 
 		out[pos][14] = encoding.NibbleTable{
 			encoding.ConcatenatedByte{XOREncoding(pos, 13), SliceEncoding(15, pos)},
 			RoundEncoding(pos),
-			XORTable{},
+			NibbleXORTable{},
+		}
+	}
+
+	return
+}
+
+// Generate the XOR Tables for squashing the result of a BlockMatrix.
+func BlockByteXORTables(SliceEncoding, XOREncoding func(int, int) encoding.Byte, RoundEncoding func(int) encoding.Byte) (out ByteXORTables) {
+	for pos := 0; pos < 16; pos++ {
+		out[pos][0] = encoding.DoubleToByteTable{
+			encoding.ConcatenatedDouble{SliceEncoding(0, pos), SliceEncoding(1, pos)},
+			XOREncoding(pos, 0),
+			ByteXORTable{},
+		}
+
+		for i := 1; i < 14; i++ {
+			out[pos][i] = encoding.DoubleToByteTable{
+				encoding.ConcatenatedDouble{XOREncoding(pos, i-1), SliceEncoding(i+1, pos)},
+				XOREncoding(pos, i),
+				ByteXORTable{},
+			}
+		}
+
+		out[pos][14] = encoding.DoubleToByteTable{
+			encoding.ConcatenatedDouble{XOREncoding(pos, 13), SliceEncoding(15, pos)},
+			RoundEncoding(pos),
+			ByteXORTable{},
 		}
 	}
 

@@ -35,6 +35,13 @@ func (pbt ParsedBlock) Get(i byte) (out [16]byte) {
 	return
 }
 
+type ParsedDoubleToByte []byte
+
+func (pdtb ParsedDoubleToByte) Get(i [2]byte) byte {
+	j := uint32(i[0])<<8 | uint32(i[1])
+	return pdtb[j]
+}
+
 type ParsedDoubleToWord []byte
 
 func (pdtw ParsedDoubleToWord) Get(i [2]byte) (out [4]byte) {
@@ -74,6 +81,17 @@ func SerializeBlock(t Block) (out []byte) {
 	for i := 0; i < 256; i++ {
 		res := t.Get(byte(i))
 		out = append(out, res[:]...)
+	}
+
+	return
+}
+
+func SerializeDoubleToByte(t DoubleToByte) (out []byte) {
+	for i := 0; i < 256; i++ {
+		for j := 0; j < 256; j++ {
+			res := t.Get([2]byte{byte(i), byte(j)})
+			out = append(out, res)
+		}
 	}
 
 	return

@@ -2,11 +2,13 @@ package chow
 
 import (
 	"github.com/OpenWhiteBox/AES/primitives/table"
+
+	"github.com/OpenWhiteBox/AES/constructions/common"
 )
 
 type Construction struct {
-	InputMask     [16]table.Block      // [round]
-	InputXORTable [32][15]table.Nibble // [nibble-wise position][gate number]
+	InputMask      [16]table.Block // [round]
+	InputXORTables common.NibbleXORTables
 
 	TBoxTyiTable [9][16]table.Word      // [round][position]
 	HighXORTable [9][32][3]table.Nibble // [round][nibble-wise position][gate number]
@@ -14,8 +16,8 @@ type Construction struct {
 	MBInverseTable [9][16]table.Word      // [round][position]
 	LowXORTable    [9][32][3]table.Nibble // [round][nibble-wise position][gate number]
 
-	TBoxOutputMask [16]table.Block      // [position]
-	OutputXORTable [32][15]table.Nibble // [nibble-wise position][gate number]
+	TBoxOutputMask  [16]table.Block // [position]
+	OutputXORTables common.NibbleXORTables
 }
 
 func (constr Construction) BlockSize() int { return 16 }
@@ -33,7 +35,7 @@ func (constr Construction) crypt(dst, src []byte, shift func([]byte)) {
 
 	// Remove input encoding.
 	stretched := constr.ExpandBlock(constr.InputMask, dst)
-	constr.SquashBlocks(constr.InputXORTable, stretched, dst)
+	constr.InputXORTables.SquashBlocks(stretched, dst)
 
 	for round := 0; round < 9; round++ {
 		shift(dst)
@@ -52,7 +54,7 @@ func (constr Construction) crypt(dst, src []byte, shift func([]byte)) {
 
 	// Apply the final T-Box transformation and add the output encoding.
 	stretched = constr.ExpandBlock(constr.TBoxOutputMask, dst)
-	constr.SquashBlocks(constr.OutputXORTable, stretched, dst)
+	constr.OutputXORTables.SquashBlocks(stretched, dst)
 }
 
 func (constr *Construction) ShiftRows(block []byte) {
@@ -94,17 +96,4 @@ func (constr *Construction) ExpandBlock(mask [16]table.Block, block []byte) (out
 	}
 
 	return
-}
-
-func (constr *Construction) SquashBlocks(xorTable [32][15]table.Nibble, blocks [16][16]byte, dst []byte) {
-	copy(dst, blocks[0][:])
-
-	for i := 1; i < 16; i++ {
-		for pos := 0; pos < 16; pos++ {
-			aPartial := dst[pos]&0xf0 | (blocks[i][pos]&0xf0)>>4
-			bPartial := (dst[pos]&0x0f)<<4 | blocks[i][pos]&0x0f
-
-			dst[pos] = xorTable[2*pos+0][i-1].Get(aPartial)<<4 | xorTable[2*pos+1][i-1].Get(bPartial)
-		}
-	}
 }

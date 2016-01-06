@@ -45,6 +45,16 @@ func (bt BlockTable) Get(i byte) [16]byte {
 	return bt.Out.Encode(bt.Hidden.Get(bt.In.Decode(i)))
 }
 
+type DoubleToByteTable struct {
+	In     Double
+	Out    Byte
+	Hidden table.DoubleToByte
+}
+
+func (dtbt DoubleToByteTable) Get(i [2]byte) byte {
+	return dtbt.Out.Encode(dtbt.Hidden.Get(dtbt.In.Decode(i)))
+}
+
 type DoubleToWordTable struct {
 	In     Double
 	Out    Word

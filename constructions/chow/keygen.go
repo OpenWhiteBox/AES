@@ -25,7 +25,7 @@ func generateKeys(rs *random.Source, opts common.KeyGenerationOpts, out *Constru
 		}
 	}
 
-	out.InputXORTable = common.BlockXORTables(
+	out.InputXORTables = common.BlockNibbleXORTables(
 		MaskEncoding(rs, common.Inside),
 		XOREncoding(rs, 10, common.Inside),
 		RoundEncoding(rs, -1, common.Outside, shift),
@@ -92,7 +92,7 @@ func generateKeys(rs *random.Source, opts common.KeyGenerationOpts, out *Constru
 		}
 	}
 
-	out.OutputXORTable = common.BlockXORTables(
+	out.OutputXORTables = common.BlockNibbleXORTables(
 		MaskEncoding(rs, common.Outside),
 		XOREncoding(rs, 10, common.Outside),
 		func(position int) encoding.Nibble { return encoding.IdentityByte{} },

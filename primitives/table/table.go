@@ -19,6 +19,10 @@ type Block interface {
 	Get(i byte) [16]byte
 }
 
+type DoubleToByte interface {
+	Get(i [2]byte) byte
+}
+
 type DoubleToWord interface {
 	Get(i [2]byte) [4]byte
 }
