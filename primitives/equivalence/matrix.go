@@ -12,6 +12,7 @@ type Matrix struct {
 	Space map[byte]byte
 }
 
+// NewMatrix returns a new, empty matrix.
 func NewMatrix() Matrix {
 	m := Matrix{
 		Space: make(map[byte]byte),
@@ -21,16 +22,28 @@ func NewMatrix() Matrix {
 	return m
 }
 
-func (e Matrix) Dup() Matrix {
-	f := NewMatrix()
+// Assert represents an assertion that A(in) = out. The function will panic if this is inconsistent with previous
+// assertions. It it's not, it returns whether or not the assertion contained new information about A.
+func (e Matrix) Assert(in, out matrix.Row) (learned bool) {
+	learned = false
 
-	for k, v := range e.Space {
-		f.Space[k] = v
+	f := e.Dup()
+	for x, y := range f.Space {
+		yGot, ok := e.Space[x^in[0]]
+		yExpected := y ^ out[0]
+
+		if ok && yGot != yExpected {
+			panic("Inconsistency!")
+		} else if !ok {
+			e.Space[x^in[0]] = yExpected
+			learned = true
+		}
 	}
 
-	return f
+	return
 }
 
+// NovelInput returns an x such that A(x) is unknown.
 func (e Matrix) NovelInput() matrix.Row {
 	for x := 1; x < 256; x++ {
 		_, ok := e.Space[byte(x)]
@@ -42,6 +55,18 @@ func (e Matrix) NovelInput() matrix.Row {
 	return nil
 }
 
+// IsInSpan returns whether or not x is in the known span of A.
+func (e Matrix) IsInSpan(x matrix.Row) bool {
+	for _, v := range e.Space {
+		if v == x[0] {
+			return true
+		}
+	}
+
+	return false
+}
+
+// Span returns an iterator for all the elements in the span of A.
 func (e Matrix) Span() <-chan Elem {
 	res := make(chan Elem)
 
@@ -55,6 +80,12 @@ func (e Matrix) Span() <-chan Elem {
 	return res
 }
 
+// FullyDefined returns true if the assertions made give a fully defined matrix.
+func (e Matrix) FullyDefined() bool {
+	return len(e.Space) == 256
+}
+
+// Matrix returns the matrix representation of A.
 func (e Matrix) Matrix() matrix.Matrix {
 	out := matrix.Matrix{}
 
@@ -65,42 +96,13 @@ func (e Matrix) Matrix() matrix.Matrix {
 	return out.Transpose()
 }
 
-func (e Matrix) IsInSpan(x matrix.Row) bool {
-	for _, v := range e.Space {
-		if v == x[0] {
-			return true
-		}
+// Dup returns a duplicate of e.
+func (e Matrix) Dup() Matrix {
+	f := NewMatrix()
+
+	for k, v := range e.Space {
+		f.Space[k] = v
 	}
 
-	return false
-}
-
-func (e Matrix) Assert(in, out matrix.Row) (learned bool) {
-	v, ok := e.Space[in[0]]
-
-	if ok {
-		if v == out[0] {
-			return false
-		} else {
-			panic("Inconsistency!")
-		}
-	}
-
-	f := e.Dup()
-	for k, v := range f.Space {
-		e.Space[k^in[0]] = v ^ out[0]
-	}
-
-	return true
-}
-
-func (e Matrix) FullyDefined() bool {
-  for x := 0; x < 256; x++ {
-    _, ok := e.Space[byte(x)]
-    if !ok {
-      return false
-    }
-  }
-
-  return true
+	return f
 }
