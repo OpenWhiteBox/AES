@@ -3,10 +3,8 @@ package matrix
 // gaussJordan reduces the matrix according to the Gauss-Jordan Method.  Returns the transformed matrix, at what column
 // elimination failed (if ever), and whether it succeeded (meaning the augment matrix computes the transformation).
 func (e Matrix) gaussJordan(aug Matrix, lower, upper int, ignore RowIgnore) (Matrix, int, bool) {
-	a, b := e.Size()
-
-	f := make([]Row, a) // Duplicate e away so we don't mutate it.
-	copy(f, e)
+	_, b := e.Size()
+	f := e.Dup() // Duplicate e away so we don't mutate it.
 
 	for i, _ := range f[lower:upper] {
 		row := i + lower

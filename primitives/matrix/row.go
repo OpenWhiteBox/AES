@@ -52,6 +52,7 @@ func (e Row) DotProduct(f Row) bool {
 	return parity == 1
 }
 
+// Weight returns the hamming weight of this row.
 func (e Row) Weight() (w int) {
 	for i := 0; i < e.Size(); i++ {
 		if e.GetBit(i) == 1 {
@@ -78,6 +79,14 @@ func (e Row) SetBit(i int, x bool) {
 // Size returns the dimension of the vector.
 func (e Row) Size() int {
 	return 8 * len(e)
+}
+
+// Dup returns a duplicate of this row.
+func (e Row) Dup() Row {
+	f := Row(make([]byte, len(e)))
+	copy(f, e)
+
+	return f
 }
 
 func (e Row) String() string {

@@ -100,6 +100,14 @@ func (e Matrix) Trace() (out byte) {
 	return
 }
 
+// Dup returns a duplicate of this matrix.
+func (e Matrix) Dup() Matrix {
+	f := make([]Row, len(e))
+	copy(f, e)
+
+	return f
+}
+
 // Size returns the dimensions of the matrix in (Rows, Columns) order.
 func (e Matrix) Size() (int, int) {
 	return len(e), e[0].Size()
