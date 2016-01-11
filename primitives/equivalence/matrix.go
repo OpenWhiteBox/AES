@@ -13,29 +13,31 @@ type Matrix struct {
 }
 
 // NewMatrix returns a new, empty matrix.
-func NewMatrix() Matrix {
+func NewMatrix() *Matrix {
 	m := Matrix{
 		Space: make(map[byte]byte),
 	}
 	m.Space[0x00] = 0x00
 
-	return m
+	return &m
 }
 
 // Assert represents an assertion that A(in) = out. The function will panic if this is inconsistent with previous
 // assertions. It it's not, it returns whether or not the assertion contained new information about A.
-func (e Matrix) Assert(in, out matrix.Row) (learned bool) {
+func (e *Matrix) Assert(in, out matrix.Row) (learned bool) {
 	learned = false
 
 	f := e.Dup()
 	for x, y := range f.Space {
-		yGot, ok := e.Space[x^in[0]]
+		k := x ^ in[0]
+
+		yGot, ok := e.Space[k]
 		yExpected := y ^ out[0]
 
 		if ok && yGot != yExpected {
 			panic("Inconsistency!")
 		} else if !ok {
-			e.Space[x^in[0]] = yExpected
+			e.Space[k] = yExpected
 			learned = true
 		}
 	}
@@ -44,7 +46,7 @@ func (e Matrix) Assert(in, out matrix.Row) (learned bool) {
 }
 
 // NovelInput returns an x such that A(x) is unknown.
-func (e Matrix) NovelInput() matrix.Row {
+func (e *Matrix) NovelInput() matrix.Row {
 	for x := 1; x < 256; x++ {
 		_, ok := e.Space[byte(x)]
 		if !ok {
@@ -56,7 +58,7 @@ func (e Matrix) NovelInput() matrix.Row {
 }
 
 // IsInSpan returns whether or not x is in the known span of A.
-func (e Matrix) IsInSpan(x matrix.Row) bool {
+func (e *Matrix) IsInSpan(x matrix.Row) bool {
 	for _, v := range e.Space {
 		if v == x[0] {
 			return true
@@ -66,27 +68,13 @@ func (e Matrix) IsInSpan(x matrix.Row) bool {
 	return false
 }
 
-// Span returns an iterator for all the elements in the span of A.
-func (e Matrix) Span() <-chan Elem {
-	res := make(chan Elem)
-
-	go func() {
-		for k, v := range e.Space {
-			res <- Elem{matrix.Row{k}, matrix.Row{v}}
-		}
-		close(res)
-	}()
-
-	return res
-}
-
 // FullyDefined returns true if the assertions made give a fully defined matrix.
-func (e Matrix) FullyDefined() bool {
+func (e *Matrix) FullyDefined() bool {
 	return len(e.Space) == 256
 }
 
 // Matrix returns the matrix representation of A.
-func (e Matrix) Matrix() matrix.Matrix {
+func (e *Matrix) Matrix() matrix.Matrix {
 	out := matrix.Matrix{}
 
 	for i := uint(0); i < 8; i++ {
@@ -97,7 +85,7 @@ func (e Matrix) Matrix() matrix.Matrix {
 }
 
 // Dup returns a duplicate of e.
-func (e Matrix) Dup() Matrix {
+func (e *Matrix) Dup() *Matrix {
 	f := NewMatrix()
 
 	for k, v := range e.Space {

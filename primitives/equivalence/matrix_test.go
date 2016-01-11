@@ -26,73 +26,73 @@ func TestAssert(t *testing.T) {
 }
 
 func TestAssertFail(t *testing.T) {
-  defer func() {
-    if r := recover(); r == nil {
-      t.Fatalf("Assert didn't panic when given contradicting assertions.")
-    }
-  }()
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatalf("Assert didn't panic when given contradicting assertions.")
+		}
+	}()
 
-  e := NewMatrix()
-  e.Assert(matrix.Row{0x01}, matrix.Row{0x39})
-  e.Assert(matrix.Row{0x02}, matrix.Row{0x90})
-  e.Assert(matrix.Row{0x03}, matrix.Row{0x39 ^ 0x90 ^ 0x01})
+	e := NewMatrix()
+	e.Assert(matrix.Row{0x01}, matrix.Row{0x39})
+	e.Assert(matrix.Row{0x02}, matrix.Row{0x90})
+	e.Assert(matrix.Row{0x03}, matrix.Row{0x39 ^ 0x90 ^ 0x01})
 }
 
 func TestNovelInput(t *testing.T) {
-  e := NewMatrix()
-  e.Assert(matrix.Row{0x01}, matrix.Row{0x01})
-  e.Assert(matrix.Row{0x02}, matrix.Row{0x02})
-  e.Assert(matrix.Row{0x04}, matrix.Row{0x04})
+	e := NewMatrix()
+	e.Assert(matrix.Row{0x01}, matrix.Row{0x01})
+	e.Assert(matrix.Row{0x02}, matrix.Row{0x02})
+	e.Assert(matrix.Row{0x04}, matrix.Row{0x04})
 
-  x := e.NovelInput()
-  if x[0] < 0x08 {
-    t.Fatalf("NovelInput gave input in known domain.")
-  }
+	x := e.NovelInput()
+	if x[0] < 0x08 {
+		t.Fatalf("NovelInput gave input in known domain.")
+	}
 }
 
 func TestIsInSpan(t *testing.T) {
-  e := NewMatrix()
-  e.Assert(matrix.Row{0x01}, matrix.Row{0x39})
-  e.Assert(matrix.Row{0x02}, matrix.Row{0x90})
+	e := NewMatrix()
+	e.Assert(matrix.Row{0x01}, matrix.Row{0x39})
+	e.Assert(matrix.Row{0x02}, matrix.Row{0x90})
 
-  if !e.IsInSpan(matrix.Row{0x39 ^ 0x90}) {
-    t.Fatalf("IsInSpan returned false for value in span.")
-  }
+	if !e.IsInSpan(matrix.Row{0x39 ^ 0x90}) {
+		t.Fatalf("IsInSpan returned false for value in span.")
+	}
 
-  if e.IsInSpan(matrix.Row{0x39 ^ 0x90 ^ 0x01}) {
-    t.Fatalf("IsInSpan returned true for value not in span.")
-  }
+	if e.IsInSpan(matrix.Row{0x39 ^ 0x90 ^ 0x01}) {
+		t.Fatalf("IsInSpan returned true for value not in span.")
+	}
 }
 
 func TestFullyDefined(t *testing.T) {
-  e := NewMatrix()
-  for i := uint(0); i < 7; i++ {
-    e.Assert(matrix.Row{1<<i}, matrix.Row{1<<i})
-  }
+	e := NewMatrix()
+	for i := uint(0); i < 7; i++ {
+		e.Assert(matrix.Row{1 << i}, matrix.Row{1 << i})
+	}
 
-  if e.FullyDefined() {
-    t.Fatalf("FullyDefined returned true for under-defined matrix.")
-  }
+	if e.FullyDefined() {
+		t.Fatalf("FullyDefined returned true for under-defined matrix.")
+	}
 
-  e.Assert(matrix.Row{0x80}, matrix.Row{0x80})
+	e.Assert(matrix.Row{0x80}, matrix.Row{0x80})
 
-  if !e.FullyDefined() {
-    t.Fatalf("FullyDefined returned false for fully-defined matrix.")
-  }
+	if !e.FullyDefined() {
+		t.Fatalf("FullyDefined returned false for fully-defined matrix.")
+	}
 }
 
 func TestDup(t *testing.T) {
-  e := NewMatrix()
-  e.Assert(matrix.Row{0x01}, matrix.Row{0x01})
+	e := NewMatrix()
+	e.Assert(matrix.Row{0x01}, matrix.Row{0x01})
 
-  f := e.Dup()
+	f := e.Dup()
 
-  e.Assert(matrix.Row{0x02}, matrix.Row{0x02})
-  f.Assert(matrix.Row{0x02}, matrix.Row{0x04})
+	e.Assert(matrix.Row{0x02}, matrix.Row{0x02})
+	f.Assert(matrix.Row{0x02}, matrix.Row{0x04})
 
-  if e.IsInSpan(matrix.Row{0x04}) {
-    t.Fatalf("Original e has vector in span that it shouldn't.")
-  } else if f.IsInSpan(matrix.Row{0x02}) {
-    t.Fatalf("Copy f has vector in span that it shouldn't.")
-  }
+	if e.IsInSpan(matrix.Row{0x04}) {
+		t.Fatalf("Original e has vector in span that it shouldn't.")
+	} else if f.IsInSpan(matrix.Row{0x02}) {
+		t.Fatalf("Copy f has vector in span that it shouldn't.")
+	}
 }
