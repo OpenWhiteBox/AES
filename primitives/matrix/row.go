@@ -9,9 +9,32 @@ var weight [4]uint64 = [4]uint64{
 	0x9669699669969669, 0x6996966996696996,
 }
 
+// A binary row / vector in GF(2)^n.
 type Row []byte
 
-// Add adds two vectors from GF(2)^n.
+// LessThan returns true if the height of row i is greater than the height of row j. The "height" of a row is the
+// position of the highest bit set.
+//
+// Example: If you use sort a permutation matrix according to LessThan, you'll always get the identity matrix.
+func LessThan(i, j Row) bool {
+	if len(i) != len(j) {
+		panic("Can't compare rows that are different sizes!")
+	}
+
+	for k, _ := range i {
+		if i[k] != 0x00 && j[k] != 0x00 {
+			if i[k] < j[k] &^ i[k] {
+				return false
+			} else {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// Add adds (XORs) two vectors.
 func (e Row) Add(f Row) Row {
 	le, lf := len(e), len(f)
 	if le != lf {
@@ -26,7 +49,7 @@ func (e Row) Add(f Row) Row {
 	return Row(out)
 }
 
-// Mul component-wise multiplies two vectors.
+// Mul component-wise multiplies (ANDs) two vectors.
 func (e Row) Mul(f Row) Row {
 	le, lf := len(e), len(f)
 	if le != lf {
@@ -63,17 +86,28 @@ func (e Row) Weight() (w int) {
 	return
 }
 
-// GetBit returns the ith entry of the vector.
+// GetBit returns the ith component of the vector: 0x00 or 0x01.
 func (e Row) GetBit(i int) byte {
 	return (e[i/8] >> (uint(i) % 8)) & 1
 }
 
-// SetBit sets the ith bit of the vector to 1 is x = true and 0 if x = false.
+// SetBit sets the ith component of the vector to 0x01 is x = true and 0x00 if x = false.
 func (e Row) SetBit(i int, x bool) {
 	y := e.GetBit(i)
 	if y == 0 && x || y == 1 && !x {
 		e[i/8] ^= 1 << (uint(i) % 8)
 	}
+}
+
+// IsZero returns true if the row is identically zero.
+func (e Row) IsZero() bool {
+	for _, e_i := range e {
+		if e_i != 0x00 {
+			return false
+		}
+	}
+
+	return true
 }
 
 // Size returns the dimension of the vector.
@@ -89,6 +123,7 @@ func (e Row) Dup() Row {
 	return f
 }
 
+// String converts the row into space-and-dot notation.
 func (e Row) String() string {
 	out := []rune{'|'}
 

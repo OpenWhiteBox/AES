@@ -1,4 +1,4 @@
-// Basic operations on matrices in GF(2) and the random generation of new ones.
+// Package matrix implements basic operations on matrices in GF(2) and the random generation of new ones.
 package matrix
 
 func rowsToColumns(x int) int {
@@ -90,7 +90,7 @@ func (e Matrix) Transpose() Matrix {
 	return Matrix(out)
 }
 
-// Trace returns the trace (sum of elements on the diagonal) of a matrix.
+// Trace returns the trace (sum/parity of elements on the diagonal) of a matrix: 0x00 or 0x01.
 func (e Matrix) Trace() (out byte) {
 	n, _ := e.Size()
 	for i := 0; i < n; i++ {
@@ -113,6 +113,7 @@ func (e Matrix) Size() (int, int) {
 	return len(e), e[0].Size()
 }
 
+// String converts the matrix to space-and-dot notation.
 func (e Matrix) String() string {
 	out := []rune{}
 	_, b := e.Size()

@@ -1,16 +1,16 @@
-// Functions for generating new matrices.
 package matrix
 
 import (
 	"io"
 )
 
-// GenerateIdentity creates the n by n identity matrix.
+// GenerateIdentity generates the n-by-n identity matrix.
 func GenerateIdentity(n int) Matrix {
 	return GeneratePartialIdentity(n, IgnoreNoRows)
 }
 
-// GeneratePartialIdentity creates the n by n identity matrix on some rows and leaves others zero.
+// GeneratePartialIdentity generates the n-by-n identity matrix on some rows and leaves others zero (the rows where
+// ignore(row) == true).
 func GeneratePartialIdentity(n int, ignore RowIgnore) Matrix {
 	out := GenerateEmpty(n)
 
@@ -23,7 +23,7 @@ func GeneratePartialIdentity(n int, ignore RowIgnore) Matrix {
 	return out
 }
 
-// GenerateFull creates a matrix with all entries set to 1.
+// GenerateFull generates the n-by-n matrix with all entries set to 1.
 func GenerateFull(n int) Matrix {
 	out := GenerateEmpty(n)
 	for i := 0; i < n; i++ {
@@ -35,7 +35,7 @@ func GenerateFull(n int) Matrix {
 	return out
 }
 
-// GenerateEmpty creates a matrix with all entries set to 0.
+// GenerateEmpty generates the n-by-n matrix with all entries set to 0.
 func GenerateEmpty(n int) Matrix {
 	out := make([]Row, n)
 
@@ -46,7 +46,8 @@ func GenerateEmpty(n int) Matrix {
 	return Matrix(out)
 }
 
-// GenerateRandom creates a random non-singular n by n matrix.
+// GenerateRandom generates a random invertible n-by-n matrix using the random source random (for example,
+// crypto/rand.Reader).
 func GenerateRandom(reader io.Reader, n int) Matrix {
 	m := GenerateTrueRandom(reader, n)
 
@@ -58,8 +59,10 @@ func GenerateRandom(reader io.Reader, n int) Matrix {
 	return m // This one works!
 }
 
-// GenerateRandomPartial creates an invertible matrix which is random in some locations and the identity in others,
-// depending on an ignore function.
+// GenerateRandomPartial generates an invertible n-by-n matrix which is random in some locations and the identity / zero
+// in others, using the random source random (for example, crypto/rand.Reader). idIgnore is passes to
+// GeneratePartialIdentity--it sets which rows of the identity are zero. The generated matrix is filled with random data
+// everywhere that ignore(row, col) == false.
 func GenerateRandomPartial(reader io.Reader, n int, ignore ByteIgnore, idIgnore RowIgnore) (Matrix, Matrix) {
 	m := GeneratePartialIdentity(n, idIgnore)
 
@@ -79,7 +82,8 @@ func GenerateRandomPartial(reader io.Reader, n int, ignore ByteIgnore, idIgnore 
 	return m, mInv
 }
 
-// GenerateTrueRandom creates a random singular or non-singular n by n matrix.
+// GenerateTrueRandom generates a random  n-by-n matrix (not guaranteed to be invertible) using the random source random
+// (for example, crypto/rand.Reader).
 func GenerateTrueRandom(reader io.Reader, n int) Matrix {
 	m := Matrix(make([]Row, n))
 

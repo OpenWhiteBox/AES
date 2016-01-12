@@ -1,4 +1,3 @@
-// Methods related to finding the nullspace of a matrix.
 package matrix
 
 import (

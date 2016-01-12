@@ -1,6 +1,6 @@
 package matrix
 
-// RightStretch returns the matrix of right matrix multiplication by a given matrix.
+// RightStretch returns the matrix of right matrix multiplication by the given matrix.
 func (e Matrix) RightStretch() Matrix {
 	n, m := e.Size()
 	nm := n * m
@@ -19,7 +19,7 @@ func (e Matrix) RightStretch() Matrix {
 	return out
 }
 
-// LeftStretch returns the matrix of left matrix multiplication by a given matrix.
+// LeftStretch returns the matrix of left matrix multiplication by the given matrix.
 func (e Matrix) LeftStretch() Matrix {
 	n, m := e.Size()
 	nm := n * m
