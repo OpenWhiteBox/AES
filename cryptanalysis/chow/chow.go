@@ -12,7 +12,7 @@ import (
 )
 
 // Element Characteristic -> Elements with that characteristic.
-var CharToBeta = map[byte]byte{
+var CharToBeta = map[byte]number.ByteFieldElem{
 	0x74: 0xf5,
 	0xdb: 0x8d,
 	0x34: 0xf6,
@@ -121,7 +121,8 @@ func RecoverEncodings(constr *chow.Construction, round, pos int) (encoding.ByteA
 		}
 	}
 
-	DInv, _ := DecomposeAffineEncoding(encoding.ByteMultiplication(FindDuplicate(Ds).Invert()))
+	dup := FindDuplicate(Ds).Invert()
+	DInv, _ := DecomposeAffineEncoding(encoding.ByteMultiplication{dup.Invert(), dup})
 	A := Atilde.Compose(DInv)
 	AInv, _ := A.Invert()
 
@@ -140,11 +141,13 @@ func FindPartialEncoding(constr *chow.Construction, f table.Byte, L, AtildeInv m
 	// Brute force the constant part of the output encoding and the beta in Atilde = A_i <- D(beta)
 	for c := 0; c < 256; c++ {
 		for d := 1; d < 256; d++ {
+			dNum := number.ByteFieldElem(d)
+
 			cand := encoding.ComposedBytes{
 				TableAsEncoding{f, fInv},
 				encoding.ByteAffine{id, byte(c)},
 				encoding.ByteLinear{AtildeInv, nil},
-				encoding.ByteMultiplication(byte(d)), // D below
+				encoding.ByteMultiplication{dNum, dNum.Invert()}, // D below
 				TableAsEncoding{SInv, S},
 			}
 
@@ -162,7 +165,7 @@ func FindPartialEncoding(constr *chow.Construction, f table.Byte, L, AtildeInv m
 // L = A_i <- D(beta) <- A_i^(-1)
 func FindAtilde(constr *chow.Construction, L matrix.Matrix) matrix.Matrix {
 	beta := CharToBeta[FindCharacteristic(L)]
-	D, _ := DecomposeAffineEncoding(encoding.ByteMultiplication(beta))
+	D, _ := DecomposeAffineEncoding(encoding.ByteMultiplication{beta, beta.Invert()})
 
 	x := L.RightStretch().Add(D.LeftStretch()).NullSpace()
 

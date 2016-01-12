@@ -1,5 +1,3 @@
-// A PRP is a special form of encoding that pseudo-randomly permutes the input space.
-// TODO: Should small-space PRPs be added / used instead of Shuffle?
 package encoding
 
 import (
@@ -48,6 +46,7 @@ func generatePermutation(reader io.Reader, size int) []byte {
 	return out
 }
 
+// Shuffle implements a random 4-bit bijection.
 type Shuffle struct {
 	EncKey, DecKey [16]byte
 }
@@ -60,6 +59,7 @@ func (s Shuffle) Decode(i byte) byte {
 	return s.DecKey[i]
 }
 
+// GenerateShuffle generates a random 4-bit bijection using the random source random (for example, crypto/rand.Reader).
 func GenerateShuffle(reader io.Reader) (s Shuffle) {
 	// Generate a random permutation as the encryption key.
 	copy(s.EncKey[:], generatePermutation(reader, 16))
@@ -72,6 +72,7 @@ func GenerateShuffle(reader io.Reader) (s Shuffle) {
 	return
 }
 
+// SBox implements a random 8-bit bijection.
 type SBox struct {
 	EncKey, DecKey [256]byte
 }
@@ -84,6 +85,7 @@ func (s SBox) Decode(i byte) byte {
 	return s.DecKey[i]
 }
 
+// GenerateSBox generates a random 8-bit bijection using the random source random (for example, crypto/rand.Reader).
 func GenerateSBox(reader io.Reader) (s SBox) {
 	// Generate a random permutation as the encryption key.
 	copy(s.EncKey[:], generatePermutation(reader, 256))

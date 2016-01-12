@@ -245,7 +245,7 @@ func TestRecoverL(t *testing.T) {
 		beta := MC[0][pos0].Mul(MC[1][pos1]).Mul(MC[0][pos1].Mul(MC[1][pos0]).Invert())
 
 		// Calculate the matrix of multiplication by beta and check that it equals what we derived in D.
-		E, _ := DecomposeAffineEncoding(encoding.ByteMultiplication(beta))
+		E, _ := DecomposeAffineEncoding(encoding.ByteMultiplication{beta, beta.Invert()})
 		Estr := fmt.Sprintf("%x", E)
 
 		if Dstr != Estr {
@@ -261,7 +261,7 @@ func TestFindAtilde(t *testing.T) {
 	Atilde := FindAtilde(fastConstr, L)
 
 	beta := CharToBeta[FindCharacteristic(L)]
-	D, _ := DecomposeAffineEncoding(encoding.ByteMultiplication(beta))
+	D, _ := DecomposeAffineEncoding(encoding.ByteMultiplication{beta, beta.Invert()})
 
 	left, right := L.Compose(Atilde), Atilde.Compose(D)
 
