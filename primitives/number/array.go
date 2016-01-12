@@ -1,6 +1,8 @@
-// Polynomial fields with coefficients in GF(2^8)
 package number
 
+// ArrayFieldElem is an element of Rijndael's second field, GF(2^32).
+//
+// The additive identity is [] and the multiplicative identity is [0x01].
 type ArrayFieldElem []ByteFieldElem
 
 var arrayModulus ArrayFieldElem = ArrayFieldElem{
@@ -17,6 +19,7 @@ func (e ArrayFieldElem) trim() ArrayFieldElem { // Trim preceeding zeros from po
 	return ArrayFieldElem{}
 }
 
+// Add returns e + f.
 func (e ArrayFieldElem) Add(f ArrayFieldElem) ArrayFieldElem {
 	out := ArrayFieldElem{}
 
@@ -35,6 +38,7 @@ func (e ArrayFieldElem) Add(f ArrayFieldElem) ArrayFieldElem {
 	return out.trim()
 }
 
+// longMul returns e * f unreduced.
 func (e ArrayFieldElem) longMul(f ArrayFieldElem) (out ArrayFieldElem) {
 	for i, e_i := range e { // Foreach byte e_i in e:
 		if !e_i.IsZero() { // with non-zero coefficient:
@@ -52,7 +56,8 @@ func (e ArrayFieldElem) longMul(f ArrayFieldElem) (out ArrayFieldElem) {
 	return
 }
 
-// Euclidean division of two polynomials with coefficients in GF(2^8)
+// longDiv returns the quotient and remainder of e / f (by Euclidean division), where e and f are considered elements of
+// the ring of polynomials and not an element of the field.
 func (numer ArrayFieldElem) longDiv(denom ArrayFieldElem) (ArrayFieldElem, ArrayFieldElem) {
 	if denom.IsZero() {
 		return ArrayFieldElem{}, numer
@@ -79,6 +84,7 @@ func (numer ArrayFieldElem) longDiv(denom ArrayFieldElem) (ArrayFieldElem, Array
 	}
 }
 
+// ScalarMul multiplies each component of e by a scalar from GF(2^8).
 func (e ArrayFieldElem) ScalarMul(g ByteFieldElem) (out ArrayFieldElem) {
 	for _, e_i := range e {
 		out = append(out, e_i.Mul(g))
@@ -87,6 +93,7 @@ func (e ArrayFieldElem) ScalarMul(g ByteFieldElem) (out ArrayFieldElem) {
 	return out.trim()
 }
 
+// Mul returns e * f.
 func (e ArrayFieldElem) Mul(f ArrayFieldElem) (out ArrayFieldElem) {
 	for i, e_i := range e { // Foreach byte e_i in e:
 		if !e_i.IsZero() { // with non-zero coefficient:
@@ -109,7 +116,11 @@ func (e ArrayFieldElem) Mul(f ArrayFieldElem) (out ArrayFieldElem) {
 
 // Invert() function for ArrayFieldElems has been omitted because I can't figure out why it doesn't work.
 
+// IsZero returns whether or not e is zero.
 func (e ArrayFieldElem) IsZero() bool { return len(e) == 0 }
+
+// IsOne returns whether or not e is one.
 func (e ArrayFieldElem) IsOne() bool  { return len(e) == 1 && e[0] == 1 }
 
+// Dup returns a duplicate of e.
 func (e ArrayFieldElem) Dup() ArrayFieldElem { return e.Add(ArrayFieldElem{}) }

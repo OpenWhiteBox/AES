@@ -1,14 +1,20 @@
-// Polynomial fields with coefficients in GF(2)
 package number
 
+// ByteFieldElem is an element of Rijndael's field, GF(2^8)--i.e., a byte with field operations.
+//
+// The two operations implemented are addition and multiplication. The additive identity is 0x00 and all elements have
+// themselves as additive inverses: x.Add(x) = 0x00 always. The multiplicative identity is 0x01 and all non-zero
+// elements have a multiplicative inverse such that x.Mul(x.Invert()) = 0x01.
 type ByteFieldElem uint16
 
 var byteModulus ByteFieldElem = 0x11b
 
+// Add returns e + f.
 func (e ByteFieldElem) Add(f ByteFieldElem) ByteFieldElem {
 	return e ^ f
 }
 
+// longMul returns e * f unreduced.
 func (e ByteFieldElem) longMul(f ByteFieldElem) (out ByteFieldElem) {
 	for i := uint(0); i < 16; i++ { // Foreach bit e_i in e:
 		if e&(1<<i) != 0 { // where e_i equals 1:
@@ -19,7 +25,8 @@ func (e ByteFieldElem) longMul(f ByteFieldElem) (out ByteFieldElem) {
 	return
 }
 
-// Euclidean division of two polynomials with coefficients in GF(2)
+// longDiv returns the quotient and remainder of e / f (by Euclidean division), where e and f are considered elements of
+// the ring of polynomials and not an element of the field.
 func (numer ByteFieldElem) longDiv(denom ByteFieldElem) (ByteFieldElem, ByteFieldElem) {
 	var (
 		i, j     uint          = 15, 15
@@ -46,6 +53,7 @@ func (numer ByteFieldElem) longDiv(denom ByteFieldElem) (ByteFieldElem, ByteFiel
 	}
 }
 
+// Mul returns e * f.
 func (e ByteFieldElem) Mul(f ByteFieldElem) (out ByteFieldElem) {
 	var i, j uint // uints because they are used for bit shifts
 
@@ -68,8 +76,8 @@ func (e ByteFieldElem) Mul(f ByteFieldElem) (out ByteFieldElem) {
 	return
 }
 
-// Euclid's Extended Algorithm.  Computes inverse elements in GF(2^8).
-func (e ByteFieldElem) Invert() ByteFieldElem {
+// Invert returns the multiplicative inverse of e, or 0x00 if e = 0x00.
+func (e ByteFieldElem) Invert() ByteFieldElem { // Euclid's Extended Algorithm.  Computes inverse elements in GF(2^8).
 	var r0, r1 ByteFieldElem = e.Dup(), byteModulus.Dup()
 	var s0, s1 ByteFieldElem = 1, 0
 
@@ -84,7 +92,11 @@ func (e ByteFieldElem) Invert() ByteFieldElem {
 	return rem
 }
 
+// IsZero returns whether or not e is zero.
 func (e ByteFieldElem) IsZero() bool { return e == 0 }
+
+// IsOne returns whether ot not e is one.
 func (e ByteFieldElem) IsOne() bool  { return e == 1 }
 
+// Dup returns a duplicate of e.
 func (e ByteFieldElem) Dup() ByteFieldElem { return e.Add(0) }
