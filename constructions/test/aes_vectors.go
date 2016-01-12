@@ -1,11 +1,14 @@
-package test_vectors
+// Package test contains test vectors for AES implementations. It's been moved into its own package to prevent
+// excessive duplication.
+package test
 
 type AESVector struct {
-	Key []byte
-	In  []byte
-	Out []byte
+	Key []byte // Selected AES key.
+	In  []byte // Challenge input.
+	Out []byte // Challenge output.
 }
 
+// GetAESVectors returns all test vectors if short is false and a small subset if short is true.
 func GetAESVectors(short bool) []AESVector {
 	if short {
 		return AESVectors[50:60] // The first 10 all have zero key--50 to 60 seem to have more variety.
