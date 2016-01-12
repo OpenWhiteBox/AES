@@ -1,4 +1,4 @@
-package matrix2
+package gfmatrix
 
 import (
 	"io"
@@ -6,7 +6,8 @@ import (
 	"github.com/OpenWhiteBox/AES/primitives/number"
 )
 
-// GenerateTrueRandom creates a random singular or non-singular n by n matrix.
+// GenerateTrueRandom generates a random  n-by-n matrix (not guaranteed to be invertible) using the random source random
+// (for example, crypto/rand.Reader).
 func GenerateTrueRandom(reader io.Reader, n int) Matrix {
 	m := Matrix(make([]Row, n))
 
@@ -23,7 +24,7 @@ func GenerateTrueRandom(reader io.Reader, n int) Matrix {
 	return m
 }
 
-// GenerateIdentity creates the n by n identity matrix.
+// GenerateIdentity generates the n-by-n identity matrix.
 func GenerateIdentity(n int) Matrix {
 	out := GenerateEmpty(n)
 
@@ -34,7 +35,7 @@ func GenerateIdentity(n int) Matrix {
 	return out
 }
 
-// GenerateEmpty creates a matrix with all entries set to 0.
+// GenerateEmpty generates the n-by-n matrix with all entries set to 0.
 func GenerateEmpty(n int) Matrix {
 	out := make([]Row, n)
 

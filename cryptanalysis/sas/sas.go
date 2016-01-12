@@ -4,7 +4,7 @@ package sas
 import (
 	"github.com/OpenWhiteBox/AES/primitives/encoding"
 	binmatrix "github.com/OpenWhiteBox/AES/primitives/matrix"
-	matrix "github.com/OpenWhiteBox/AES/primitives/matrix2"
+	matrix "github.com/OpenWhiteBox/AES/primitives/gfmatrix"
 	"github.com/OpenWhiteBox/AES/primitives/number"
 )
 

@@ -1,9 +1,10 @@
-package matrix2
+package gfmatrix
 
 import (
 	"github.com/OpenWhiteBox/AES/primitives/number"
 )
 
+// Row is a row / vector of elements from GF(2^8).
 type Row []number.ByteFieldElem
 
 // Add adds two vectors from GF(2^8)^n.
@@ -90,6 +91,7 @@ func (e Row) Equal(f Row) bool {
 	return true
 }
 
+// IsZero returns whether or not the row is identically zero.
 func (e Row) IsZero() bool {
 	for _, e_i := range e {
 		if !e_i.IsZero() {

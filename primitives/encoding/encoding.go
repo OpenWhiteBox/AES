@@ -5,8 +5,8 @@ package encoding
 
 // Nibble is the same interface as Byte. A function implementing Nibble shouldn't accept inputs or give outputs over 16.
 type Nibble interface {
-	Encode(i byte) byte
-	Decode(i byte) byte
+	Encode(i byte) byte // Encode(i nibble) nibble
+	Decode(i byte) byte // Decode(i nibble) nibble
 }
 
 type Byte interface {

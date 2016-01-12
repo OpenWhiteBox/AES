@@ -4,7 +4,7 @@ import (
 	"crypto/rand"
 
 	"github.com/OpenWhiteBox/AES/primitives/encoding"
-	matrix "github.com/OpenWhiteBox/AES/primitives/matrix2"
+	matrix "github.com/OpenWhiteBox/AES/primitives/gfmatrix"
 	"github.com/OpenWhiteBox/AES/primitives/number"
 )
 

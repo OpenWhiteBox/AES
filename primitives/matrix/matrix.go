@@ -10,7 +10,7 @@ func rowsToColumns(x int) int {
 	return out
 }
 
-// Logical, or (0, 1)-Matrices
+// Matrix is a logical, or (0, 1)-matrix
 type Matrix []Row
 
 // Mul right-multiplies a matrix by a row.

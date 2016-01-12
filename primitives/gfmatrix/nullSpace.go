@@ -1,4 +1,4 @@
-package matrix2
+package gfmatrix
 
 import (
 	"github.com/OpenWhiteBox/AES/primitives/number"

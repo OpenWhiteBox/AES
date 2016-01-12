@@ -1,4 +1,4 @@
-package matrix2
+package gfmatrix
 
 import (
 	"testing"

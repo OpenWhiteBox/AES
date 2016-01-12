@@ -1,10 +1,11 @@
-// matrix2 implements matrices with elements from GF(2^8)
-package matrix2
+// Package gfmatrix implements basic operations on matrices over Rijndael's field and the random generation of new ones.
+package gfmatrix
 
 import (
 	"github.com/OpenWhiteBox/AES/primitives/number"
 )
 
+// Matrix represents a GF(2^8)-matrix.
 type Matrix []Row
 
 // Mul right-multiplies a matrix by a row.
