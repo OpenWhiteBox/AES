@@ -1,3 +1,9 @@
+// Package random implements the generation of random objects with controlled, cryptographically secure randomness.
+//
+// Three parameters matter: the name and seed of the randomness source, and the label given when requesting an object.
+// If all of these three parameters are the same, the objects returned will be the same--if they're different, the
+// returned object will likely be different. To prevent an adversary from being able to predict what will be returned,
+// the only parameter that needs to be kept secret is the seed of the randomness source.
 package random
 
 import (
@@ -19,8 +25,12 @@ func (dn devNull) Read(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
+// Source implements generators of random objects. It also maintains a cache to speed up generation, in cases where the
+// same object may be requested many times.
 type Source struct {
+	// The name of the randomness source--an arbitrary string.
 	Name string
+	// A 16-byte truly random seed.
 	Seed []byte
 
 	shuffleCache map[[16]byte]encoding.Shuffle
@@ -28,6 +38,7 @@ type Source struct {
 	matrixCache  map[[16]byte]matrix.Matrix
 }
 
+// NewSource initializes a Source object with the given name and seed.
 func NewSource(name string, seed []byte) Source {
 	return Source{
 		Name:         name,
@@ -86,7 +97,7 @@ func (rs *Source) Shuffle(label []byte) encoding.Shuffle {
 	}
 }
 
-// SBox takes a (possibly public) label and produces a random s-box.
+// SBox takes a (possibly public) label and produces a random S-box.
 func (rs *Source) SBox(label []byte) encoding.SBox {
 	key := [16]byte{}
 	copy(key[:], label)
