@@ -1,4 +1,3 @@
-// AES primitives that are common to different constructions.
 package common
 
 import (

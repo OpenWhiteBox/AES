@@ -1,4 +1,4 @@
-// Implements a random SAS block cipher.
+// Package sas implements a generic SAS block cipher.
 package sas
 
 import (

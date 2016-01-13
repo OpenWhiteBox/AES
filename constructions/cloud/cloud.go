@@ -1,3 +1,4 @@
+// Package cloud implements CloudFlare's white-box AES construction.
 package cloud
 
 import (

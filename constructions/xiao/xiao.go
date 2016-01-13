@@ -1,3 +1,4 @@
+// Package xiao implements the Xiao-Lai white-box AES construction.
 package xiao
 
 import (

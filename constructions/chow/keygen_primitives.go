@@ -1,4 +1,3 @@
-// Contains tables and encodings necessary for key generation.
 package chow
 
 import (

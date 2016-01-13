@@ -1,3 +1,4 @@
+// Package chow implements a cryptanalysis of Chow et al.'s white-box AES construction.
 package chow
 
 import (

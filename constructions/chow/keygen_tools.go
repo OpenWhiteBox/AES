@@ -1,4 +1,3 @@
-// Contains tools for key generation that don't fit anywhere else.
 package chow
 
 import (

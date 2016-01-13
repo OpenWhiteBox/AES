@@ -1,4 +1,4 @@
-// Cryptanalysis of SAS block ciphers.
+// Package sas implements a cryptanalysis of generic SAS block ciphers.
 package sas
 
 import (
