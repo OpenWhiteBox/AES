@@ -84,3 +84,22 @@ func (bl BlockLinear) Decode(i [16]byte) (out [16]byte) {
 	matrixMul(&bl.Backwards, out[:], i[:])
 	return
 }
+
+// BlockAffine implements the Block interface over an affine transformation.
+type BlockAffine struct {
+	// Linear is the linear part of the affine transformation.
+	Linear BlockLinear
+	// Constant will be XORed with the linear part.
+	Constant [16]byte
+}
+
+func (ba BlockAffine) addConstant(in [16]byte) (out [16]byte) {
+	for i := 0; i < 16; i++ {
+		out[i] = in[i] ^ ba.Constant[i]
+	}
+
+	return
+}
+
+func (ba BlockAffine) Encode(i [16]byte) [16]byte { return ba.addConstant(ba.Linear.Encode(i)) }
+func (ba BlockAffine) Decode(i [16]byte) [16]byte { return ba.Linear.Decode(ba.addConstant(i)) }
