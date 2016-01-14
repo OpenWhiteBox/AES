@@ -1,4 +1,10 @@
-// Package chow implements Chow et al.'s white-box AES construction.
+// Package chow implements Chow et al.'s white-box AES construction. The construction works by representing each round
+// as a series of lookup tables.
+//
+// "White-Box Cryptography and an AES Implementation" by Stanley Chow, Philip Eisen, Harold Johnson, and Paul C. Van
+// Oorschot, http://link.springer.com/chapter/10.1007%2F3-540-36492-7_17?LI=true
+//
+// "A Tutorial on White-Box AES" by James A. Muir, https://eprint.iacr.org/2013/104.pdf
 package chow
 
 import (
@@ -21,18 +27,23 @@ type Construction struct {
 	OutputXORTables common.NibbleXORTables
 }
 
+// BlockSize returns the block size of AES. (Necessary to implement cipher.Block.)
 func (constr Construction) BlockSize() int { return 16 }
 
+// Encrypt encrypts the first block in src into dst. Dst and src may point at the same memory.
 func (constr Construction) Encrypt(dst, src []byte) {
 	constr.crypt(dst, src, constr.ShiftRows)
 }
 
+// Decrypt decrypts the first block in src into dst. Dst and src may point at the same memory.
 func (constr Construction) Decrypt(dst, src []byte) {
 	constr.crypt(dst, src, constr.UnShiftRows)
 }
 
+// crypt pushes the first block in src through the lookup tables (which may compute encryption or decryption) and writes
+// the result to dst. shift is the permutation to apply to the state matrix before each round.
 func (constr Construction) crypt(dst, src []byte, shift func([]byte)) {
-	copy(dst, src)
+	copy(dst, src[:constr.BlockSize()])
 
 	// Remove input encoding.
 	stretched := constr.ExpandBlock(constr.InputMask, dst)
@@ -58,6 +69,7 @@ func (constr Construction) crypt(dst, src []byte, shift func([]byte)) {
 	constr.OutputXORTables.SquashBlocks(stretched, dst)
 }
 
+// ShiftRows permutes the bytes of the first block of block, according to AES' ShiftRows operation.
 func (constr *Construction) ShiftRows(block []byte) {
 	copy(block, []byte{
 		block[0], block[5], block[10], block[15], block[4], block[9], block[14], block[3], block[8], block[13], block[2],
@@ -65,6 +77,7 @@ func (constr *Construction) ShiftRows(block []byte) {
 	})
 }
 
+// UnShiftRows permutes the bytes of the first block of block, according to the inverse of AES's ShiftRows operation.
 func (constr *Construction) UnShiftRows(block []byte) {
 	copy(block, []byte{
 		block[0], block[13], block[10], block[7], block[4], block[1], block[14], block[11], block[8], block[5], block[2],
@@ -72,12 +85,13 @@ func (constr *Construction) UnShiftRows(block []byte) {
 	})
 }
 
-// Expand one word of the state matrix with the T-Boxes composed with Tyi Tables.
+// ExpandWord expands one word of the state matrix with the T-Boxes composed with Tyi Tables.
 func (constr *Construction) ExpandWord(tboxtyi []table.Word, word []byte) [4][4]byte {
 	return [4][4]byte{tboxtyi[0].Get(word[0]), tboxtyi[1].Get(word[1]), tboxtyi[2].Get(word[2]), tboxtyi[3].Get(word[3])}
 }
 
-// Squash an expanded word back into one word with 3 pairwise XORs (calc'd one nibble at a time) -- (((a ^ b) ^ c) ^ d)
+// SquashWords squashes an expanded word back into one word with 3 pairwise XORs (calc'd one nibble at a time):
+//   (((a ^ b) ^ c) ^ d)
 func (constr *Construction) SquashWords(xorTable [][3]table.Nibble, words [4][4]byte, dst []byte) {
 	copy(dst, words[0][:])
 
@@ -91,6 +105,7 @@ func (constr *Construction) SquashWords(xorTable [][3]table.Nibble, words [4][4]
 	}
 }
 
+// ExpandBlock expands the entire state matrix into sixteen blocks.
 func (constr *Construction) ExpandBlock(mask [16]table.Block, block []byte) (out [16][16]byte) {
 	for i := 0; i < 16; i++ {
 		out[i] = mask[i].Get(block[i])

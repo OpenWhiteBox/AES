@@ -16,6 +16,7 @@ const (
 	xorTableSize  = 256 / 2
 )
 
+// Serialize serializes a white-box construction into a byte slice.
 func (constr *Construction) Serialize() []byte {
 	out, base := make([]byte, fullSize), 0
 
@@ -36,6 +37,7 @@ func (constr *Construction) Serialize() []byte {
 	return out
 }
 
+// Parse parses a byte array into a white-box construction. It returns an error if the byte array isn't long enough.
 func Parse(in []byte) (constr Construction, err error) {
 	var rest []byte
 
