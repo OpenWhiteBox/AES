@@ -4,12 +4,28 @@ import (
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
+
+	"fmt"
 	"testing"
 
 	test_vectors "github.com/OpenWhiteBox/AES/constructions/test"
 )
 
 var key = []byte{72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33, 33, 33, 33, 33}
+
+func Example_encrypt() {
+	constr := Construction{
+		Key: []byte{100, 17, 10, 146, 79, 7, 67, 213, 0, 204, 173, 174, 114, 193, 52, 39},
+	}
+
+	src := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	dst := make([]byte, 16)
+
+	constr.Encrypt(dst, src)
+
+	fmt.Println(dst)
+	// Output: [53 135 12 106 87 233 233 35 20 188 184 8 124 222 114 206]
+}
 
 func TestSubByte(t *testing.T) {
 	constr := Construction{key}
