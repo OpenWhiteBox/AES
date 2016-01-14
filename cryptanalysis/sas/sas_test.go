@@ -54,15 +54,17 @@ func xor(a, b []byte) []byte {
 }
 
 func TestDecomposeSAS(t *testing.T) {
-	constr1 := sas.GenerateKeys()
+	constr1 := sas.GenerateKeys(rand.Reader)
 
 	first, linear, constant, last := DecomposeSAS(constr1)
 
 	constr2 := sas.Construction{
-		First:    first,
-		Linear:   linear,
-		Constant: constant,
-		Last:     last,
+		First: first,
+		Affine: encoding.BlockAffine{
+			Linear:   encoding.BlockLinear{linear, nil},
+			Constant: constant,
+		},
+		Last: last,
 	}
 
 	// Check that both constructions give the same output on a random challenge.
@@ -79,7 +81,7 @@ func TestDecomposeSAS(t *testing.T) {
 }
 
 func TestRecoverFirstSBoxes(t *testing.T) {
-	constr := sas.GenerateKeys()
+	constr := sas.GenerateKeys(rand.Reader)
 	outer := constr.Last
 	inner := encoding.ConcatenatedBlock(RecoverFirstSBoxes(constr, outer))
 
@@ -89,7 +91,7 @@ func TestRecoverFirstSBoxes(t *testing.T) {
 }
 
 func TestRecoverLastSBoxes(t *testing.T) {
-	constr := sas.GenerateKeys()
+	constr := sas.GenerateKeys(rand.Reader)
 	outer := encoding.ConcatenatedBlock(RecoverLastSBoxes(constr))
 
 	if !testAffine(constr, constr.First, outer) {
@@ -98,7 +100,7 @@ func TestRecoverLastSBoxes(t *testing.T) {
 }
 
 func TestGenerateInnerBalance(t *testing.T) {
-	constr := sas.GenerateKeys()
+	constr := sas.GenerateKeys(rand.Reader)
 	outer := constr.Last
 	pos := 0
 
@@ -109,7 +111,7 @@ func TestGenerateInnerBalance(t *testing.T) {
 
 	m := GenerateInnerBalance(constr, outer, pos, target)
 
-	sbox := constr.First.(encoding.ConcatenatedBlock)[pos].(encoding.SBox)
+	sbox := constr.First[pos].(encoding.SBox)
 	c := sbox.Encode(0x00) ^ sbox.Encode(0x01)
 
 	sboxRow := matrix.Row(make([]number.ByteFieldElem, 256))

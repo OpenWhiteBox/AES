@@ -3,8 +3,8 @@ package sas
 
 import (
 	"github.com/OpenWhiteBox/AES/primitives/encoding"
-	binmatrix "github.com/OpenWhiteBox/AES/primitives/matrix"
 	matrix "github.com/OpenWhiteBox/AES/primitives/gfmatrix"
+	binmatrix "github.com/OpenWhiteBox/AES/primitives/matrix"
 	"github.com/OpenWhiteBox/AES/primitives/number"
 )
 
@@ -12,7 +12,7 @@ type Construction interface {
 	Encrypt([]byte, []byte)
 }
 
-func DecomposeSAS(constr Construction) (encoding.Block, binmatrix.Matrix, [16]byte, encoding.Block) {
+func DecomposeSAS(constr Construction) (encoding.ConcatenatedBlock, binmatrix.Matrix, [16]byte, encoding.ConcatenatedBlock) {
 	outer := encoding.ConcatenatedBlock(RecoverLastSBoxes(constr))
 	inner := encoding.ConcatenatedBlock(RecoverFirstSBoxes(constr, outer))
 
