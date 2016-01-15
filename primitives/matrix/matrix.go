@@ -110,7 +110,11 @@ func (e Matrix) Dup() Matrix {
 
 // Size returns the dimensions of the matrix in (Rows, Columns) order.
 func (e Matrix) Size() (int, int) {
-	return len(e), e[0].Size()
+	if len(e) == 0 {
+		return 0, 0
+	} else {
+		return len(e), e[0].Size()
+	}
 }
 
 // String converts the matrix to space-and-dot notation.

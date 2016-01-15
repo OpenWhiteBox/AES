@@ -12,21 +12,23 @@ var weight [4]uint64 = [4]uint64{
 // A binary row / vector in GF(2)^n.
 type Row []byte
 
-// LessThan returns true if the height of row i is greater than the height of row j. The "height" of a row is the
-// position of the highest bit set.
-//
-// Example: If you use sort a permutation matrix according to LessThan, you'll always get the identity matrix.
+// LessThan returns true if row i is "less than" row j. If you use sort a permutation matrix according to LessThan,
+// you'll always get the identity matrix.
 func LessThan(i, j Row) bool {
-	if len(i) != len(j) {
+	if i.Size() != j.Size() {
 		panic("Can't compare rows that are different sizes!")
 	}
 
 	for k, _ := range i {
-		if i[k] != 0x00 && j[k] != 0x00 {
-			if i[k] < j[k] &^ i[k] {
+		if i[k] != 0x00 || j[k] != 0x00 {
+			if i[k] == 0x00 {
 				return false
-			} else {
+			} else if j[k] == 0x00 {
 				return true
+			} else if i[k]&-i[k] < j[k]&-j[k] {
+				return true
+			} else {
+				return false
 			}
 		}
 	}
@@ -84,6 +86,21 @@ func (e Row) Weight() (w int) {
 	}
 
 	return
+}
+
+// Returns true if e should be used to cancel out a bit in f.
+func (e Row) Cancels(f Row) bool {
+	for i, _ := range e {
+		if e[i] != 0x00 {
+			if e[i]&-e[i]&f[i] != 0x00 {
+				return true
+			} else {
+				return false
+			}
+		}
+	}
+
+	return false
 }
 
 // GetBit returns the ith component of the vector: 0x00 or 0x01.
