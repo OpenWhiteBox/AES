@@ -29,3 +29,24 @@ func TestNullSpace(t *testing.T) {
 		t.Fatalf("NullSpace returned a malformed basis.")
 	}
 }
+
+func TestInvert(t *testing.T) {
+	m := Matrix{
+		Row{0x01, 0x00, 0x00, 0x00},
+		Row{0x07, 0x01, 0x00, 0x00},
+		Row{0x00, 0x03, 0x01, 0x00},
+		Row{0x00, 0x00, 0x06, 0x01},
+	}
+
+	mInv, ok := m.Invert()
+	if !ok {
+		t.Fatalf("Failed to invert invertable matrix.")
+	}
+
+	in := GenerateRandomRow(rand.Reader, 4)
+	out := mInv.Mul(m.Mul(in))
+
+	if !in.Equals(out) {
+		t.Fatalf("Inverse was wrong!")
+	}
+}

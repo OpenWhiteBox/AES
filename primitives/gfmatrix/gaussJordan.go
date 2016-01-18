@@ -21,7 +21,7 @@ func (e Matrix) gaussJordan() (aug, f Matrix, frees []int) {
 
 	for row < out && col < in {
 		// Find a non-zero element to move into the pivot position.
-		i := f.findPivot(row, col)
+		i := f.FindPivot(row, col)
 		if i == -1 { // Failed to find a pivot.
 			frees = append(frees, col)
 			col++
@@ -30,8 +30,8 @@ func (e Matrix) gaussJordan() (aug, f Matrix, frees []int) {
 		}
 
 		// Move it into position.
-		f.swapRows(row, i)
-		aug.swapRows(row, i)
+		f[row], f[i] = f[i], f[row]
+		aug[row], aug[i] = aug[i], aug[row]
 
 		// Normalize the entry in this rows (pivot)th position.
 		correction := f[row][col].Invert()
@@ -56,20 +56,4 @@ func (e Matrix) gaussJordan() (aug, f Matrix, frees []int) {
 	}
 
 	return
-}
-
-func (e Matrix) findPivot(row, col int) int {
-	out, _ := e.Size()
-
-	for i := row; i < out; i++ {
-		if !e[i][col].IsZero() {
-			return i
-		}
-	}
-
-	return -1
-}
-
-func (e Matrix) swapRows(row1, row2 int) {
-	e[row1], e[row2] = e[row2], e[row1]
 }

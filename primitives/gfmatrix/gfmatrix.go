@@ -39,7 +39,30 @@ func (e Matrix) Transpose() Matrix {
 	return Matrix(out)
 }
 
+// Invert computes the multiplicative inverse of a matrix, if it exists.
+func (e Matrix) Invert() (Matrix, bool) {
+	inv, _, frees := e.gaussJordan()
+	return inv, len(frees) == 0
+}
+
+// FindPivot finds a row with non-zero entry in column col, looking at given row and below.
+func (e Matrix) FindPivot(row, col int) int {
+	out, _ := e.Size()
+
+	for i := row; i < out; i++ {
+		if !e[i][col].IsZero() {
+			return i
+		}
+	}
+
+	return -1
+}
+
 // Size returns the dimensions of the matrix in (Rows, Columns) order.
 func (e Matrix) Size() (int, int) {
-	return len(e), len(e[0])
+	if len(e) == 0 {
+		return 0, 0
+	} else {
+		return len(e), e[0].Size()
+	}
 }

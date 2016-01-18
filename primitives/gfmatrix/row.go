@@ -7,6 +7,31 @@ import (
 // Row is a row / vector of elements from GF(2^8).
 type Row []number.ByteFieldElem
 
+// NewRow returns an empty n-component row.
+func NewRow(n int) Row {
+	return Row(make([]number.ByteFieldElem, n))
+}
+
+// LessThan returns true if row i is "less than" row j. If you use sort a permutation matrix according to LessThan,
+// you'll always get the identity matrix.
+func LessThan(i, j Row) bool {
+	if i.Size() != j.Size() {
+		panic("Can't compare rows that are different sizes!")
+	}
+
+	for k, _ := range i {
+		if i[k] != 0x00 || j[k] != 0x00 {
+			if j[k] == 0x00 {
+				return true
+			} else {
+				return false
+			}
+		}
+	}
+
+	return false
+}
+
 // Add adds two vectors from GF(2^8)^n.
 func (e Row) Add(f Row) Row {
 	le, lf := e.Size(), f.Size()
@@ -77,7 +102,7 @@ func (e Row) Height() int {
 }
 
 // Equal returns true if two rows are equal and false otherwise.
-func (e Row) Equal(f Row) bool {
+func (e Row) Equals(f Row) bool {
 	if e.Size() != f.Size() {
 		panic("Can't compare rows that are different sizes!")
 	}
@@ -102,7 +127,30 @@ func (e Row) IsZero() bool {
 	return true
 }
 
+// Returns true if e should be used to cancel out a component in f.
+func (e Row) Cancels(f Row) bool {
+	for i, _ := range e {
+		if !e[i].IsZero() {
+			if !f[i].IsZero() {
+				return true
+			} else {
+				return false
+			}
+		}
+	}
+
+	return false
+}
+
 // Size returns the dimension of the vector.
 func (e Row) Size() int {
 	return len(e)
+}
+
+// Dup returns a duplicate of this row.
+func (e Row) Dup() Row {
+	out := Row(make([]number.ByteFieldElem, e.Size()))
+	copy(out, e)
+
+	return out
 }
