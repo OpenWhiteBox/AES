@@ -96,7 +96,7 @@ func (e ByteFieldElem) Invert() ByteFieldElem { // Euclid's Extended Algorithm. 
 func (e ByteFieldElem) IsZero() bool { return e == 0 }
 
 // IsOne returns whether ot not e is one.
-func (e ByteFieldElem) IsOne() bool  { return e == 1 }
+func (e ByteFieldElem) IsOne() bool { return e == 1 }
 
 // Dup returns a duplicate of e.
 func (e ByteFieldElem) Dup() ByteFieldElem { return e.Add(0) }

@@ -120,7 +120,7 @@ func (e ArrayFieldElem) Mul(f ArrayFieldElem) (out ArrayFieldElem) {
 func (e ArrayFieldElem) IsZero() bool { return len(e) == 0 }
 
 // IsOne returns whether or not e is one.
-func (e ArrayFieldElem) IsOne() bool  { return len(e) == 1 && e[0] == 1 }
+func (e ArrayFieldElem) IsOne() bool { return len(e) == 1 && e[0] == 1 }
 
 // Dup returns a duplicate of e.
 func (e ArrayFieldElem) Dup() ArrayFieldElem { return e.Add(ArrayFieldElem{}) }
