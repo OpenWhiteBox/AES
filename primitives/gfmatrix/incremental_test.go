@@ -1,10 +1,22 @@
 package gfmatrix
 
 import (
+	"fmt"
 	"testing"
 
 	"crypto/rand"
 )
+
+func ExampleIncrementalMatrix() {
+	im := NewIncrementalMatrix(16)
+
+	for !im.FullyDefined() {
+		row := GenerateRandomRow(rand.Reader, 16)
+		im.Add(row)
+	}
+
+	fmt.Println(im.Matrix())
+}
 
 func TestIncrementalMatrix(t *testing.T) {
 	im := NewIncrementalMatrix(128)
