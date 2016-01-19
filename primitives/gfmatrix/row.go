@@ -1,6 +1,8 @@
 package gfmatrix
 
 import (
+	"fmt"
+
 	"github.com/OpenWhiteBox/AES/primitives/number"
 )
 
@@ -127,21 +129,6 @@ func (e Row) IsZero() bool {
 	return true
 }
 
-// Returns true if e should be used to cancel out a component in f.
-func (e Row) Cancels(f Row) bool {
-	for i, _ := range e {
-		if !e[i].IsZero() {
-			if !f[i].IsZero() {
-				return true
-			} else {
-				return false
-			}
-		}
-	}
-
-	return false
-}
-
 // Size returns the dimension of the vector.
 func (e Row) Size() int {
 	return len(e)
@@ -153,4 +140,12 @@ func (e Row) Dup() Row {
 	copy(out, e)
 
 	return out
+}
+
+func (e Row) String() string {
+	out := []rune{}
+	out = append(out, []rune(fmt.Sprintf("%2.2x", []number.ByteFieldElem(e)))...)
+	out = out[1 : len(out)-1]
+
+	return string(out)
 }

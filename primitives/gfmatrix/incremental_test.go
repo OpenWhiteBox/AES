@@ -35,7 +35,7 @@ func TestIncrementalMatrix(t *testing.T) {
 	}
 
 	ok1 := im.Add(m[3].Add(m[6]).Add(m[100]).Add(m[121]))
-	ok2 := im.Add(m[8].Add(m[73]).Add(m[98]).Add(m[100]))
+	ok2 := im.Add(m[8].Add(m[73]).Add(m[98]).ScalarMul(0x30).Add(m[100]))
 
 	if ok1 || ok2 {
 		t.Fatalf("Add returned true on redundant vector.")

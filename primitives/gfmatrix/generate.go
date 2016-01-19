@@ -7,11 +7,11 @@ import (
 )
 
 // GenerateEmpty generates the n-by-n matrix with all entries set to 0.
-func GenerateEmpty(n int) Matrix {
+func GenerateEmpty(n, m int) Matrix {
 	out := make([]Row, n)
 
 	for i := 0; i < n; i++ {
-		out[i] = make([]number.ByteFieldElem, n)
+		out[i] = make([]number.ByteFieldElem, m)
 	}
 
 	return Matrix(out)
@@ -19,7 +19,7 @@ func GenerateEmpty(n int) Matrix {
 
 // GenerateIdentity generates the n-by-n identity matrix.
 func GenerateIdentity(n int) Matrix {
-	out := GenerateEmpty(n)
+	out := GenerateEmpty(n, n)
 
 	for i := 0; i < n; i++ {
 		out[i][i] = number.ByteFieldElem(0x01)

@@ -41,8 +41,9 @@ func (im *IncrementalMatrix) Add(candM Row) bool {
 
 	// Put cand in simplest form.
 	for i, _ := range im.simplest {
-		if im.simplest[i].Cancels(cand) {
-			correction := cand[i]
+		height := im.simplest[i].Height()
+		if !cand[height].IsZero() {
+			correction := cand[height]
 
 			cand = cand.Add(im.simplest[i].ScalarMul(correction))
 			inverseRow = inverseRow.Add(im.inverse[i].ScalarMul(correction))
@@ -77,8 +78,7 @@ func (im *IncrementalMatrix) Add(candM Row) bool {
 
 // FullyDefined returns true if the matrix has been fully defined and false if it hasn't.
 func (im *IncrementalMatrix) FullyDefined() bool {
-	n, m := im.raw.Size()
-	return n == m
+	return im.n == len(im.raw)
 }
 
 // Matrix returns the generated matrix.

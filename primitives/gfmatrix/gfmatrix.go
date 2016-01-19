@@ -66,3 +66,14 @@ func (e Matrix) Size() (int, int) {
 		return len(e), e[0].Size()
 	}
 }
+
+func (e Matrix) String() string {
+	out := []rune{}
+
+	for _, row := range e {
+		out = append(out, []rune(row.String())...)
+		out = append(out, '\n')
+	}
+
+	return string(out)
+}
