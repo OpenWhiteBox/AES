@@ -6,7 +6,7 @@ import (
 	"github.com/OpenWhiteBox/AES/primitives/number"
 )
 
-// GenerateEmpty generates the n-by-n matrix with all entries set to 0.
+// GenerateEmpty generates the n-by-m matrix with all entries set to 0.
 func GenerateEmpty(n, m int) Matrix {
 	out := make([]Row, n)
 

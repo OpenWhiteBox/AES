@@ -28,7 +28,7 @@ func NewIncrementalMatrix(n int) IncrementalMatrix {
 	}
 }
 
-// Add tries to add the row to the matrix. It fails if the new row is linearly dependent with another row. Add returns
+// Add tries to add the row to the matrix. It mutates nothing if the new row would make the matrix singular. Add returns
 // success or failure.
 func (im *IncrementalMatrix) Add(candM Row) bool {
 	if candM.Size() != im.n {
@@ -92,16 +92,17 @@ func (im *IncrementalMatrix) Inverse() Matrix {
 	return im.inverse
 }
 
-// Implementation of sort.Interface
-
+// Len returns the number of linearly independent rows of the matrix. Part of an implementation of sort.Interface.
 func (im *IncrementalMatrix) Len() int {
 	return len(im.raw)
 }
 
+// Less is part of an implementation of sort.Interface.
 func (im *IncrementalMatrix) Less(i, j int) bool {
 	return LessThan(im.simplest[i], im.simplest[j])
 }
 
+// Swap is part of an implementation of sort.Interface.
 func (im *IncrementalMatrix) Swap(i, j int) {
 	im.simplest[i], im.simplest[j] = im.simplest[j], im.simplest[i]
 	im.inverse[i], im.inverse[j] = im.inverse[j], im.inverse[i]

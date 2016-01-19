@@ -103,7 +103,7 @@ func (e Row) Height() int {
 	return -1
 }
 
-// Equal returns true if two rows are equal and false otherwise.
+// Equals returns true if two rows are equal and false otherwise.
 func (e Row) Equals(f Row) bool {
 	if e.Size() != f.Size() {
 		panic("Can't compare rows that are different sizes!")

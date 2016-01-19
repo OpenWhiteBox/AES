@@ -45,7 +45,8 @@ func (e Matrix) Invert() (Matrix, bool) {
 	return inv, len(frees) == 0
 }
 
-// FindPivot finds a row with non-zero entry in column col, looking at given row and below.
+// FindPivot finds a row with non-zero entry in column col, starting at the given row and moving down. It returns the
+// index of the row or -1 if one does not exist.
 func (e Matrix) FindPivot(row, col int) int {
 	out, _ := e.Size()
 
