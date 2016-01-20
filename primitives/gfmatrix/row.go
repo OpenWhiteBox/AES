@@ -76,14 +76,14 @@ func (e Row) DotProduct(f Row) number.ByteFieldElem {
 	return res
 }
 
-// IsPermutation returns true if the row is a permutation of all the elements of GF(2^8) and false otherwise.
+// IsPermutation returns true if the row is a permutation of the first len(e) elements of GF(2^8) and false otherwise.
 func (e Row) IsPermutation() bool {
 	sums := [256]int{}
 	for _, e_i := range e {
 		sums[e_i]++
 	}
 
-	for _, x := range sums {
+	for _, x := range sums[0:len(e)] {
 		if x != 1 {
 			return false
 		}
