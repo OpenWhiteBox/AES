@@ -94,10 +94,7 @@ func MixingBijection(rs *random.Source, size, round, position int) encoding.Byte
 	if round == -1 || round == size-1 {
 		return encoding.IdentityByte{}
 	} else {
-		mb := common.MixingBijection(rs, 8, round-1, position)
-		mbInv, _ := mb.Invert()
-
-		return encoding.ByteLinear{mb, mbInv}
+		return encoding.NewByteLinear(common.MixingBijection(rs, 8, round-1, position))
 	}
 }
 

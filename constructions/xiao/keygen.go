@@ -37,15 +37,11 @@ import (
 func generateRoundMaterial(rs *random.Source, out *Construction, hidden func(int, int) table.DoubleToWord) {
 	for round := 0; round < 10; round++ {
 		for pos := 0; pos < 16; pos += 2 {
-			inEnc := common.MixingBijection(rs, 16, round, pos/2)
-			outEnc := common.MixingBijection(rs, 32, round, pos/4)
-
-			inInv, _ := inEnc.Invert()
-			outInv, _ := outEnc.Invert()
-
 			out.TBoxMixCol[round][pos/2] = encoding.DoubleToWordTable{
-				encoding.DoubleLinear{inEnc, inInv},
-				encoding.WordLinear{outInv, outEnc},
+				encoding.NewDoubleLinear(common.MixingBijection(rs, 16, round, pos/2)),
+				encoding.InverseWord{
+					encoding.NewWordLinear(common.MixingBijection(rs, 32, round, pos/4)),
+				},
 				hidden(round, pos),
 			}
 		}

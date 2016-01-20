@@ -17,13 +17,10 @@ func GenerateKeys(rand io.Reader) (constr Construction) {
 
 	constr.First, constr.Last = first, last
 
-	M := matrix.GenerateRandom(rand, 128)
-	MInv, _ := M.Invert()
+	c := [16]byte{}
+	rand.Read(c[:])
 
-	constr.Affine = encoding.BlockAffine{
-		Linear: encoding.BlockLinear{M, MInv},
-	}
-	rand.Read(constr.Affine.Constant[:])
+	constr.Affine = encoding.NewBlockAffine(matrix.GenerateRandom(rand, 128), c)
 
 	return
 }

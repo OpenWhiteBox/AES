@@ -101,7 +101,7 @@ func BlockMaskEncoding(rs *random.Source, position int, surface common.Surface, 
 
 		if surface == common.Inside {
 			out[i] = encoding.ComposedBytes{
-				encoding.ByteLinear{common.MixingBijection(rs, 8, -1, shift(i)), nil},
+				encoding.NewByteLinear(common.MixingBijection(rs, 8, -1, shift(i))),
 				out[i],
 			}
 		}
