@@ -62,7 +62,7 @@ func (ba ByteAffine) Decode(in byte) byte { return ba.ByteLinear.Decode(ba.ByteA
 type DoubleAdditive [2]byte
 
 func (da DoubleAdditive) code(in [2]byte) (out [2]byte) {
-	xor(out[:], in[:], da[:])
+	XOR(out[:], in[:], da[:])
 	return
 }
 
@@ -126,7 +126,7 @@ func (da DoubleAffine) Decode(in [2]byte) [2]byte {
 type WordAdditive [4]byte
 
 func (wa WordAdditive) code(in [4]byte) (out [4]byte) {
-	xor(out[:], in[:], wa[:])
+	XOR(out[:], in[:], wa[:])
 	return
 }
 
@@ -190,7 +190,7 @@ func (wa WordAffine) Decode(in [4]byte) [4]byte {
 type BlockAdditive [16]byte
 
 func (ba BlockAdditive) code(in [16]byte) (out [16]byte) {
-	xor(out[:], in[:], ba[:])
+	XOR(out[:], in[:], ba[:])
 	return
 }
 
