@@ -36,40 +36,36 @@ func LessThan(i, j Row) bool {
 
 // Add adds two vectors from GF(2^8)^n.
 func (e Row) Add(f Row) Row {
-	le, lf := e.Size(), f.Size()
-	if le != lf {
+	if e.Size() != f.Size() {
 		panic("Can't add rows that are different sizes!")
 	}
 
-	out := make([]number.ByteFieldElem, le)
-	for i := 0; i < le; i++ {
-		out[i] = e[i].Add(f[i])
+	out := e.Dup()
+	for i, f_i := range f {
+		out[i] = out[i].Add(f_i)
 	}
 
-	return Row(out)
+	return out
 }
 
 // ScalarMul multiplies a row by a scalar.
 func (e Row) ScalarMul(f number.ByteFieldElem) Row {
-	size := e.Size()
-
-	out := make([]number.ByteFieldElem, size)
-	for i := 0; i < size; i++ {
-		out[i] = e[i].Mul(f)
+	out := e.Dup()
+	for i, _ := range out {
+		out[i] = out[i].Mul(f)
 	}
 
-	return Row(out)
+	return out
 }
 
 // DotProduct computes the dot product of two vectors.
 func (e Row) DotProduct(f Row) number.ByteFieldElem {
-	size := e.Size()
-	if size != f.Size() {
+	if e.Size() != f.Size() {
 		panic("Can't compute dot product of two vectors of different sizes!")
 	}
 
 	res := number.ByteFieldElem(0x00)
-	for i := 0; i < size; i++ {
+	for i, _ := range e {
 		res = res.Add(e[i].Mul(f[i]))
 	}
 
@@ -109,7 +105,7 @@ func (e Row) Equals(f Row) bool {
 		panic("Can't compare rows that are different sizes!")
 	}
 
-	for i := 0; i < e.Size(); i++ {
+	for i, _ := range e {
 		if e[i] != f[i] {
 			return false
 		}
@@ -136,7 +132,7 @@ func (e Row) Size() int {
 
 // Dup returns a duplicate of this row.
 func (e Row) Dup() Row {
-	out := Row(make([]number.ByteFieldElem, e.Size()))
+	out := NewRow(e.Size())
 	copy(out, e)
 
 	return out

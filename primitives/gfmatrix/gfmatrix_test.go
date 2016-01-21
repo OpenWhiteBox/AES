@@ -4,14 +4,12 @@ import (
 	"testing"
 
 	"crypto/rand"
-
-	"github.com/OpenWhiteBox/AES/primitives/number"
 )
 
 func TestNullSpace(t *testing.T) {
 	m := GenerateTrueRandom(rand.Reader, 32)
-	m[2] = m[3].ScalarMul(number.ByteFieldElem(0x03)) // Force matrix to be singular.
-	m[4] = m[3].ScalarMul(number.ByteFieldElem(0x07))
+	m[2] = m[3].ScalarMul(0x03) // Force matrix to be singular.
+	m[4] = m[3].ScalarMul(0x07)
 
 	basis := m.NullSpace()
 

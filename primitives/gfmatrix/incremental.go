@@ -2,8 +2,6 @@ package gfmatrix
 
 import (
 	"sort"
-
-	"github.com/OpenWhiteBox/AES/primitives/number"
 )
 
 // IncrementalMatrix is an invertible matrix that can be generated incrementally. Implements sort.Interface.
@@ -36,7 +34,7 @@ func (im *IncrementalMatrix) Add(candM Row) bool {
 	}
 
 	cand := candM.Dup()
-	inverseRow := Row(make([]number.ByteFieldElem, im.n))
+	inverseRow := NewRow(im.n)
 	inverseRow[len(im.raw)] = 0x01
 
 	// Put cand in simplest form.
@@ -44,7 +42,6 @@ func (im *IncrementalMatrix) Add(candM Row) bool {
 		height := im.simplest[i].Height()
 		if !cand[height].IsZero() {
 			correction := cand[height]
-
 			cand = cand.Add(im.simplest[i].ScalarMul(correction))
 			inverseRow = inverseRow.Add(im.inverse[i].ScalarMul(correction))
 		}
@@ -57,13 +54,13 @@ func (im *IncrementalMatrix) Add(candM Row) bool {
 	height := cand.Height()
 
 	correction := cand[height].Invert()
-	cand, inverseRow = cand.ScalarMul(correction), inverseRow.ScalarMul(correction)
+	cand = cand.ScalarMul(correction)
+	inverseRow = inverseRow.ScalarMul(correction)
 
 	// Cancel every other row in the simplest form with cand.
 	for i, _ := range im.simplest {
 		if !im.simplest[i][height].IsZero() {
 			correction := im.simplest[i][height]
-
 			im.simplest[i] = im.simplest[i].Add(cand.ScalarMul(correction))
 			im.inverse[i] = im.inverse[i].Add(inverseRow.ScalarMul(correction))
 		}

@@ -11,18 +11,18 @@ func GenerateEmpty(n, m int) Matrix {
 	out := make([]Row, n)
 
 	for i := 0; i < n; i++ {
-		out[i] = make([]number.ByteFieldElem, m)
+		out[i] = NewRow(m)
 	}
 
-	return Matrix(out)
+	return out
 }
 
 // GenerateIdentity generates the n-by-n identity matrix.
 func GenerateIdentity(n int) Matrix {
 	out := GenerateEmpty(n, n)
 
-	for i := 0; i < n; i++ {
-		out[i][i] = number.ByteFieldElem(0x01)
+	for i, _ := range out {
+		out[i][i] = 0x01
 	}
 
 	return out
@@ -30,7 +30,7 @@ func GenerateIdentity(n int) Matrix {
 
 // GenerateRandomRow generates a random n-component row using the random source reader.
 func GenerateRandomRow(reader io.Reader, n int) Row {
-	out, temp := make([]number.ByteFieldElem, n), make([]byte, n)
+	out, temp := NewRow(n), make([]byte, n)
 	reader.Read(temp)
 
 	for i, v := range temp {
@@ -40,10 +40,10 @@ func GenerateRandomRow(reader io.Reader, n int) Row {
 	return Row(out)
 }
 
-// GenerateTrueRandom generates a random  n-by-n matrix (not guaranteed to be invertible) using the random source reader
+// GenerateTrueRandom generates a random n-by-n matrix (not guaranteed to be invertible) using the random source reader
 // (for example, crypto/rand.Reader).
 func GenerateTrueRandom(reader io.Reader, n int) Matrix {
-	m := Matrix(make([]Row, n))
+	m := make([]Row, n)
 
 	for i := 0; i < n; i++ { // Generate random n x n matrix.
 		m[i] = GenerateRandomRow(reader, n)
