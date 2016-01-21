@@ -4,17 +4,8 @@ package matrix
 // used by GeneratePartialIdentity and GeneratePartialRandom to leave empty rows in a matrix.
 type RowIgnore func(int) bool
 
-// ByteIgnore blacklists blocks of a matrix from an operation; rows and columns are handeled at the byte-level, not the
-// bit-level. It's used by GenerateRandomPartial to control where a matrix is random and fixed.
-type ByteIgnore func(int, int) bool
-
 // IgnoreNoRows implements the RowIgnore interface. It sets no rows to be blacklisted.
 func IgnoreNoRows(row int) bool {
-	return false
-}
-
-// IgnoreNoBytes implements the ByteIgnore interface. It sets no blocks to be blacklisted.
-func IgnoreNoBytes(row, col int) bool {
 	return false
 }
 
@@ -32,6 +23,15 @@ func IgnoreRows(positions ...int) RowIgnore {
 
 		return false
 	}
+}
+
+// ByteIgnore blacklists blocks of a matrix from an operation; rows and columns are handeled at the byte-level, not the
+// bit-level. It's used by GenerateRandomPartial to control where a matrix is random and fixed.
+type ByteIgnore func(int, int) bool
+
+// IgnoreNoBytes implements the ByteIgnore interface. It sets no blocks to be blacklisted.
+func IgnoreNoBytes(row, col int) bool {
+	return false
 }
 
 // IgnoreBytes returns an implementation of the ByteIgnore interface which is true if the row OR column equals a given

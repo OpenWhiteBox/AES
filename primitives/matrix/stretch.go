@@ -5,10 +5,9 @@ func (e Matrix) RightStretch() Matrix {
 	n, m := e.Size()
 	nm := n * m
 
-	out := make([]Row, nm)
+	out := GenerateEmpty(nm, nm)
 
 	for i := 0; i < nm; i++ {
-		out[i] = make([]byte, nm/8)
 		p, q := i/n, i%n
 
 		for j := 0; j < m; j++ {
@@ -24,10 +23,9 @@ func (e Matrix) LeftStretch() Matrix {
 	n, m := e.Size()
 	nm := n * m
 
-	out := make([]Row, nm)
+	out := GenerateEmpty(nm, nm)
 
 	for i := 0; i < nm; i++ {
-		out[i] = make([]byte, nm/8)
 		p, q := i/n, i%n
 
 		for j := 0; j < m; j++ {

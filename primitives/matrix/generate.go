@@ -1,6 +1,7 @@
 package matrix
 
 import (
+	"crypto/rand"
 	"io"
 )
 
@@ -12,7 +13,7 @@ func GenerateIdentity(n int) Matrix {
 // GeneratePartialIdentity generates the n-by-n identity matrix on some rows and leaves others zero (the rows where
 // ignore(row) == true).
 func GeneratePartialIdentity(n int, ignore RowIgnore) Matrix {
-	out := GenerateEmpty(n)
+	out := GenerateEmpty(n, n)
 
 	for i := 0; i < n; i++ {
 		if !ignore(i) {
@@ -24,10 +25,11 @@ func GeneratePartialIdentity(n int, ignore RowIgnore) Matrix {
 }
 
 // GenerateFull generates the n-by-n matrix with all entries set to 1.
-func GenerateFull(n int) Matrix {
-	out := GenerateEmpty(n)
-	for i := 0; i < n; i++ {
-		for j := 0; j < n/8; j++ {
+func GenerateFull(n, m int) Matrix {
+	out := GenerateEmpty(n, m)
+
+	for i, _ := range out {
+		for j, _ := range out[i] {
 			out[i][j] = 0xff
 		}
 	}
@@ -36,14 +38,22 @@ func GenerateFull(n int) Matrix {
 }
 
 // GenerateEmpty generates the n-by-n matrix with all entries set to 0.
-func GenerateEmpty(n int) Matrix {
+func GenerateEmpty(n, m int) Matrix {
 	out := make([]Row, n)
 
 	for i := 0; i < n; i++ {
-		out[i] = make([]byte, rowsToColumns(n))
+		out[i] = NewRow(m)
 	}
 
 	return Matrix(out)
+}
+
+// GenerateRandomRow generates a random n-component row.
+func GenerateRandomRow(reader io.Reader, n int) Row {
+	out := Row(make([]byte, rowsToColumns(n)))
+	reader.Read(out)
+
+	return out
 }
 
 // GenerateRandom generates a random invertible n-by-n matrix using the random source random (for example,
@@ -67,8 +77,8 @@ func GenerateRandomPartial(reader io.Reader, n int, ignore ByteIgnore, idIgnore 
 	m := GeneratePartialIdentity(n, idIgnore)
 
 	for row := 0; row < n; row++ {
-		for col := 0; col < n/8; col++ {
-			if !ignore(row/8, col) {
+		for col := 0; col < rowsToColumns(n); col++ {
+			if !ignore(rowsToColumns(row), col) {
 				reader.Read(m[row][col : col+1])
 			}
 		}
@@ -82,17 +92,28 @@ func GenerateRandomPartial(reader io.Reader, n int, ignore ByteIgnore, idIgnore 
 	return m, mInv
 }
 
-// GenerateTrueRandom generates a random  n-by-n matrix (not guaranteed to be invertible) using the random source random
+// GenerateTrueRandom generates a random n-by-n matrix (not guaranteed to be invertible) using the random source random
 // (for example, crypto/rand.Reader).
 func GenerateTrueRandom(reader io.Reader, n int) Matrix {
-	m := Matrix(make([]Row, n))
+	m := make([]Row, n)
 
-	for i := 0; i < n; i++ { // Generate random n x n matrix.
-		row := Row(make([]byte, rowsToColumns(n)))
-		reader.Read(row)
-
-		m[i] = row
+	for i, _ := range m { // Generate random n x n matrix.
+		m[i] = GenerateRandomRow(rand.Reader, n)
 	}
 
 	return m
+}
+
+// GeneratePermutationMatrix generates an 8n-by-8n permutation matrix corresponding to a permutation of {0, ..., n-1}.
+func GeneratePermutationMatrix(permutation []int) Matrix {
+	n := len(permutation)
+	out := GenerateEmpty(8*n, 8*n)
+
+	for i, j := range permutation {
+		for k := 0; k < 8; k++ {
+			out[8*i+k].SetBit(8*j+k, true)
+		}
+	}
+
+	return out
 }

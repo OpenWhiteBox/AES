@@ -12,6 +12,11 @@ var weight [4]uint64 = [4]uint64{
 // A binary row / vector in GF(2)^n.
 type Row []byte
 
+// NewRow returns an empty n-component row.
+func NewRow(n int) Row {
+	return Row(make([]byte, rowsToColumns(n)))
+}
+
 // LessThan returns true if row i is "less than" row j. If you use sort a permutation matrix according to LessThan,
 // you'll always get the identity matrix.
 func LessThan(i, j Row) bool {
@@ -125,6 +130,17 @@ func (e Row) IsZero() bool {
 	}
 
 	return true
+}
+
+// Height returns the position of the first non-zero entry in the row, or -1 if the row is zero.
+func (e Row) Height() int {
+	for i := 0; i < e.Size(); i++ {
+		if e.GetBit(i) == 1 {
+			return i
+		}
+	}
+
+	return -1
 }
 
 // Size returns the dimension of the vector.

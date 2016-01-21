@@ -20,9 +20,9 @@ func (e Matrix) Mul(f Row) Row {
 		panic("Can't multiply by row that is wrong size!")
 	}
 
-	res := Row(make([]byte, rowsToColumns(out)))
-	for i := 0; i < out; i++ {
-		if e[i].DotProduct(f) {
+	res := NewRow(out)
+	for i, row := range e {
+		if row.DotProduct(f) {
 			res.SetBit(i, true)
 		}
 	}
@@ -51,59 +51,67 @@ func (e Matrix) Compose(f Matrix) Matrix {
 		panic("Can't multiply matrices of wrong size!")
 	}
 
-	out := make([]Row, n)
+	out := GenerateEmpty(n, q)
 	g := f.Transpose()
 
-	for i := 0; i < n; i++ {
-		out[i] = Row(make([]byte, q/8))
-
-		for j := 0; j < q; j++ {
-			out[i].SetBit(j, e[i].DotProduct(g[j]))
+	for i, e_i := range e {
+		for j, g_j := range g {
+			out[i].SetBit(j, e_i.DotProduct(g_j))
 		}
 	}
 
-	return Matrix(out)
+	return out
 }
 
 // Invert computes the multiplicative inverse of a matrix, if it exists.
 func (e Matrix) Invert() (Matrix, bool) {
-	a, _ := e.Size()
-
-	inv := GenerateIdentity(a)
-	_, _, ok := e.gaussJordan(inv, 0, a, IgnoreNoRows)
-	return inv, ok
+	inv, _, frees := e.gaussJordan()
+	return inv, len(frees) == 0
 }
 
 // Transpose returns the transpose of a matrix.
 func (e Matrix) Transpose() Matrix {
 	n, m := e.Size()
-	out := make([]Row, m)
+	out := GenerateEmpty(m, n)
 
 	for i, _ := range out {
-		out[i] = Row(make([]byte, rowsToColumns(n)))
-
 		for j := 0; j < n; j++ {
 			out[i].SetBit(j, e[j].GetBit(i) == 1)
 		}
 	}
 
-	return Matrix(out)
+	return out
 }
 
 // Trace returns the trace (sum/parity of elements on the diagonal) of a matrix: 0x00 or 0x01.
 func (e Matrix) Trace() (out byte) {
-	n, _ := e.Size()
-	for i := 0; i < n; i++ {
-		out ^= (e[i][0] >> uint(i)) & 1
+	for i, e_i := range e {
+		out ^= e_i.GetBit(i)
 	}
 
 	return
 }
 
+// FindPivot finds a row with non-zero entry in column col, starting at the given row and moving down. It returns the
+// index of the given row or -1 if one does not exist.
+func (e Matrix) FindPivot(row, col int) int {
+	for i, e_i := range e[row:] {
+		if e_i.GetBit(col) == 1 {
+			return row + i
+		}
+	}
+
+	return -1
+}
+
 // Dup returns a duplicate of this matrix.
 func (e Matrix) Dup() Matrix {
-	f := make([]Row, len(e))
-	copy(f, e)
+	n, m := e.Size()
+	f := GenerateEmpty(n, m)
+
+	for i, _ := range e {
+		copy(f[i], e[i])
+	}
 
 	return f
 }

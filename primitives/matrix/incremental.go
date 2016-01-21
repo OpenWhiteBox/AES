@@ -34,7 +34,7 @@ func (im *IncrementalMatrix) Add(candM Row) bool {
 	}
 
 	cand := candM.Dup()
-	inverseRow := Row(make([]byte, rowsToColumns(im.n)))
+	inverseRow := NewRow(im.n)
 	inverseRow.SetBit(len(im.raw), true)
 
 	// Put cand in simplest form.
@@ -79,6 +79,16 @@ func (im *IncrementalMatrix) Matrix() Matrix {
 func (im *IncrementalMatrix) Inverse() Matrix {
 	sort.Sort(im)
 	return im.inverse
+}
+
+// Dup returns a duplicate of im.
+func (im *IncrementalMatrix) Dup() IncrementalMatrix {
+	return IncrementalMatrix{
+		n:        im.n,
+		raw:      im.raw.Dup(),
+		simplest: im.simplest.Dup(),
+		inverse:  im.inverse.Dup(),
+	}
 }
 
 // Implementation of sort.Interface

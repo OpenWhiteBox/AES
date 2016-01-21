@@ -147,10 +147,12 @@ func TestLeftStretch(t *testing.T) {
 func TestNullSpace(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		m := GenerateTrueRandom(rand.Reader, 64)
-		x := m.NullSpace()
+		NS := m.NullSpace()
 
-		if m.Mul(x).String() != Row(make([]byte, 8)).String() {
-			t.Fatalf("Didn't find an actual element of the nullspace!\n x = %x\nMx = %x\n", x, m.Mul(x))
+		for _, n := range NS {
+			if !m.Mul(n).IsZero() {
+				t.Fatalf("Didn't find an actual element of the nullspace!\n x = %x\nMx = %x\n", n, m.Mul(n))
+			}
 		}
 	}
 }

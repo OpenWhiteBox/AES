@@ -1,54 +1,74 @@
 package matrix
 
-// gaussJordan reduces the matrix according to the Gauss-Jordan Method.  Returns the transformed matrix, at what column
-// elimination failed (if ever), and whether it succeeded (meaning the augment matrix computes the transformation).
-func (e Matrix) gaussJordan(aug Matrix, lower, upper int, ignore RowIgnore) (Matrix, int, bool) {
-	_, b := e.Size()
-	f := e.Dup() // Duplicate e away so we don't mutate it.
+// gaussJordan reduces the matrix according to the Gauss-Jordan Method.  Returns the augment matrix, the transformed
+// matrix, and the set set of free variables.
+func (e Matrix) gaussJordan() (aug, f Matrix, frees []int) {
+	out, in := e.Size()
 
-	for i, _ := range f[lower:upper] {
-		row := i + lower
-
-		if row >= b { // The matrix is tall and thin--we've finished before exhausting all the rows.
-			break
-		}
-
-		// Find a row with a non-zero entry in the (row)th position
-		candId := -1
-		for j, f_j := range f[row:] {
-			if !ignore(j+row) && f_j.GetBit(row) == 1 {
-				candId = j + row
-				break
-			}
-		}
-
-		if candId == -1 && lower > 0 {
-			for j, f_j := range f[:lower] {
-				if !ignore(j) && f_j.GetBit(row) == 1 {
-					candId = j
-					break
-				}
-			}
-
-			if candId == -1 {
-				return f, row, false
-			}
-		} else if candId == -1 { // If we can't find one and there's nowhere else, fail and return our partial work.
-			return f, row, false
-		}
-
-		// Move it to the top
-		f[row], f[candId] = f[candId], f[row]
-		aug[row], aug[candId] = aug[candId], aug[row]
-
-		// Cancel out the (row)th position for every row above and below it.
-		for i, _ := range f {
-			if !ignore(i) && i != row && f[i].GetBit(row) == 1 {
-				f[i] = f[i].Add(f[row])
-				aug[i] = aug[i].Add(aug[row])
-			}
-		}
+	aug = GenerateIdentity(in)
+	for x := in; x < out; x++ {
+		aug = append(aug, NewRow(in))
 	}
 
-	return f, -1, true
+	f = e.Dup() // Duplicate e away so we don't mutate it.
+
+	row, col := 0, 0
+
+	for row < out && col < in {
+		// Find a non-zero element to move into the pivot position.
+		i := f.FindPivot(row, col)
+		if i == -1 { // Failed to find a pivot.
+			frees = append(frees, col)
+			col++
+
+			continue
+		}
+
+		// Move it into position.
+		f[row], f[i] = f[i], f[row]
+		aug[row], aug[i] = aug[i], aug[row]
+
+		// Cancel out the (row)th position for every row above and below it.
+		for j, _ := range f {
+			if j != row && f[j].GetBit(col) != 0 {
+				aug[j] = aug[j].Add(aug[row])
+				f[j] = f[j].Add(f[row])
+			}
+		}
+
+		row++
+		col++
+	}
+
+	// Add the rest of the free variables for completion.
+	for x := out; x < in; x++ {
+		frees = append(frees, x)
+	}
+
+	return
+}
+
+// NullSpace returns a basis for the matrix's nullspace.
+func (e Matrix) NullSpace() (basis []Row) {
+	out, in := e.Size()
+	if out == 0 {
+		return []Row{}
+	}
+
+	_, f, frees := e.gaussJordan()
+
+	for _, free := range frees {
+		input := NewRow(in)
+		input.SetBit(free, true)
+
+		for _, row := range f {
+			if row.GetBit(free) == 1 {
+				input.SetBit(row.Height(), true)
+			}
+		}
+
+		basis = append(basis, input)
+	}
+
+	return
 }

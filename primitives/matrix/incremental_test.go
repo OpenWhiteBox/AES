@@ -11,10 +11,7 @@ func ExampleIncrementalMatrix() {
 	im := NewIncrementalMatrix(128)
 
 	for !im.FullyDefined() {
-		row := Row(make([]byte, 16))
-		rand.Read(row)
-
-		im.Add(row)
+		im.Add(GenerateRandomRow(rand.Reader, 128))
 	}
 
 	fmt.Println(im.Matrix())
