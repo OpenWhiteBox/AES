@@ -51,14 +51,6 @@ type Shuffle struct {
 	EncKey, DecKey [16]byte
 }
 
-func (s Shuffle) Encode(i byte) byte {
-	return s.EncKey[i]
-}
-
-func (s Shuffle) Decode(i byte) byte {
-	return s.DecKey[i]
-}
-
 // GenerateShuffle generates a random 4-bit bijection using the random source random (for example, crypto/rand.Reader).
 func GenerateShuffle(reader io.Reader) (s Shuffle) {
 	// Generate a random permutation as the encryption key.
@@ -72,17 +64,26 @@ func GenerateShuffle(reader io.Reader) (s Shuffle) {
 	return
 }
 
-// SBox implements a random 8-bit bijection.
-type SBox struct {
-	EncKey, DecKey [256]byte
-}
-
-func (s SBox) Encode(i byte) byte {
+func (s Shuffle) Encode(i byte) byte {
 	return s.EncKey[i]
 }
 
-func (s SBox) Decode(i byte) byte {
+func (s Shuffle) Decode(i byte) byte {
 	return s.DecKey[i]
+}
+
+// Permutation returns the shuffle's permutation.
+func (s Shuffle) Permutation() (out []int) {
+	for _, x := range s.DecKey {
+		out = append(out, int(x))
+	}
+
+	return
+}
+
+// SBox implements a random 8-bit bijection.
+type SBox struct {
+	EncKey, DecKey [256]byte
 }
 
 // GenerateSBox generates a random 8-bit bijection using the random source random (for example, crypto/rand.Reader).
@@ -93,6 +94,23 @@ func GenerateSBox(reader io.Reader) (s SBox) {
 	// Invert the encryption key; set it as the decryption key.
 	for i, j := range s.EncKey {
 		s.DecKey[j] = byte(i)
+	}
+
+	return
+}
+
+func (s SBox) Encode(i byte) byte {
+	return s.EncKey[i]
+}
+
+func (s SBox) Decode(i byte) byte {
+	return s.DecKey[i]
+}
+
+// Permutation returns the SBox's permutation.
+func (s SBox) Permutation() (out []int) {
+	for _, x := range s.DecKey {
+		out = append(out, int(x))
 	}
 
 	return

@@ -1,11 +1,13 @@
 package encoding
 
 import (
+	"crypto/rand"
+
 	"github.com/OpenWhiteBox/AES/primitives/matrix"
 )
 
-// EquivalentByte returns true if two Byte encodings are identical and false if not.
-func EquivalentByte(a, b Byte) bool {
+// EquivalentBytes returns true if two Byte encodings are identical and false if not.
+func EquivalentBytes(a, b Byte) bool {
 	for x := 0; x < 256; x++ {
 		if a.Encode(byte(x)) != b.Encode(byte(x)) {
 			return false
@@ -35,6 +37,22 @@ func DecomposeByteAffine(in Byte) ByteAffine {
 	}
 }
 
+// ProbablyEquivalentDoubles returns true if two Double encodings are probably equivalent and false if they're
+// definitely not.
+func ProbablyEquivalentDoubles(a, b Double) bool {
+	for i := 0; i < 20; i++ {
+		in := [2]byte{}
+		rand.Read(in[:])
+
+		x, y := a.Encode(in), b.Encode(in)
+		if x != y {
+			return false
+		}
+	}
+
+	return true
+}
+
 // DecomposeDoubleLinear decomposes an opaque Double encoding into a DoubleLinear encoding.
 func DecomposeDoubleLinear(in Double) DoubleLinear {
 	m := matrix.Matrix{}
@@ -61,6 +79,22 @@ func DecomposeDoubleAffine(in Double) DoubleAffine {
 	}
 }
 
+// ProbablyEquivalentWords returns true if two Word encodings are probably equivalent and false if they're definitely
+// not.
+func ProbablyEquivalentWords(a, b Word) bool {
+	for i := 0; i < 20; i++ {
+		in := [4]byte{}
+		rand.Read(in[:])
+
+		x, y := a.Encode(in), b.Encode(in)
+		if x != y {
+			return false
+		}
+	}
+
+	return true
+}
+
 // DecomposeWordLinear decomposes an opaque Word encoding into a WordLinear encoding.
 func DecomposeWordLinear(in Word) WordLinear {
 	m := matrix.Matrix{}
@@ -85,6 +119,22 @@ func DecomposeWordAffine(in Word) WordAffine {
 		WordLinear:   DecomposeWordLinear(ComposedWords{in, c}),
 		WordAdditive: c,
 	}
+}
+
+// ProbablyEquivalentBlocks returns true if two Block encodings are probably equivalent and false if they're definitely
+// not.
+func ProbablyEquivalentBlocks(a, b Block) bool {
+	for i := 0; i < 20; i++ {
+		in := [16]byte{}
+		rand.Read(in[:])
+
+		x, y := a.Encode(in), b.Encode(in)
+		if x != y {
+			return false
+		}
+	}
+
+	return true
 }
 
 // DecomposeBlockLinear decomposes an opaque Block encoding into a BlockLinear encoding.
