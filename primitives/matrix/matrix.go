@@ -35,7 +35,7 @@ func (e Matrix) Add(f Matrix) Matrix {
 	a, _ := e.Size()
 
 	out := make([]Row, a)
-	for i := 0; i < a; i++ {
+	for i, _ := range out {
 		out[i] = e[i].Add(f[i])
 	}
 
