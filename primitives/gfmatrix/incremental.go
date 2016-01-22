@@ -26,50 +26,62 @@ func NewIncrementalMatrix(n int) IncrementalMatrix {
 	}
 }
 
-// Add tries to add the row to the matrix. It mutates nothing if the new row would make the matrix singular. Add returns
-// success or failure.
-func (im *IncrementalMatrix) Add(candM Row) bool {
-	if candM.Size() != im.n {
-		panic("Tried to add incorrectly sized row to incremental matrix!")
+// reduce takes an arbitrary row as input and reduces it according to the Gauss-Jordan method with the current matrix.
+// It returns the reduced row and the corresponding row in the inverse matrix.
+func (im *IncrementalMatrix) reduce(raw Row) (Row, Row) {
+	if raw.Size() != im.n {
+		panic("Tried to reduce incorrectly sized row with incremental matrix!")
 	}
 
-	cand := candM.Dup()
-	inverseRow := NewRow(im.n)
-	inverseRow[len(im.raw)] = 0x01
+	reduced := raw.Dup()
+	inverse := NewRow(im.n)
+	inverse[len(im.raw)] = 0x01
 
 	// Put cand in simplest form.
 	for i, _ := range im.simplest {
 		height := im.simplest[i].Height()
-		if !cand[height].IsZero() {
-			correction := cand[height]
-			cand = cand.Add(im.simplest[i].ScalarMul(correction))
-			inverseRow = inverseRow.Add(im.inverse[i].ScalarMul(correction))
+		if !reduced[height].IsZero() {
+			correction := reduced[height]
+			reduced = reduced.Add(im.simplest[i].ScalarMul(correction))
+			inverse = inverse.Add(im.inverse[i].ScalarMul(correction))
 		}
 	}
 
-	if cand.IsZero() {
-		return false
-	}
+	return reduced, inverse
+}
 
-	height := cand.Height()
+// addRows adds each row to their respective matrices and puts im.simplest back in simplest form.
+func (im *IncrementalMatrix) addRows(raw, reduced, inverse Row) {
+	height := reduced.Height()
 
-	correction := cand[height].Invert()
-	cand = cand.ScalarMul(correction)
-	inverseRow = inverseRow.ScalarMul(correction)
+	correction := reduced[height].Invert()
+	reduced = reduced.ScalarMul(correction)
+	inverse = inverse.ScalarMul(correction)
 
 	// Cancel every other row in the simplest form with cand.
 	for i, _ := range im.simplest {
 		if !im.simplest[i][height].IsZero() {
 			correction := im.simplest[i][height]
-			im.simplest[i] = im.simplest[i].Add(cand.ScalarMul(correction))
-			im.inverse[i] = im.inverse[i].Add(inverseRow.ScalarMul(correction))
+			im.simplest[i] = im.simplest[i].Add(reduced.ScalarMul(correction))
+			im.inverse[i] = im.inverse[i].Add(inverse.ScalarMul(correction))
 		}
 	}
 
-	im.raw = append(im.raw, candM.Dup())
-	im.simplest = append(im.simplest, cand)
-	im.inverse = append(im.inverse, inverseRow)
+	im.raw = append(im.raw, raw.Dup())
+	im.simplest = append(im.simplest, reduced.Dup())
+	im.inverse = append(im.inverse, inverse.Dup())
+}
 
+// Add tries to add the row to the matrix. It mutates nothing if the new row would make the matrix singular. Add returns
+// success or failure.
+func (im *IncrementalMatrix) Add(raw Row) bool {
+	reduced, inverse := im.reduce(raw)
+
+	if reduced.IsZero() {
+		return false
+	}
+
+	im.addRows(raw, reduced, inverse)
 	return true
 }
 
