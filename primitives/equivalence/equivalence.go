@@ -1,3 +1,4 @@
+// Package equivalence implements the linear equivalence algorithm. TODO: The affine equivalence algorithm.
 package equivalence
 
 import (
@@ -23,13 +24,9 @@ func search(f, g encoding.Byte, A, B *Matrix, cap int) (res []Equivalence) {
 
 	// 1. Take a guess for A(x).
 	// 2. Check if its possible for any matrix B to satisfy an equivalence relation with what we know about A.
-	for _, guess := range Universe {
-		if A.IsInSpan(guess) { // Our guess for A(x) can't result in A being singular.
-			continue
-		}
-
+	for guess, _ := range A.NotInSpan { // Our guess for A(x) can't result in A being singular.
 		AT, BT := A.Dup(), B.Dup()
-		AT.Assert(x, guess)
+		AT.Assert(x, matrix.Row{guess})
 
 		consistent := learn(f, g, AT, BT)
 

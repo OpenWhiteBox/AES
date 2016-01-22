@@ -6,6 +6,20 @@ import (
 	"github.com/OpenWhiteBox/AES/primitives/matrix"
 )
 
+func TestIMAddRow(t *testing.T) {
+	e := NewIncrementalMatrix()
+
+	ok1 := e.Add(matrix.Row{0x01})
+	ok2 := e.Add(matrix.Row{0x02})
+	ok3 := e.Add(matrix.Row{0x04})
+	ok4 := e.Add(matrix.Row{0x06})
+	ok5 := e.Add(matrix.Row{0x05})
+
+	if !ok1 || !ok2 || !ok3 || ok4 || ok5 {
+		t.Fatalf("IncrementalMatrix.AddRow behaved incorrectly! %v %v %v %v", ok1, ok2, ok3, ok4)
+	}
+}
+
 func TestAssert(t *testing.T) {
 	e, learned := NewMatrix(), true
 
