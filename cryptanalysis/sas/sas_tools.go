@@ -4,12 +4,53 @@ import (
 	"crypto/rand"
 
 	"github.com/OpenWhiteBox/AES/primitives/encoding"
-	matrix "github.com/OpenWhiteBox/AES/primitives/gfmatrix"
+	"github.com/OpenWhiteBox/AES/primitives/gfmatrix"
 	"github.com/OpenWhiteBox/AES/primitives/number"
 )
 
-// NewSBox returns a new S-Box from a permutation vector.
-func NewSBox(v matrix.Row, backwards bool) (out encoding.SBox) {
+// SufficientlyDefined returns true if the incremental matrix has a 9-dimensional nullspace or smaller. This way, it
+// is small enough to search, but not so small that we have nowhere to look for solutions.
+func SufficientlyDefined(im IncrementalMatrix) bool {
+	return im.Len() >= 247
+}
+
+// IncrementalMatrices is implements succint operations over a slice of incremental matrices.
+type IncrementalMatrices []gfmatrix.IncrementalMatrix
+
+// NewIncrementalMatrices returns a new slice of x n-by-n incremental matrices.
+func NewIncrementalMatrices(x, n int) (ims IncrementalMatrices) {
+	ims = make([]gfmatrix.IncrementalMatrix, x)
+	for i, _ := range ims {
+		ims[i] = gfmatrix.NewIncrementalMatrix(n)
+	}
+
+	return
+}
+
+// SufficientlyDefined returns true if every incremental matrix is sufficiently defined.
+func (ims IncrementalMatrices) SufficientlyDefined() bool {
+	for _, im := range ims {
+		if !SufficientlyDefined(im) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// Matrices returns a slice of matrices, one for each incremental matrix.
+func (ims IncrementalMatrices) Matrices() (out []gfmatrix.Matrix) {
+	out = make([]gfmatrix.Matrix, len(ims))
+	for i, im := range ims {
+		out[i] = im.Matrix()
+	}
+
+	return out
+}
+
+// NewSBox takes a permutation vector as input and returns its corresponding S-Box. It inverts the S-Box if backwards is
+// true (because the permutation vector we found was for the inverse S-box).
+func NewSBox(v gfmatrix.Row, backwards bool) (out encoding.SBox) {
 	for i, v_i := range v[0:256] {
 		out.EncKey[i] = byte(v_i)
 	}
@@ -25,33 +66,22 @@ func NewSBox(v matrix.Row, backwards bool) (out encoding.SBox) {
 	return
 }
 
-// xorArray returns the xor of two byte arrays.
-func xorArray(a, b [16]byte) (out [16]byte) {
-	for i := 0; i < 16; i++ {
-		out[i] = a[i] ^ b[i]
-	}
-
-	return
-}
-
-// EncryptAtPosition returns the encryption of a plaintext which is zero, except for plaintext[pos] = val.
-func EncryptAtPosition(constr Construction, pos int, val byte) (out [16]byte) {
+// XatY returns a byte array which is zero, except for the value x as position y.
+func XatY(x byte, y int) (out [16]byte) {
 	in := [16]byte{}
-	in[pos] = val
-
-	constr.Encrypt(out[:], in[:])
+	in[y] = x
 
 	return
 }
 
 // GenerateRandomPlaintexts returns a random multiset of C[..]PC[..] plaintexts with the P at the given position.
-func GenerateRandomPlaintexts(pos int) (out [][]byte) {
+func GenerateRandomPlaintexts(pos int) (out [][16]byte) {
 	master := make([]byte, 16)
 	rand.Read(master)
 
 	for i := 0; i < 256; i++ {
-		pt := make([]byte, 16)
-		copy(pt, master)
+		pt := [16]byte{}
+		copy(pt[:], master)
 
 		pt[pos] = byte(i)
 
@@ -62,7 +92,11 @@ func GenerateRandomPlaintexts(pos int) (out [][]byte) {
 }
 
 // FindPermutation takes a set of vectors and finds a linear combination of them that gives a permutation vector.
-func FindPermutation(basis []matrix.Row) matrix.Row {
+//
+// Currently, this just takes random guesses until it finds a suitable choice. We'll normally be looking at a space of
+// size 256^9, so traversing it isn't feasible and I don't know of a better search algorithm. Sorry for the
+// non-determinism.
+func FindPermutation(basis []gfmatrix.Row) gfmatrix.Row {
 	for true {
 		v := RandomLinearCombination(basis)
 
@@ -75,11 +109,11 @@ func FindPermutation(basis []matrix.Row) matrix.Row {
 }
 
 // RandomLinearCombination returns a random linear combination of a set of basis vectors.
-func RandomLinearCombination(basis []matrix.Row) matrix.Row {
+func RandomLinearCombination(basis []gfmatrix.Row) gfmatrix.Row {
 	coeffs := make([]byte, len(basis))
 	rand.Read(coeffs)
 
-	v := matrix.Row(make([]number.ByteFieldElem, basis[0].Size()))
+	v := gfmatrix.Row(make([]number.ByteFieldElem, basis[0].Size()))
 
 	for i, c_i := range coeffs {
 		v = v.Add(basis[i].ScalarMul(number.ByteFieldElem(c_i)))

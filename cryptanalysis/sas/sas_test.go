@@ -7,65 +7,20 @@ import (
 	"crypto/rand"
 
 	"github.com/OpenWhiteBox/AES/primitives/encoding"
-	matrix "github.com/OpenWhiteBox/AES/primitives/gfmatrix"
+	"github.com/OpenWhiteBox/AES/primitives/gfmatrix"
 	"github.com/OpenWhiteBox/AES/primitives/number"
 
 	"github.com/OpenWhiteBox/AES/constructions/sas"
 )
 
-func strippedEncrypt(constr sas.Construction, inner, outer encoding.Block) func([]byte, []byte) {
-	return func(dst, src []byte) {
-		in, out := [16]byte{}, [16]byte{}
-		copy(in[:], src)
-
-		in = inner.Decode(in)
-		constr.Encrypt(out[:], in[:])
-		out = outer.Decode(out)
-
-		copy(dst, out[:])
-	}
-}
-
-func testAffine(constr sas.Construction, inner, outer encoding.Block) bool {
-	one, two, three, final := make([]byte, 16), make([]byte, 16), make([]byte, 16), make([]byte, 16)
-	one[0], two[1], three[2] = 0x01, 0x01, 0x01
-	final[0], final[1], final[2] = 0x01, 0x01, 0x01
-
-	strippedEncrypt(constr, inner, outer)(one, one)
-	strippedEncrypt(constr, inner, outer)(two, two)
-	strippedEncrypt(constr, inner, outer)(three, three)
-
-	// If stripped constr.Encrypt is an affine transformation, then three ciphertexts XORed together should equal the
-	// encryption of the three plaintexts XORed together.
-	strippedEncrypt(constr, inner, outer)(final, final)
-	cand := xor(xor(one, two), three)
-
-	return bytes.Compare(final, cand) == 0
-}
-
-func xor(a, b []byte) []byte {
-	out := make([]byte, 16)
-
-	for i := 0; i < 16; i++ {
-		out[i] = a[i] ^ b[i]
-	}
-
-	return out
+func testAffine(cipher encoding.Block) bool {
+	aff := encoding.DecomposeBlockAffine(cipher)
+	return encoding.ProbablyEquivalentBlocks(cipher, aff)
 }
 
 func TestDecomposeSAS(t *testing.T) {
 	constr1 := sas.GenerateKeys(rand.Reader)
-
-	first, linear, constant, last := DecomposeSAS(constr1)
-
-	constr2 := sas.Construction{
-		First: first,
-		Affine: encoding.BlockAffine{
-			Linear:   encoding.BlockLinear{linear, nil},
-			Constant: constant,
-		},
-		Last: last,
-	}
+	constr2 := DecomposeSAS(constr1)
 
 	// Check that both constructions give the same output on a random challenge.
 	challenge := make([]byte, 16)
@@ -80,41 +35,60 @@ func TestDecomposeSAS(t *testing.T) {
 	}
 }
 
-func TestRecoverFirstSBoxes(t *testing.T) {
-	constr := sas.GenerateKeys(rand.Reader)
-	outer := constr.Last
-	inner := encoding.ConcatenatedBlock(RecoverFirstSBoxes(constr, outer))
-
-	if !testAffine(constr, inner, outer) {
-		t.Fatalf("Affine test on encryption without s-boxes on either side failed.")
-	}
-}
-
 func TestRecoverLastSBoxes(t *testing.T) {
 	constr := sas.GenerateKeys(rand.Reader)
-	outer := encoding.ConcatenatedBlock(RecoverLastSBoxes(constr))
+	cipher := Encoding{constr}
 
-	if !testAffine(constr, constr.First, outer) {
+	last := RecoverLastSBoxes(cipher)
+
+	aff := encoding.ComposedBlocks{
+		encoding.InverseBlock{constr.First},
+		cipher,
+		encoding.InverseBlock{last},
+	}
+
+	if !testAffine(aff) {
 		t.Fatalf("Affine test on encryption without tailing s-boxes failed.")
 	}
 }
 
-func TestGenerateInnerBalance(t *testing.T) {
+func TestRecoverFirstSBoxes(t *testing.T) {
 	constr := sas.GenerateKeys(rand.Reader)
-	outer := constr.Last
+	cipher := encoding.ComposedBlocks{
+		Encoding{constr},
+		encoding.InverseBlock{constr.Last},
+	}
+
+	first := RecoverFirstSBoxes(cipher)
+
+	aff := encoding.ComposedBlocks{
+		encoding.InverseBlock{first},
+		cipher,
+	}
+
+	if !testAffine(aff) {
+		t.Fatalf("Affine test on encryption without s-boxes on either side failed.")
+	}
+}
+
+func TestGenerateFirstBalance(t *testing.T) {
 	pos := 0
+	constr := sas.GenerateKeys(rand.Reader)
+	cipher := encoding.ComposedBlocks{
+		Encoding{constr},
+		encoding.InverseBlock{constr.Last},
+	}
 
-	target := xorArray(
-		outer.Decode(EncryptAtPosition(constr, pos, 0x00)),
-		outer.Decode(EncryptAtPosition(constr, pos, 0x01)),
-	)
+	a, b := cipher.Encode(XatY(0x00, pos)), cipher.Encode(XatY(0x01, pos))
+	target := [16]byte{}
+	encoding.XOR(target[:], a[:], b[:])
 
-	m := GenerateInnerBalance(constr, outer, pos, target)
+	m := FirstSBoxConstraints(cipher, pos, target)
 
 	sbox := constr.First[pos].(encoding.SBox)
 	c := sbox.Encode(0x00) ^ sbox.Encode(0x01)
 
-	sboxRow := matrix.Row(make([]number.ByteFieldElem, 256))
+	sboxRow := gfmatrix.Row(make([]number.ByteFieldElem, 256))
 	for i := 0; i < 256; i++ {
 		sboxRow[i] = number.ByteFieldElem(sbox.EncKey[i])
 	}
