@@ -168,7 +168,8 @@ func FindAtilde(constr *chow.Construction, L matrix.Matrix) matrix.Matrix {
 	beta := CharToBeta[FindCharacteristic(L)]
 	D, _ := DecomposeAffineEncoding(encoding.ByteMultiplication{beta, beta.Invert()})
 
-	x := L.RightStretch().Add(D.LeftStretch()).NullSpace()
+	NS := L.RightStretch().Add(D.LeftStretch()).NullSpace()
+	x := NS[0]
 
 	m := matrix.Matrix(make([]matrix.Row, len(x)))
 	for i, e := range x {
