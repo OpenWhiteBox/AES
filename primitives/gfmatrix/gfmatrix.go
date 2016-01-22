@@ -19,6 +19,39 @@ func (e Matrix) Mul(f Row) Row {
 	return res
 }
 
+// Add adds two matrices from GF(2^8)^nxm.
+func (e Matrix) Add(f Matrix) Matrix {
+	a, _ := e.Size()
+
+	out := make([]Row, a)
+	for i, _ := range out {
+		out[i] = e[i].Add(f[i])
+	}
+
+	return out
+}
+
+// Compose returns the result of composing e with f.
+func (e Matrix) Compose(f Matrix) Matrix {
+	n, m := e.Size()
+	p, q := f.Size()
+
+	if m != p {
+		panic("Can't multiply matrices of the wrong size!")
+	}
+
+	out := GenerateEmpty(n, q)
+	g := f.Transpose()
+
+	for i, e_i := range e {
+		for j, g_j := range g {
+			out[i][j] = e_i.DotProduct(g_j)
+		}
+	}
+
+	return out
+}
+
 // Transpose returns the transpose of a matrix.
 func (e Matrix) Transpose() Matrix {
 	n, m := e.Size()

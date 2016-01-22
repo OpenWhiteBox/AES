@@ -1,6 +1,7 @@
 package gfmatrix
 
 import (
+	"crypto/rand"
 	"sort"
 )
 
@@ -90,15 +91,54 @@ func (im *IncrementalMatrix) FullyDefined() bool {
 	return im.n == len(im.raw)
 }
 
+// Novel returns a random row that is out of the span of the current matrix.
+func (im *IncrementalMatrix) Novel() Row {
+	if im.FullyDefined() {
+		return nil
+	}
+
+	for true {
+		cand := GenerateRandomRow(rand.Reader, im.n)
+
+		reduced, _ := im.reduce(cand)
+		if reduced.IsZero() {
+			return cand
+		}
+	}
+
+	return nil
+}
+
+// pad pads an incremental matrix with empty rows until it is square.
+func (im *IncrementalMatrix) pad(in Matrix) Matrix {
+	out := in.Dup()
+
+	for len(out) < im.n {
+		out = append(out, NewRow(im.n))
+	}
+
+	return out
+}
+
 // Matrix returns the generated matrix.
 func (im *IncrementalMatrix) Matrix() Matrix {
-	return im.raw
+	return im.pad(im.raw)
 }
 
 // Inverse returns the generated matrix's inverse.
 func (im *IncrementalMatrix) Inverse() Matrix {
 	sort.Sort(im)
-	return im.inverse
+	return im.pad(im.inverse)
+}
+
+// Dup returns a duplicate of im.
+func (im *IncrementalMatrix) Dup() IncrementalMatrix {
+	return IncrementalMatrix{
+		n:        im.n,
+		raw:      im.raw.Dup(),
+		simplest: im.simplest.Dup(),
+		inverse:  im.inverse.Dup(),
+	}
 }
 
 // Len returns the number of linearly independent rows of the matrix. Part of an implementation of sort.Interface.
