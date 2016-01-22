@@ -56,6 +56,17 @@ func GenerateRandomRow(reader io.Reader, n int) Row {
 	return out
 }
 
+// GenerateRandomNonZeroRow generates a random non-zero n-component row.
+func GenerateRandomNonZeroRow(reader io.Reader, n int) Row {
+	out := NewRow(n)
+
+	for out.IsZero() {
+		out = GenerateRandomRow(reader, n)
+	}
+
+	return out
+}
+
 // GenerateRandom generates a random invertible n-by-n matrix using the random source random (for example,
 // crypto/rand.Reader).
 func GenerateRandom(reader io.Reader, n int) Matrix {

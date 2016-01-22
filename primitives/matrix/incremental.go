@@ -4,7 +4,8 @@ import (
 	"sort"
 )
 
-// IncrementalMatrix is an invertible matrix that can be generated incrementally. Implements sort.Interface.
+// IncrementalMatrix is an invertible matrix that can be generated incrementally. It implements sort.Interface (but
+// don't worry about that).
 //
 // For example, in cryptanalyses, we might be able to do some work and discover some rows of a matrix. We want to stop
 // working as soon as its fully defined, but we also can't just work until we have n rows because we might have
@@ -26,59 +27,81 @@ func NewIncrementalMatrix(n int) IncrementalMatrix {
 	}
 }
 
-// Add tries to add the row to the matrix. It fails if the new row is linearly dependent with another row. Add returns
-// success or failure.
-func (im *IncrementalMatrix) Add(candM Row) bool {
-	if candM.Size() != im.n {
-		panic("Tried to add incorrectly sized row to incremental matrix!")
+// reduce takes an arbitrary row as input and reduces it according to the Gauss-Jordan method with the current matrix.
+// It returns the reduced row and the corresponding row in the inverse matrix.
+func (im *IncrementalMatrix) reduce(raw Row) (Row, Row) {
+	if raw.Size() != im.n {
+		panic("Tried to reduce incorrectly sized with incremental matrix!")
 	}
 
-	cand := candM.Dup()
-	inverseRow := NewRow(im.n)
-	inverseRow.SetBit(len(im.raw), true)
+	reduced := raw.Dup()
+	inverse := NewRow(im.n)
+	inverse.SetBit(len(im.raw), true)
 
 	// Put cand in simplest form.
 	for i, _ := range im.simplest {
-		if im.simplest[i].Cancels(cand) {
-			cand = cand.Add(im.simplest[i])
-			inverseRow = inverseRow.Add(im.inverse[i])
+		if im.simplest[i].Cancels(reduced) {
+			reduced = reduced.Add(im.simplest[i])
+			inverse = inverse.Add(im.inverse[i])
 		}
 	}
 
-	if cand.IsZero() {
+	return reduced, inverse
+}
+
+// addRows adds each row to their respective matrices and puts im.simplest back in simplest form.
+func (im *IncrementalMatrix) addRows(raw, reduced, inverse Row) {
+	// Cancel every other row in the simplest form with cand.
+	for i, _ := range im.simplest {
+		if reduced.Cancels(im.simplest[i]) {
+			im.simplest[i] = im.simplest[i].Add(reduced)
+			im.inverse[i] = im.inverse[i].Add(inverse)
+		}
+	}
+
+	im.raw = append(im.raw, raw.Dup())
+	im.simplest = append(im.simplest, reduced.Dup())
+	im.inverse = append(im.inverse, inverse.Dup())
+}
+
+// Add tries to add the row to the matrix. It fails if the new row is linearly dependent with another row. Add returns
+// success or failure.
+func (im *IncrementalMatrix) Add(raw Row) bool {
+	reduced, inverse := im.reduce(raw)
+
+	if reduced.IsZero() {
 		return false
 	}
 
-	// Cancel every other row in the simplest form with cand.
-	for i, _ := range im.simplest {
-		if cand.Cancels(im.simplest[i]) {
-			im.simplest[i] = im.simplest[i].Add(cand)
-			im.inverse[i] = im.inverse[i].Add(inverseRow)
-		}
-	}
-
-	im.raw = append(im.raw, candM.Dup())
-	im.simplest = append(im.simplest, cand)
-	im.inverse = append(im.inverse, inverseRow)
-
+	im.addRows(raw, reduced, inverse)
 	return true
 }
 
 // FullyDefined returns true if the matrix has been fully defined and false if it hasn't.
 func (im *IncrementalMatrix) FullyDefined() bool {
-	n, m := im.raw.Size()
-	return n == m
+	return im.n == len(im.raw)
+}
+
+// pad pads an incremental matrix with empty rows until it is square.
+func (im *IncrementalMatrix) pad(in Matrix) Matrix {
+	out := in.Dup()
+
+	for len(out) < im.n {
+		out = append(out, NewRow(im.n))
+	}
+
+	return out
 }
 
 // Matrix returns the generated matrix.
 func (im *IncrementalMatrix) Matrix() Matrix {
-	return im.raw
+	return im.pad(im.raw)
 }
 
 // Inverse returns the generated matrix's inverse.
 func (im *IncrementalMatrix) Inverse() Matrix {
 	sort.Sort(im)
-	return im.inverse
+	return im.pad(im.inverse)
 }
 
 // Dup returns a duplicate of im.

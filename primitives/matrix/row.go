@@ -1,6 +1,7 @@
 package matrix
 
 import (
+	"bytes"
 	"fmt"
 )
 
@@ -141,6 +142,11 @@ func (e Row) Height() int {
 	}
 
 	return -1
+}
+
+// Equals returns true if two rows are equal and false otherwise.
+func (e Row) Equals(f Row) bool {
+	return bytes.Equal(e, f)
 }
 
 // Size returns the dimension of the vector.
