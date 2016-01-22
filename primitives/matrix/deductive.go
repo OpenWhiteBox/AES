@@ -1,9 +1,5 @@
 package matrix
 
-import (
-	"crypto/rand"
-)
-
 // DeductiveMatrix is a generalization of IncrementalMatrix that allows the incremental deduction of matrices.
 //
 // Like incremental matrices, its primary use-case is in cryptanalyses and search algorithms, where we can do some work
@@ -28,7 +24,7 @@ func (dm *DeductiveMatrix) Assert(in, out Row) (learned bool) {
 	outReduced, outInverse := dm.output.reduce(out)
 
 	if inReduced.IsZero() || outReduced.IsZero() {
-		real := Matrix{inInverse}.Compose(dm.output.Matrix())[0]
+		real := dm.output.Matrix().Transpose().Mul(inInverse)
 
 		if !real.Equals(out) {
 			panic("Asserted input, output pair is inconsistent with previous assertions!")
@@ -46,44 +42,26 @@ func (dm *DeductiveMatrix) FullyDefined() bool {
 	return dm.input.FullyDefined() && dm.output.FullyDefined()
 }
 
-// novel returns a random novel input to a given matrix.
-func (dm *DeductiveMatrix) novel(m Matrix) Row {
-	null := Matrix(m.NullSpace())
-	if len(null) == 0 {
-		return nil
-	}
-
-	// The space of unspanned elements can be represented by a non-zero element of the nullspace plus any element of the
-	// rowspace.
-	x := GenerateRandomNonZeroRow(rand.Reader, len(null))
-	a := null.Transpose().Mul(x)
-
-	y := GenerateRandomRow(rand.Reader, len(m))
-	b := m.Transpose().Mul(y)
-
-	return a.Add(b)
-}
-
 // NovelInput returns a random x not in the domain of A.
 func (dm *DeductiveMatrix) NovelInput() Row {
-	return dm.novel(dm.input.Matrix())
+	return dm.input.Novel()
 }
 
 // NovelOutput returns a random y not in the span of A.
 func (dm *DeductiveMatrix) NovelOutput() Row {
-	return dm.novel(dm.output.Matrix())
+	return dm.output.Novel()
 }
 
 // IsInDomain returns whether or not x is in the known span of A.
 func (dm *DeductiveMatrix) IsInDomain(x Row) bool {
 	reduced, _ := dm.input.reduce(x)
-	return !reduced.IsZero()
+	return reduced.IsZero()
 }
 
 // IsInSpan returns whether or not y is in the known span of A.
 func (dm *DeductiveMatrix) IsInSpan(y Row) bool {
 	reduced, _ := dm.output.reduce(y)
-	return !reduced.IsZero()
+	return reduced.IsZero()
 }
 
 // Matrix returns the deduced matrix.

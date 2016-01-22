@@ -1,6 +1,7 @@
 package matrix
 
 import (
+	"crypto/rand"
 	"sort"
 )
 
@@ -80,6 +81,24 @@ func (im *IncrementalMatrix) Add(raw Row) bool {
 // FullyDefined returns true if the matrix has been fully defined and false if it hasn't.
 func (im *IncrementalMatrix) FullyDefined() bool {
 	return im.n == len(im.raw)
+}
+
+// Novel returns a random row that is out of the span of the current matrix.
+func (im *IncrementalMatrix) Novel() Row {
+	if im.FullyDefined() {
+		return nil
+	}
+
+	for true {
+		cand := GenerateRandomRow(rand.Reader, im.n)
+
+		reduced, _ := im.reduce(cand)
+		if reduced.IsZero() {
+			return cand
+		}
+	}
+
+	return nil
 }
 
 // pad pads an incremental matrix with empty rows until it is square.
