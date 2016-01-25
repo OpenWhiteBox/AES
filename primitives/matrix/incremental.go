@@ -1,7 +1,6 @@
 package matrix
 
 import (
-	"crypto/rand"
 	"sort"
 )
 
@@ -16,15 +15,22 @@ type IncrementalMatrix struct {
 	raw      Matrix // The collection of rows as they were put in.
 	simplest Matrix // The matrix in Gauss-Jordan eliminated form.
 	inverse  Matrix // The inverse matrix of raw.
+	frees    []int  // Set of free variables.
 }
 
 // NewIncrementalMatrix initializes a new n-by-n incremental matrix.
 func NewIncrementalMatrix(n int) IncrementalMatrix {
+	frees := make([]int, n)
+	for i := 0; i < n; i++ {
+		frees[i] = i
+	}
+
 	return IncrementalMatrix{
 		n:        n,
 		raw:      Matrix{},
 		simplest: Matrix{},
 		inverse:  Matrix{},
+		frees:    frees,
 	}
 }
 
@@ -37,7 +43,9 @@ func (im *IncrementalMatrix) reduce(raw Row) (Row, Row) {
 
 	reduced := raw.Dup()
 	inverse := NewRow(im.n)
-	inverse.SetBit(len(im.raw), true)
+	if len(im.raw) < im.n {
+		inverse.SetBit(len(im.raw), true)
+	}
 
 	// Put cand in simplest form.
 	for i, _ := range im.simplest {
@@ -63,6 +71,9 @@ func (im *IncrementalMatrix) addRows(raw, reduced, inverse Row) {
 	im.raw = append(im.raw, raw.Dup())
 	im.simplest = append(im.simplest, reduced.Dup())
 	im.inverse = append(im.inverse, inverse.Dup())
+
+	idx := sort.SearchInts(im.frees, reduced.Height())
+	im.frees = append(im.frees[0:idx], im.frees[idx+1:]...)
 }
 
 // Add tries to add the row to the matrix. It fails if the new row is linearly dependent with another row. Add returns
@@ -83,27 +94,62 @@ func (im *IncrementalMatrix) FullyDefined() bool {
 	return im.n == len(im.raw)
 }
 
-// IsInSpan returns whether or not the given row can be expressed as a linear combination of currently known rows.
-func (im *IncrementalMatrix) IsInSpan(in Row) bool {
+// IsIn returns whether or not the given row can be expressed as a linear combination of known rows.
+func (im *IncrementalMatrix) IsIn(in Row) bool {
 	reduced, _ := im.reduce(in)
 	return reduced.IsZero()
 }
 
-// Novel returns a random row that is out of the span of the current matrix.
-func (im *IncrementalMatrix) Novel() Row {
+// Size returns the number of rows that can be expressed as a linear combination of the known rows of the matrix.
+func (im *IncrementalMatrix) Size() int {
+	return 1 << uint(len(im.raw))
+}
+
+// Row returns the nth row that is a linear combination of the known rows of the matrix. n will be considered modulo
+// im.Size().
+func (im *IncrementalMatrix) Row(n int) Row {
+	out := NewRow(im.n)
+
+	for i := uint(0); i < uint(len(im.raw)); i++ {
+		if (n>>i)&1 == 1 {
+			out = out.Add(im.raw[i])
+		}
+	}
+
+	return out
+}
+
+func (im *IncrementalMatrix) freeSize() int {
+	return (1 << uint(len(im.frees))) - 1 // All combinations of free variables except the empty one.
+}
+
+// NovelSize returns the number of rows that are NOT a linear combination of the known rows of the matrix..
+func (im *IncrementalMatrix) NovelSize() int {
+	return im.Size() * im.freeSize()
+}
+
+// NovelRow returns the nth row that is NOT a linear combination of the known rows of the matrix. n will be considered
+// modulo im.NovelSize().
+func (im *IncrementalMatrix) NovelRow(n int) Row {
 	if im.FullyDefined() {
 		return nil
 	}
 
-	for true {
-		cand := GenerateRandomNonZeroRow(rand.Reader, im.n)
+	// Extract choices for free variables and rows.
+	n = n % im.NovelSize()
+	free := (n % im.freeSize()) + 1
+	raw := n / im.freeSize()
 
-		if !im.IsInSpan(cand) {
-			return cand
+	out := NewRow(im.n)
+	for i := uint(0); i < uint(len(im.frees)); i++ { // Set all chosen free variables to true.
+		if (free>>i)&1 == 1 {
+			out.SetBit(im.frees[i], true)
 		}
 	}
 
-	return nil
+	out = out.Add(im.Row(raw)) // Add the chosen rows from the raw matrix.
+
+	return out
 }
 
 // pad pads an incremental matrix with empty rows until it is square.
@@ -130,11 +176,15 @@ func (im *IncrementalMatrix) Inverse() Matrix {
 
 // Dup returns a duplicate of im.
 func (im *IncrementalMatrix) Dup() IncrementalMatrix {
+	frees := make([]int, len(im.frees))
+	copy(frees, im.frees)
+
 	return IncrementalMatrix{
 		n:        im.n,
 		raw:      im.raw.Dup(),
 		simplest: im.simplest.Dup(),
 		inverse:  im.inverse.Dup(),
+		frees:    frees,
 	}
 }
 

@@ -72,15 +72,33 @@ func TestIncrementalMatrix(t *testing.T) {
 }
 
 func TestIncrementalNovel(t *testing.T) {
-	im := NewIncrementalMatrix(128)
-	for im.Len() < 126 {
-		im.Add(GenerateRandomRow(rand.Reader, 128))
-	}
+	for k := 0; k < 100; k++ {
+		im := NewIncrementalMatrix(8)
 
-	for i := 0; i < 100; i++ {
-		cand := im.Novel()
-		if im.IsInSpan(cand) {
-			t.Fatal("Novel returned row that was in span of matrix.")
+		for i := uint(0); i < 6; i++ {
+			im.Add(GenerateRandomRow(rand.Reader, 8))
+		}
+
+		size := im.NovelSize()
+
+		if size != (1<<8)-(1<<uint(len(im.raw))) {
+			t.Fatal("Size of novel space is too small!")
+		}
+
+		used := make(map[byte]bool) // Compact map of used rows
+		for i := 0; i < size; i++ {
+			cand := im.NovelRow(i)
+
+			if im.IsIn(cand) {
+				t.Fatal("Novel returned row in span.")
+			}
+
+			_, ok := used[cand[0]]
+			if ok {
+				t.Fatal("Novel returned same row twice.")
+			} else {
+				used[cand[0]] = true
+			}
 		}
 	}
 }

@@ -14,7 +14,7 @@ func recoverTestFromPanic(t *testing.T) func() {
 	}
 }
 
-func testingDeductiveMatrix() DeductiveMatrix {
+func testingDeductiveMatrix() *DeductiveMatrix {
 	dm := NewDeductiveMatrix(128)
 	m := GenerateRandom(rand.Reader, 128)
 
@@ -69,10 +69,10 @@ func TestDeductiveMatrixFailure1(t *testing.T) {
 	dm := testingDeductiveMatrix()
 
 	// Generate a random un-novel input element.
-	in := dm.input.Matrix().Transpose().Mul(GenerateRandomRow(rand.Reader, 128))
+	in := dm.Input.Matrix().Transpose().Mul(GenerateRandomRow(rand.Reader, 128))
 
 	// Generate a random un-novel output element.
-	out := dm.output.Matrix().Transpose().Mul(GenerateRandomRow(rand.Reader, 128))
+	out := dm.Output.Matrix().Transpose().Mul(GenerateRandomRow(rand.Reader, 128))
 
 	dm.Assert(in, out)
 	t.Fatal("Goroutine did not panic when it should've!")
@@ -83,10 +83,10 @@ func TestDeductiveMatrixFailure2(t *testing.T) {
 	dm := testingDeductiveMatrix()
 
 	// Generate a random novel input element.
-	in := dm.NovelInput()
+	in := dm.Input.NovelRow(0)
 
 	// Generate a random un-novel output element.
-	out := dm.output.Matrix().Transpose().Mul(GenerateRandomRow(rand.Reader, 128))
+	out := dm.Output.Matrix().Transpose().Mul(GenerateRandomRow(rand.Reader, 128))
 
 	dm.Assert(in, out)
 	t.Fatal("Goroutine did not panic when it should've!")
@@ -97,10 +97,10 @@ func TestDeductiveMatrixFailure3(t *testing.T) {
 	dm := testingDeductiveMatrix()
 
 	// Generate a random un-novel input element.
-	in := dm.input.Matrix().Transpose().Mul(GenerateRandomRow(rand.Reader, 128))
+	in := dm.Input.Matrix().Transpose().Mul(GenerateRandomRow(rand.Reader, 128))
 
 	// Generate a random novel output element.
-	out := dm.NovelOutput()
+	out := dm.Output.NovelRow(0)
 
 	dm.Assert(in, out)
 	t.Fatal("Goroutine did not panic when it should've!")
