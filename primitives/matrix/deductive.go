@@ -54,14 +54,12 @@ func (dm *DeductiveMatrix) NovelOutput() Row {
 
 // IsInDomain returns whether or not x is in the known span of A.
 func (dm *DeductiveMatrix) IsInDomain(x Row) bool {
-	reduced, _ := dm.input.reduce(x)
-	return reduced.IsZero()
+	return dm.input.IsInSpan(x)
 }
 
 // IsInSpan returns whether or not y is in the known span of A.
 func (dm *DeductiveMatrix) IsInSpan(y Row) bool {
-	reduced, _ := dm.output.reduce(y)
-	return reduced.IsZero()
+	return dm.output.IsInSpan(y)
 }
 
 // Matrix returns the deduced matrix.
