@@ -91,6 +91,12 @@ func (im *IncrementalMatrix) FullyDefined() bool {
 	return im.n == len(im.raw)
 }
 
+// IsInSpan returns whether not not the given row can be expressed as a linear combination of currently known rows.
+func (im *IncrementalMatrix) IsInSpan(in Row) bool {
+	reduced, _ := im.reduce(in)
+	return reduced.IsZero()
+}
+
 // Novel returns a random row that is out of the span of the current matrix.
 func (im *IncrementalMatrix) Novel() Row {
 	if im.FullyDefined() {
@@ -100,8 +106,7 @@ func (im *IncrementalMatrix) Novel() Row {
 	for true {
 		cand := GenerateRandomRow(rand.Reader, im.n)
 
-		reduced, _ := im.reduce(cand)
-		if reduced.IsZero() {
+		if !im.IsInSpan(cand) {
 			return cand
 		}
 	}

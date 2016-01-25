@@ -70,3 +70,17 @@ func TestIncrementalMatrix(t *testing.T) {
 		}
 	}
 }
+
+func TestIncrementalNovel(t *testing.T) {
+	im := NewIncrementalMatrix(128)
+	for im.Len() < 126 {
+		im.Add(GenerateRandomRow(rand.Reader, 128))
+	}
+
+	for i := 0; i < 100; i++ {
+		cand := im.Novel()
+		if im.IsInSpan(cand) {
+			t.Fatal("Novel returned row that was in span of incremental matrix.")
+		}
+	}
+}
