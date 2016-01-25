@@ -53,3 +53,16 @@ func TestArrayFieldElemMultiplicationZero(t *testing.T) {
 		t.Fatalf("Multiplication is wrong, element * 0 != 0")
 	}
 }
+
+func TestArrayFieldElemMultiplicationInvert(t *testing.T) {
+	x := ArrayFieldElem{0x02, 0x01, 0x01, 0x03}
+	y := ArrayFieldElem{0x00, 0x00, 0x00, 0x00}
+
+	if _, ok := x.Invert(); !ok {
+		t.Fatal("Invert is wrong, failed to find inverse of unit.")
+	}
+
+	if _, ok := y.Invert(); ok {
+		t.Fatal("Invert is wrong, found inverse of non-unit.")
+	}
+}

@@ -1,6 +1,7 @@
 package number
 
 // ArrayFieldElem is an element of Rijndael's ring, GF(2^8)[x]/(x^4 + 1).
+//   x^4 + 1 = (x + 1)^1
 //
 // The additive identity is [0 0 0 0] and the multiplicative identity is [1 0 0 0].
 type ArrayFieldElem [4]ByteFieldElem
@@ -48,6 +49,22 @@ func (e ArrayFieldElem) Mul(f ArrayFieldElem) ArrayFieldElem {
 func (e ArrayFieldElem) shift(i int) ArrayFieldElem {
 	f := e.Dup()
 	return ArrayFieldElem{f[3-(i+3)%4], f[3-(i+2)%4], f[3-(i+1)%4], f[3-(i+0)%4]}
+}
+
+// Invert returns an element's multiplicative inverse, if it has one.
+func (e ArrayFieldElem) Invert() (ArrayFieldElem, bool) {
+	order := 256*256*256*256 - 1
+	out, temp := ArrayFieldElem{1, 0, 0, 0}, e.Dup()
+
+	for i := uint(0); i < 32; i++ {
+		if (order>>i)&1 == 1 {
+			out = out.Mul(temp)
+		}
+
+		temp = temp.Mul(temp)
+	}
+
+	return out, out.Mul(e).IsOne()
 }
 
 // IsZero returns whether or not e is zero.
