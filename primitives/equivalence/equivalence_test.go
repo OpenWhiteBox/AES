@@ -44,7 +44,7 @@ func TestLearnConsistent(t *testing.T) {
 		A.Assert(matrix.Row{byte(1 << i)}, matrix.Row{byte(1 << i)})
 	}
 
-	consistent := learn(f, f, A, B)
+	_, _, consistent := learn(f, f, A, B, 0, 0)
 	if !consistent {
 		t.Fatal("Learn said identity matrix was inconsistent.")
 	}
@@ -71,7 +71,7 @@ func TestLearnInconsistent(t *testing.T) {
 	}
 	A.Assert(matrix.Row{byte(1 << 7)}, matrix.Row{byte(1 << 6)})
 
-	consistent := learn(f, f, A, B)
+	_, _, consistent := learn(f, f, A, B, 0, 0)
 
 	if consistent {
 		t.Fatal("Learn said inconsistent matrix was consistent.")

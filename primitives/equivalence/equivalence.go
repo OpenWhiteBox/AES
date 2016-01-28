@@ -15,13 +15,13 @@ type Equivalence struct {
 
 // LinearEquivalence finds linear equivalences between f and g. cap is the maximum number of equivalences to return.
 func LinearEquivalence(f, g encoding.Byte, cap int) []Equivalence {
-	return search(f, g, matrix.NewDeductiveMatrix(8), matrix.NewDeductiveMatrix(8), cap)
+	return search(f, g, matrix.NewDeductiveMatrix(8), matrix.NewDeductiveMatrix(8), 0, 0, cap)
 }
 
 // search contains the search logic of our dynamic programming algorithm.
-// f and g are the functions we're finding equivalences for. A and B are the parasites. As we find equivalences, we send
-// them back on the channel res.
-func search(f, g encoding.Byte, A, B *matrix.DeductiveMatrix, cap int) (res []Equivalence) {
+// f and g are the functions we're finding equivalences for. A and B are the parasites. posA and posB are our positions
+// in the span of A and B, respectively. cap is the maximum number of equivalences to return.
+func search(f, g encoding.Byte, A, B *matrix.DeductiveMatrix, posA, posB, cap int) (res []Equivalence) {
 	x, novelOutputSize := A.Input.NovelRow(0), A.Output.NovelSize()
 
 	// 1. Take a guess for A(x).
@@ -30,7 +30,7 @@ func search(f, g encoding.Byte, A, B *matrix.DeductiveMatrix, cap int) (res []Eq
 		AT, BT := A.Dup(), B.Dup()
 		AT.Assert(x, A.Output.NovelRow(i))
 
-		consistent := learn(f, g, AT, BT)
+		posAT, posBT, consistent := learn(f, g, AT, BT, posA, posB)
 
 		// Our guess for A(x) ...
 		if !consistent { // ... isn't consistent with any equivalence relation.
@@ -41,7 +41,7 @@ func search(f, g encoding.Byte, A, B *matrix.DeductiveMatrix, cap int) (res []Eq
 				B: BT.Matrix(),
 			})
 		} else { // ... has neither led to a contradiction nor a full definition.
-			res = append(res, search(f, g, AT, BT, cap-len(res))...)
+			res = append(res, search(f, g, AT, BT, posAT, posBT, cap-len(res))...)
 		}
 
 		if len(res) >= cap {
@@ -56,7 +56,7 @@ func search(f, g encoding.Byte, A, B *matrix.DeductiveMatrix, cap int) (res []Eq
 // f and g are the functions we're finding equivalences for. A and B are the parasites.
 // learn returns whether or not A and B are consistent with any possible equivalence. A and B are mutated to contain the
 // new information.
-func learn(f, g encoding.Byte, A, B *matrix.DeductiveMatrix) (consistent bool) {
+func learn(f, g encoding.Byte, A, B *matrix.DeductiveMatrix, posA, posB int) (posAT, posBT int, consistent bool) {
 	defer func() {
 		if r := recover(); r != nil {
 			if fmt.Sprint(r) == "Asserted input, output pair is inconsistent with previous assertions!" {
@@ -70,7 +70,6 @@ func learn(f, g encoding.Byte, A, B *matrix.DeductiveMatrix) (consistent bool) {
 	consistent = true
 	learning := true
 
-	posA, posB := 0, 0
 	size := 0
 
 	// We have to loop because of the "Needlework Effect." A gives info on B, which may in turn give more info on A, ....
@@ -108,5 +107,5 @@ func learn(f, g encoding.Byte, A, B *matrix.DeductiveMatrix) (consistent bool) {
 		}
 	}
 
-	return
+	return posA, posB, consistent
 }
