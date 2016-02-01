@@ -38,7 +38,7 @@ func NewIncrementalMatrix(n int) IncrementalMatrix {
 // It returns the reduced row and the corresponding row in the inverse matrix.
 func (im *IncrementalMatrix) reduce(raw Row) (Row, Row) {
 	if raw.Size() != im.n {
-		panic("Tried to reduce incorrectly sized with incremental matrix!")
+		panic("Tried to reduce incorrectly sized row with incremental matrix!")
 	}
 
 	reduced := raw.Dup()

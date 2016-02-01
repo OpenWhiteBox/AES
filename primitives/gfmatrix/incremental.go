@@ -36,7 +36,9 @@ func (im *IncrementalMatrix) reduce(raw Row) (Row, Row) {
 
 	reduced := raw.Dup()
 	inverse := NewRow(im.n)
-	inverse[len(im.raw)] = 0x01
+	if len(im.raw) < im.n {
+		inverse[len(im.raw)] = 0x01
+	}
 
 	// Put cand in simplest form.
 	for i, _ := range im.simplest {
