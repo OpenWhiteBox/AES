@@ -9,7 +9,7 @@ package sas
 
 import (
 	"github.com/OpenWhiteBox/AES/primitives/encoding"
-	"github.com/OpenWhiteBox/AES/primitives/number"
+	"github.com/OpenWhiteBox/AES/primitives/gfmatrix"
 
 	"github.com/OpenWhiteBox/AES/constructions/sas"
 )
@@ -76,18 +76,20 @@ func RecoverFirstSBoxes(cipher encoding.Block) (out encoding.ConcatenatedBlock) 
 func RecoverFirstSBox(cipher encoding.Block, pos int) encoding.Byte {
 	im := gfmatrix.NewIncrementalMatrix(256)
 
+	x := cipher.Encode(XatY(0x00, pos))
+	target := [16]byte{}
+
 	for c := 1; c < 256 && !SufficientlyDefined(im); c++ {
-		rows := FirstSBoxConstraints(cipher, pos, c) // Finds pairs of inputs s.t. S(x) ^ S(y) = S(0) ^ S(c).
+		y := cipher.Encode(XatY(byte(c), pos))
+		encoding.XOR(target[:], x[:], y[:])
+
+		rows := FirstSBoxConstraints(cipher, pos, target) // Finds pairs of inputs s.t. S(x) ^ S(y) = S(0) ^ S(c).
+
 		for _, row := range rows {
-
-			// Because we need to collect equations for several constants to get a small enough nullspace, the index variable
-			// is 0x01 at position i if the preceeding relation applies to constant i.
-			index := make([]number.ByteFieldElem, c)
-			index[c-1] = 0x01
-
-			ims[0].Add(append(row, index...))
+			row[0], row[c] = row[0].Add(1), row[c].Add(1)
+			im.Add(row)
 		}
 	}
 
-	return NewSBox(FindPermutation(ims[0].Matrix().NullSpace()), false)
+	return NewSBox(FindPermutation(im.Matrix().NullSpace()), false)
 }

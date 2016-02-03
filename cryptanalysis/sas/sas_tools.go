@@ -10,7 +10,7 @@ import (
 
 // SufficientlyDefined returns true if the incremental matrix has a 9-dimensional nullspace or smaller. This way, it
 // is small enough to search, but not so small that we have nowhere to look for solutions.
-func SufficientlyDefined(im IncrementalMatrix) bool {
+func SufficientlyDefined(im gfmatrix.IncrementalMatrix) bool {
 	return im.Len() >= 247
 }
 
@@ -68,9 +68,7 @@ func NewSBox(v gfmatrix.Row, backwards bool) (out encoding.SBox) {
 
 // XatY returns a byte array which is zero, except for the value x as position y.
 func XatY(x byte, y int) (out [16]byte) {
-	in := [16]byte{}
-	in[y] = x
-
+	out[y] = x
 	return
 }
 

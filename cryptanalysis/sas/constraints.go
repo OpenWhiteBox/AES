@@ -3,7 +3,6 @@ package sas
 import (
 	"github.com/OpenWhiteBox/AES/primitives/encoding"
 	"github.com/OpenWhiteBox/AES/primitives/gfmatrix"
-	"github.com/OpenWhiteBox/AES/primitives/number"
 )
 
 // LastSBoxConstraints takes an SAS block cipher as input and, for each trailing S-box, it returns a matrix containing
@@ -16,8 +15,9 @@ import (
 func LastSBoxConstraints(cipher encoding.Block) []gfmatrix.Matrix {
 	ims := NewIncrementalMatrices(16, 256)
 
+	i := 0
 	for !ims.SufficientlyDefined() {
-		pts := GenerateRandomPlaintexts(0)
+		pts := GenerateRandomPlaintexts(i % 16)
 		rows := gfmatrix.GenerateEmpty(16, 256)
 
 		for _, pt := range pts {
@@ -34,6 +34,8 @@ func LastSBoxConstraints(cipher encoding.Block) []gfmatrix.Matrix {
 		for i, _ := range ims {
 			ims[i].Add(rows[i])
 		}
+
+		i++
 	}
 
 	return ims.Matrices()
@@ -48,14 +50,7 @@ func LastSBoxConstraints(cipher encoding.Block) []gfmatrix.Matrix {
 //
 // Knowing many pairs (i, j) such that P_pos(i) ^ P_pos(j) = x creates a system of linear equations that we can solve to
 // find a candidate solution for P_pos.
-func FirstSBoxConstraints(cipher encoding.Block, pos int) (out gfmatrix.Matrix) {
-	im := gfmatrix.NewIncrementalMatrix(256)
-
-	x := cipher.Encode(XatY(0x00, pos))
-	y := cipher.Encode(XatY(target, pos))
-	target := [16]byte{}
-	encoding.XOR(target[:], x[:], y[:])
-
+func FirstSBoxConstraints(cipher encoding.Block, pos int, target [16]byte) (out gfmatrix.Matrix) {
 	out = gfmatrix.Matrix{}
 
 	for i := 0; i < 255; i++ { // For every set of choices {i, j}:
@@ -72,8 +67,8 @@ func FirstSBoxConstraints(cipher encoding.Block, pos int) (out gfmatrix.Matrix) 
 			encoding.XOR(z[:], x[:], y[:])
 
 			if z == target {
-				row := gfmatrix.Row(make([]number.ByteFieldElem, 256))
-				row[i], row[j] = 0x01, 0x01
+				row := gfmatrix.NewRow(256)
+				row[i], row[j] = 1, 1
 
 				out = append(out, row)
 				break
