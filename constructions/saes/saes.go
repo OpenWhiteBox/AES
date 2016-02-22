@@ -3,8 +3,8 @@
 package saes
 
 import (
-	"github.com/OpenWhiteBox/AES/primitives/matrix"
-	"github.com/OpenWhiteBox/AES/primitives/number"
+	"github.com/OpenWhiteBox/primitives/matrix"
+	"github.com/OpenWhiteBox/primitives/number"
 )
 
 // Powers of x mod M(x).
