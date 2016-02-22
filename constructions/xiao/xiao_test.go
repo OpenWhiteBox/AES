@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/OpenWhiteBox/AES/primitives/matrix"
-	"github.com/OpenWhiteBox/AES/primitives/table"
+	"github.com/OpenWhiteBox/primitives/matrix"
+	"github.com/OpenWhiteBox/primitives/table"
 
 	"github.com/OpenWhiteBox/AES/constructions/common"
 	"github.com/OpenWhiteBox/AES/constructions/saes"

@@ -3,8 +3,8 @@ package xiao
 import (
 	"errors"
 
-	"github.com/OpenWhiteBox/AES/primitives/matrix"
-	"github.com/OpenWhiteBox/AES/primitives/table"
+	"github.com/OpenWhiteBox/primitives/matrix"
+	"github.com/OpenWhiteBox/primitives/table"
 )
 
 const (

@@ -1,10 +1,10 @@
 package xiao
 
 import (
-	"github.com/OpenWhiteBox/AES/primitives/encoding"
-	"github.com/OpenWhiteBox/AES/primitives/matrix"
-	"github.com/OpenWhiteBox/AES/primitives/random"
-	"github.com/OpenWhiteBox/AES/primitives/table"
+	"github.com/OpenWhiteBox/primitives/encoding"
+	"github.com/OpenWhiteBox/primitives/matrix"
+	"github.com/OpenWhiteBox/primitives/random"
+	"github.com/OpenWhiteBox/primitives/table"
 
 	"github.com/OpenWhiteBox/AES/constructions/common"
 	"github.com/OpenWhiteBox/AES/constructions/saes"

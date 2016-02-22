@@ -1,10 +1,10 @@
 package xiao
 
 import (
-	"github.com/OpenWhiteBox/AES/primitives/matrix"
-	"github.com/OpenWhiteBox/AES/primitives/number"
-	"github.com/OpenWhiteBox/AES/primitives/random"
-	"github.com/OpenWhiteBox/AES/primitives/table"
+	"github.com/OpenWhiteBox/primitives/matrix"
+	"github.com/OpenWhiteBox/primitives/number"
+	"github.com/OpenWhiteBox/primitives/random"
+	"github.com/OpenWhiteBox/primitives/table"
 
 	"github.com/OpenWhiteBox/AES/constructions/common"
 )
@@ -102,7 +102,7 @@ func UnMixColumns(i, j byte) [4]byte {
 }
 
 func MaskSwap(rs *random.Source, size, round int) (out matrix.Matrix) {
-	out = matrix.GenerateEmpty(128)
+	out = matrix.GenerateEmpty(128, 128)
 
 	for row := 0; row < 128; row += size {
 		col := row / 8

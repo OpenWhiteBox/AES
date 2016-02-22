@@ -1,7 +1,7 @@
 package xiao
 
 import (
-	"github.com/OpenWhiteBox/AES/primitives/matrix"
+	"github.com/OpenWhiteBox/primitives/matrix"
 )
 
 var ShiftRows = matrix.Matrix{
