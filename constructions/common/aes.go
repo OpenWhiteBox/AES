@@ -1,7 +1,7 @@
 package common
 
 import (
-	"github.com/OpenWhiteBox/AES/primitives/number"
+	"github.com/OpenWhiteBox/primitives/number"
 
 	"github.com/OpenWhiteBox/AES/constructions/saes"
 )

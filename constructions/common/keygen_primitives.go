@@ -1,8 +1,8 @@
 package common
 
 import (
-	"github.com/OpenWhiteBox/AES/primitives/matrix"
-	"github.com/OpenWhiteBox/AES/primitives/random"
+	"github.com/OpenWhiteBox/primitives/matrix"
+	"github.com/OpenWhiteBox/primitives/random"
 )
 
 type Surface int

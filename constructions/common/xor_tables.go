@@ -1,7 +1,7 @@
 package common
 
 import (
-	"github.com/OpenWhiteBox/AES/primitives/table"
+	"github.com/OpenWhiteBox/primitives/table"
 )
 
 const (

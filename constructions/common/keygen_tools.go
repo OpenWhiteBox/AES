@@ -1,7 +1,7 @@
 package common
 
 import (
-	"github.com/OpenWhiteBox/AES/primitives/encoding"
+	"github.com/OpenWhiteBox/primitives/encoding"
 )
 
 // SliceEncoding(position, subPosition int) encoding.Nibble
