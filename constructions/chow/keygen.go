@@ -1,10 +1,10 @@
 package chow
 
 import (
-	"github.com/OpenWhiteBox/AES/primitives/encoding"
-	"github.com/OpenWhiteBox/AES/primitives/matrix"
-	"github.com/OpenWhiteBox/AES/primitives/random"
-	"github.com/OpenWhiteBox/AES/primitives/table"
+	"github.com/OpenWhiteBox/primitives/encoding"
+	"github.com/OpenWhiteBox/primitives/matrix"
+	"github.com/OpenWhiteBox/primitives/random"
+	"github.com/OpenWhiteBox/primitives/table"
 
 	"github.com/OpenWhiteBox/AES/constructions/common"
 	"github.com/OpenWhiteBox/AES/constructions/saes"
@@ -21,7 +21,7 @@ func generateKeys(rs *random.Source, opts common.KeyGenerationOpts, out *Constru
 		out.InputMask[pos] = encoding.BlockTable{
 			encoding.IdentityByte{},
 			BlockMaskEncoding(rs, pos, common.Inside, shift),
-			common.BlockMatrix{*inputMask, [16]byte{}, pos},
+			common.BlockMatrix{Linear: *inputMask, Position: pos},
 		}
 	}
 
@@ -80,8 +80,8 @@ func generateKeys(rs *random.Source, opts common.KeyGenerationOpts, out *Constru
 			},
 			BlockMaskEncoding(rs, pos, common.Outside, shift),
 			table.ComposedToBlock{
-				skinny(pos),
-				common.BlockMatrix{*outputMask, [16]byte{}, pos},
+				Heads: skinny(pos),
+				Tails: common.BlockMatrix{Linear: *outputMask, Position: pos},
 			},
 		}
 	}
@@ -113,7 +113,7 @@ func GenerateEncryptionKeys(key, seed []byte, opts common.KeyGenerationOpts) (ou
 
 	wide := func(round, pos int) table.Word {
 		return table.ComposedToWord{
-			common.TBox{constr, roundKeys[round][pos], 0x00},
+			common.TBox{Constr: constr, KeyByte1: roundKeys[round][pos]},
 			common.TyiTable(pos % 4),
 		}
 	}
@@ -142,12 +142,12 @@ func GenerateDecryptionKeys(key, seed []byte, opts common.KeyGenerationOpts) (ou
 	wide := func(round, pos int) table.Word {
 		if round == 0 {
 			return table.ComposedToWord{
-				common.InvTBox{constr, roundKeys[10][pos], roundKeys[9][pos]},
+				common.InvTBox{Constr: constr, KeyByte1: roundKeys[10][pos], KeyByte2: roundKeys[9][pos]},
 				common.InvTyiTable(pos % 4),
 			}
 		} else {
 			return table.ComposedToWord{
-				common.InvTBox{constr, 0x00, roundKeys[9-round][pos]},
+				common.InvTBox{Constr: constr, KeyByte2: roundKeys[9-round][pos]},
 				common.InvTyiTable(pos % 4),
 			}
 		}

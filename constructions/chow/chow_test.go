@@ -5,7 +5,7 @@ import (
 	"crypto/aes"
 	"testing"
 
-	"github.com/OpenWhiteBox/AES/primitives/matrix"
+	"github.com/OpenWhiteBox/primitives/matrix"
 
 	"github.com/OpenWhiteBox/AES/constructions/common"
 
