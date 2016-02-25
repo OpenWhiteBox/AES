@@ -20,15 +20,15 @@ func generateKeys(rs *random.Source, opts common.KeyGenerationOpts, out *Constru
 	for pos := 0; pos < 16; pos++ {
 		out.InputMask[pos] = encoding.BlockTable{
 			encoding.IdentityByte{},
-			BlockMaskEncoding(rs, pos, common.Inside, shift),
+			blockMaskEncoding(rs, pos, common.Inside, shift),
 			common.BlockMatrix{Linear: *inputMask, Position: pos},
 		}
 	}
 
 	out.InputXORTables = common.BlockNibbleXORTables(
-		MaskEncoding(rs, common.Inside),
-		XOREncoding(rs, 10, common.Inside),
-		RoundEncoding(rs, -1, common.Outside, shift),
+		maskEncoding(rs, common.Inside),
+		xorEncoding(rs, 10, common.Inside),
+		roundEncoding(rs, -1, common.Outside, shift),
 	)
 
 	// Generate round material.
@@ -41,7 +41,7 @@ func generateKeys(rs *random.Source, opts common.KeyGenerationOpts, out *Constru
 			out.TBoxTyiTable[round][pos] = encoding.WordTable{
 				encoding.ComposedBytes{
 					encoding.NewByteLinear(common.MixingBijection(rs, 8, round-1, pos)),
-					ByteRoundEncoding(rs, round-1, pos, common.Outside, noshift),
+					byteRoundEncoding(rs, round-1, pos, common.Outside, noshift),
 				},
 				encoding.ComposedWords{
 					encoding.ConcatenatedWord{
@@ -51,7 +51,7 @@ func generateKeys(rs *random.Source, opts common.KeyGenerationOpts, out *Constru
 						encoding.NewByteLinear(common.MixingBijection(rs, 8, round, shift(pos/4*4+3))),
 					},
 					encoding.NewWordLinear(mb),
-					WordStepEncoding(rs, round, pos, common.Inside),
+					wordStepEncoding(rs, round, pos, common.Inside),
 				},
 				wide(round, pos),
 			}
@@ -60,9 +60,9 @@ func generateKeys(rs *random.Source, opts common.KeyGenerationOpts, out *Constru
 			mbInv, _ := mb.Invert()
 
 			out.MBInverseTable[round][pos] = encoding.WordTable{
-				ByteRoundEncoding(rs, round, pos, common.Inside, noshift),
-				WordStepEncoding(rs, round, pos, common.Outside),
-				MBInverseTable{mbInv, uint(pos) % 4},
+				byteRoundEncoding(rs, round, pos, common.Inside, noshift),
+				wordStepEncoding(rs, round, pos, common.Outside),
+				mbInverseTable{mbInv, uint(pos) % 4},
 			}
 		}
 	}
@@ -76,9 +76,9 @@ func generateKeys(rs *random.Source, opts common.KeyGenerationOpts, out *Constru
 		out.TBoxOutputMask[pos] = encoding.BlockTable{
 			encoding.ComposedBytes{
 				encoding.NewByteLinear(common.MixingBijection(rs, 8, 8, pos)),
-				ByteRoundEncoding(rs, 8, pos, common.Outside, noshift),
+				byteRoundEncoding(rs, 8, pos, common.Outside, noshift),
 			},
-			BlockMaskEncoding(rs, pos, common.Outside, shift),
+			blockMaskEncoding(rs, pos, common.Outside, shift),
 			table.ComposedToBlock{
 				Heads: skinny(pos),
 				Tails: common.BlockMatrix{Linear: *outputMask, Position: pos},
@@ -87,8 +87,8 @@ func generateKeys(rs *random.Source, opts common.KeyGenerationOpts, out *Constru
 	}
 
 	out.OutputXORTables = common.BlockNibbleXORTables(
-		MaskEncoding(rs, common.Outside),
-		XOREncoding(rs, 10, common.Outside),
+		maskEncoding(rs, common.Outside),
+		xorEncoding(rs, 10, common.Outside),
 		func(position int) encoding.Nibble { return encoding.IdentityByte{} },
 	)
 }

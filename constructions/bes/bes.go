@@ -7,7 +7,7 @@
 //   thus enabling the AES to be realised solely using simple algebraic operations in one field GF(2^8). This permits
 //   the exploration of the AES within a broad and rich setting.
 //
-// "Essential Algebraic Structure Within the AES", by S. Murphy and M.J.B. Robshaw,
+// "Essential Algebraic Structure Within the AES" by S. Murphy and M.J.B. Robshaw,
 // http://www.isg.rhul.ac.uk/~sean/crypto.pdf
 package bes
 
