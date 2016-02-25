@@ -45,7 +45,7 @@ func (constr Construction) Decrypt(dst, src []byte) {
 	constr.UnShiftRows(dst)
 	constr.UnSubBytes(dst)
 
-	for i := 9; i > 0; i-- {
+	for i := 9; i >= 1; i-- {
 		constr.AddRoundKey(roundKeys[i], dst)
 		constr.UnMixColumns(dst)
 		constr.UnShiftRows(dst)
