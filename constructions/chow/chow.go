@@ -1,10 +1,11 @@
 // Package chow implements Chow et al.'s white-box AES construction. There are two separate attacks on this white-box
-// construction implemented in cryptanalysis/chow and cryptanalysis/chow2.
+// construction implemented in the cryptanalysis/chow and cryptanalysis/chow2 packages.
 //
-// Broadly, it works by taking a normal AES key and stretching it out and adding randomness to encryption computations.
-// This randomness eventually cancels out and gives a correct AES encryption of a plaintext, without leaking the key. We
-// can also modify the white-box key such that the function isn't exactly ct = AES(pt), but a masked or encoded function
-// like ct' = Q(AES(P(pt))), where Q and P are randomly chosen affine transformations.
+// Broadly, it works by taking a normal AES key and converting the encryption algorithm into a series of table lookups.
+// The table lookups are then randomized such that this randomness eventually cancels out and gives a correct AES
+// encryption of a plaintext, without leaking the key. We can also modify the white-box key such that the function isn't
+// exactly ct = AES(pt), but a masked or encoded function like ct' = Q(AES(P(pt))), where Q and P are randomly chosen
+// affine transformations.
 //
 // We start by generating a white-boxed key:
 //   opts := common.IndependentMasks{common.RandomMask, common.RandomMask} // Random input and output masks.
