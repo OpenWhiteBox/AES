@@ -9,28 +9,28 @@ import (
 	"github.com/OpenWhiteBox/AES/constructions/common"
 )
 
-type Side int
+type side int
 
 const (
-	Left Side = iota
-	Right
+	left side = iota
+	right
 )
 
-func SideFromPos(pos int) Side {
+func sideFromPos(pos int) side {
 	if pos%4 < 2 {
-		return Left
+		return left
 	} else {
-		return Right
+		return right
 	}
 }
 
-type TBoxMixCol struct {
+type tBoxMixCol struct {
 	TBoxes [2]table.Byte
 	MixCol func(byte, byte) [4]byte
-	Side
+	Side   side
 }
 
-func (tmc TBoxMixCol) Get(i [2]byte) (out [4]byte) {
+func (tmc tBoxMixCol) Get(i [2]byte) (out [4]byte) {
 	// Push input through the T-Boxes.
 	k, l := tmc.TBoxes[0].Get(i[0]), tmc.TBoxes[1].Get(i[1])
 
@@ -39,7 +39,7 @@ func (tmc TBoxMixCol) Get(i [2]byte) (out [4]byte) {
 
 	// Merge into one output and rotate according to what side of the word we're on.
 	shift := 0
-	if tmc.Side == Right {
+	if tmc.Side == right {
 		shift = 2
 	}
 
@@ -48,15 +48,15 @@ func (tmc TBoxMixCol) Get(i [2]byte) (out [4]byte) {
 	return
 }
 
-type TBox struct {
+type tBox struct {
 	TBoxes [2]table.Byte
-	Side
+	Side   side
 }
 
-func (t TBox) Get(i [2]byte) (out [4]byte) {
+func (t tBox) Get(i [2]byte) (out [4]byte) {
 	k, l := t.TBoxes[0].Get(i[0]), t.TBoxes[1].Get(i[1])
 
-	if t.Side == Left {
+	if t.Side == left {
 		out[0], out[1] = k, l
 	} else {
 		out[2], out[3] = k, l
@@ -65,7 +65,7 @@ func (t TBox) Get(i [2]byte) (out [4]byte) {
 	return
 }
 
-func MixColumns(i, j byte) [4]byte {
+func mixColumns(i, j byte) [4]byte {
 	k, l := number.ByteFieldElem(i), number.ByteFieldElem(j)
 
 	var a, b, c, d number.ByteFieldElem
@@ -83,7 +83,7 @@ func MixColumns(i, j byte) [4]byte {
 	return [4]byte{byte(a), byte(b), byte(c), byte(d)}
 }
 
-func UnMixColumns(i, j byte) [4]byte {
+func unMixColumns(i, j byte) [4]byte {
 	k, l := number.ByteFieldElem(i), number.ByteFieldElem(j)
 
 	var a, b, c, d number.ByteFieldElem
@@ -101,7 +101,7 @@ func UnMixColumns(i, j byte) [4]byte {
 	return [4]byte{byte(a), byte(b), byte(c), byte(d)}
 }
 
-func MaskSwap(rs *random.Source, size, round int) (out matrix.Matrix) {
+func maskSwap(rs *random.Source, size, round int) (out matrix.Matrix) {
 	out = matrix.GenerateEmpty(128, 128)
 
 	for row := 0; row < 128; row += size {

@@ -51,14 +51,14 @@ func generateRoundMaterial(rs *random.Source, out *Construction, hidden func(int
 // generateBarriers creates the encoding barriers between rounds that compute ShiftRows and re-encodes data.
 func generateBarriers(rs *random.Source, out *Construction, inputMask, outputMask, sr *matrix.Matrix) {
 	// Generate the ShiftRows and re-encoding matrices.
-	out.ShiftRows[0] = MaskSwap(rs, 16, 0).Compose(*sr).Compose(*inputMask)
+	out.ShiftRows[0] = maskSwap(rs, 16, 0).Compose(*sr).Compose(*inputMask)
 
 	for round := 1; round < 10; round++ {
-		out.ShiftRows[round] = MaskSwap(rs, 16, round).Compose(*sr).Compose(MaskSwap(rs, 32, round-1))
+		out.ShiftRows[round] = maskSwap(rs, 16, round).Compose(*sr).Compose(maskSwap(rs, 32, round-1))
 	}
 
 	// We need to apply a final matrix transformation to convert the double-level encoding to a block-level one.
-	out.FinalMask = outputMask.Compose(MaskSwap(rs, 32, 9))
+	out.FinalMask = outputMask.Compose(maskSwap(rs, 32, 9))
 }
 
 // GenerateEncryptionKeys creates a white-boxed version of the AES key `key` for encryption, with any non-determinism
@@ -76,28 +76,28 @@ func GenerateEncryptionKeys(key, seed []byte, opts common.KeyGenerationOpts) (ou
 
 	hidden := func(round, pos int) table.DoubleToWord {
 		if round == 9 {
-			return TBox{
+			return tBox{
 				[2]table.Byte{
 					common.TBox{constr, roundKeys[9][pos+0], roundKeys[10][pos+0]},
 					common.TBox{constr, roundKeys[9][pos+1], roundKeys[10][pos+1]},
 				},
-				SideFromPos(pos),
+				sideFromPos(pos),
 			}
 		} else {
-			return TBoxMixCol{
+			return tBoxMixCol{
 				[2]table.Byte{
 					common.TBox{constr, roundKeys[round][pos+0], 0x00},
 					common.TBox{constr, roundKeys[round][pos+1], 0x00},
 				},
-				MixColumns,
-				SideFromPos(pos),
+				mixColumns,
+				sideFromPos(pos),
 			}
 		}
 	}
 
 	common.GenerateMasks(&rs, opts, &inputMask, &outputMask)
 	generateRoundMaterial(&rs, &out, hidden)
-	generateBarriers(&rs, &out, &inputMask, &outputMask, &ShiftRows)
+	generateBarriers(&rs, &out, &inputMask, &outputMask, &shiftRows)
 
 	return out, inputMask, outputMask
 }
@@ -115,37 +115,37 @@ func GenerateDecryptionKeys(key, seed []byte, opts common.KeyGenerationOpts) (ou
 
 	hidden := func(round, pos int) table.DoubleToWord {
 		if round == 0 {
-			return TBoxMixCol{
+			return tBoxMixCol{
 				[2]table.Byte{
 					common.InvTBox{constr, roundKeys[10][pos+0], roundKeys[9][pos+0]},
 					common.InvTBox{constr, roundKeys[10][pos+1], roundKeys[9][pos+1]},
 				},
-				UnMixColumns,
-				SideFromPos(pos),
+				unMixColumns,
+				sideFromPos(pos),
 			}
 		} else if 0 < round && round < 9 {
-			return TBoxMixCol{
+			return tBoxMixCol{
 				[2]table.Byte{
 					common.InvTBox{constr, 0x00, roundKeys[9-round][pos+0]},
 					common.InvTBox{constr, 0x00, roundKeys[9-round][pos+1]},
 				},
-				UnMixColumns,
-				SideFromPos(pos),
+				unMixColumns,
+				sideFromPos(pos),
 			}
 		} else {
-			return TBox{
+			return tBox{
 				[2]table.Byte{
 					common.InvTBox{constr, 0x00, roundKeys[0][pos+0]},
 					common.InvTBox{constr, 0x00, roundKeys[0][pos+1]},
 				},
-				SideFromPos(pos),
+				sideFromPos(pos),
 			}
 		}
 	}
 
 	common.GenerateMasks(&rs, opts, &inputMask, &outputMask)
 	generateRoundMaterial(&rs, &out, hidden)
-	generateBarriers(&rs, &out, &inputMask, &outputMask, &UnShiftRows)
+	generateBarriers(&rs, &out, &inputMask, &outputMask, &unShiftRows)
 
 	return out, inputMask, outputMask
 }

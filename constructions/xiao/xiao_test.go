@@ -25,22 +25,22 @@ func TestTBoxMixCol(t *testing.T) {
 
 	baseConstr := saes.Construction{}
 
-	left := TBoxMixCol{
+	left := tBoxMixCol{
 		[2]table.Byte{
 			common.TBox{baseConstr, 0xea, 0x00},
 			common.TBox{baseConstr, 0x8d, 0x00},
 		},
-		MixColumns,
-		Left,
+		mixColumns,
+		left,
 	}
 
-	right := TBoxMixCol{
-		[2]table.Byte{
+	right := tBoxMixCol{
+		TBoxes: [2]table.Byte{
 			common.TBox{baseConstr, 0xf5, 0x00},
 			common.TBox{baseConstr, 0x2f, 0x00},
 		},
-		MixColumns,
-		Right,
+		MixCol: mixColumns,
+		Side:   right,
 	}
 
 	cand := left.Get([2]byte{in[0], in[1]})
