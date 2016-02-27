@@ -10,8 +10,6 @@ import (
 	"github.com/OpenWhiteBox/AES/constructions/saes"
 )
 
-var noshift = func(position int) int { return position }
-
 func generateKeys(rs *random.Source, opts common.KeyGenerationOpts, out *Construction, inputMask, outputMask *matrix.Matrix, shift func(int) int, skinny func(int) table.Byte, wide func(int, int) table.Word) {
 	// Generate input and output encodings.
 	common.GenerateMasks(rs, opts, inputMask, outputMask)
@@ -41,7 +39,7 @@ func generateKeys(rs *random.Source, opts common.KeyGenerationOpts, out *Constru
 			out.TBoxTyiTable[round][pos] = encoding.WordTable{
 				encoding.ComposedBytes{
 					encoding.NewByteLinear(common.MixingBijection(rs, 8, round-1, pos)),
-					byteRoundEncoding(rs, round-1, pos, common.Outside, noshift),
+					byteRoundEncoding(rs, round-1, pos, common.Outside, common.NoShift),
 				},
 				encoding.ComposedWords{
 					encoding.ConcatenatedWord{
@@ -60,7 +58,7 @@ func generateKeys(rs *random.Source, opts common.KeyGenerationOpts, out *Constru
 			mbInv, _ := mb.Invert()
 
 			out.MBInverseTable[round][pos] = encoding.WordTable{
-				byteRoundEncoding(rs, round, pos, common.Inside, noshift),
+				byteRoundEncoding(rs, round, pos, common.Inside, common.NoShift),
 				wordStepEncoding(rs, round, pos, common.Outside),
 				mbInverseTable{mbInv, uint(pos) % 4},
 			}
@@ -68,7 +66,7 @@ func generateKeys(rs *random.Source, opts common.KeyGenerationOpts, out *Constru
 	}
 
 	// Generate the High and Low XOR Tables for reach round.
-	out.HighXORTable = xorTables(rs, common.Inside, noshift)
+	out.HighXORTable = xorTables(rs, common.Inside, common.NoShift)
 	out.LowXORTable = xorTables(rs, common.Outside, shift)
 
 	// Generate the 10th T-Box/Output Mask slices and XOR tables.
@@ -76,7 +74,7 @@ func generateKeys(rs *random.Source, opts common.KeyGenerationOpts, out *Constru
 		out.TBoxOutputMask[pos] = encoding.BlockTable{
 			encoding.ComposedBytes{
 				encoding.NewByteLinear(common.MixingBijection(rs, 8, 8, pos)),
-				byteRoundEncoding(rs, 8, pos, common.Outside, noshift),
+				byteRoundEncoding(rs, 8, pos, common.Outside, common.NoShift),
 			},
 			blockMaskEncoding(rs, pos, common.Outside, shift),
 			table.ComposedToBlock{

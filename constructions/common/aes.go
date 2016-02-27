@@ -63,11 +63,18 @@ func (tyi InvTyiTable) Get(i byte) (out [4]byte) {
 	return
 }
 
-// Index in, index out.  Example: shiftRows(5) = 1 because ShiftRows(block) returns [16]byte{block[0], block[5], ...
+func NoShift(i int) int {
+	return i
+}
+
+// ShiftRows is the block permutation in AES. Index in, index out.
+//
+// Example: ShiftRows(5) = 1 because ShiftRows(block) returns [16]byte{block[0], block[5], ...
 func ShiftRows(i int) int {
 	return []int{0, 13, 10, 7, 4, 1, 14, 11, 8, 5, 2, 15, 12, 9, 6, 3}[i]
 }
 
+// UnShiftRows is the inverse of ShiftRows.
 func UnShiftRows(i int) int {
 	return []int{0, 5, 10, 15, 4, 9, 14, 3, 8, 13, 2, 7, 12, 1, 6, 11}[i]
 }
