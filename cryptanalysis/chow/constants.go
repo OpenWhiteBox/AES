@@ -1,4 +1,4 @@
-package chow2
+package chow
 
 import (
 	"github.com/OpenWhiteBox/primitives/matrix"

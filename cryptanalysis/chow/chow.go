@@ -1,266 +1,149 @@
 // Package chow implements a cryptanalysis of Chow et al.'s white-box AES construction.
+//
+// It is built on top of the SAS cryptanalysis in Generic/cryptanalysis/spn.
+//
+// Source paper to be added.
 package chow
 
 import (
-	"github.com/OpenWhiteBox/AES/primitives/encoding"
-	"github.com/OpenWhiteBox/AES/primitives/matrix"
-	"github.com/OpenWhiteBox/AES/primitives/number"
-	"github.com/OpenWhiteBox/AES/primitives/table"
+	"github.com/OpenWhiteBox/primitives/encoding"
 
 	"github.com/OpenWhiteBox/AES/constructions/chow"
 	"github.com/OpenWhiteBox/AES/constructions/common"
 	"github.com/OpenWhiteBox/AES/constructions/saes"
+
+	cspn "github.com/OpenWhiteBox/Generic/constructions/spn"
+	aspn "github.com/OpenWhiteBox/Generic/cryptanalysis/spn"
 )
 
-// Element Characteristic -> Elements with that characteristic.
-var CharToBeta = map[byte]number.ByteFieldElem{
-	0x74: 0xf5,
-	0xdb: 0x8d,
-	0x34: 0xf6,
-	0xef: 0x8f,
-}
+var powx = [16]byte{0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36, 0x6c, 0xd8, 0xab, 0x4d, 0x9a, 0x2f}
 
-// A new lookup table mapping an input position to an output position with other values in the column held constant.
-type F struct {
-	Constr         *chow.Construction
-	Round, In, Out int
-	Base           byte
-}
+// backOneRound takes round key i and returns round key i-1.
+func backOneRound(roundKey []byte, round int) (out []byte) {
+	out = make([]byte, 16)
+	constr := saes.Construction{}
 
-func (f F) Get(i byte) byte {
-	pos := f.Out / 4 * 4
-
-	block := make([]byte, 4)
-	block[f.In%4] = i
-	block[(f.In+1)%4] = f.Base
-
-	stretched := f.Constr.ExpandWord(f.Constr.TBoxTyiTable[f.Round][pos:pos+4], block)
-	f.Constr.SquashWords(f.Constr.HighXORTable[f.Round][2*pos:2*pos+8], stretched, block)
-
-	stretched = f.Constr.ExpandWord(f.Constr.MBInverseTable[f.Round][pos:pos+4], block)
-	f.Constr.SquashWords(f.Constr.LowXORTable[f.Round][2*pos:2*pos+8], stretched, block)
-
-	return block[f.Out%4]
-}
-
-// Qtilde is the approximation of the RoundEncoding between two rounds.
-type Qtilde struct {
-	S [][256]byte
-}
-
-func (q Qtilde) Encode(i byte) byte {
-	return q.S[i][0]
-}
-
-func (q Qtilde) Decode(i byte) byte {
-	for j, perm := range q.S {
-		if perm[0] == i {
-			return byte(j)
-		}
+	// Recover everything except the first word by XORing consecutive blocks.
+	for pos := 4; pos < 16; pos++ {
+		out[pos] = roundKey[pos] ^ roundKey[pos-4]
 	}
 
-	return byte(0)
+	// Recover the first word by XORing the first block of the roundKey with f(last block of roundKey), where f is a
+	// subroutine of AES' key scheduling algorithm.
+	for pos := 0; pos < 4; pos++ {
+		out[pos] = roundKey[pos] ^ constr.SubByte(out[12+(pos+1)%4])
+	}
+	out[0] ^= powx[round-1]
+
+	return
+}
+
+// isAS returns true if the given Byte encoding might be an AS structure, with 2 4-bit S-boxes.
+func isAS(in encoding.Byte) bool {
+	temp1, temp2 := byte(0x00), byte(0x00)
+
+	for x := byte(0); x < 16; x++ {
+		temp1 ^= in.Encode(x)
+		temp2 ^= in.Encode(x << 4)
+	}
+
+	return temp1 == 0 && temp2 == 0
+}
+
+// round isolates one round of encryption with an AES white-box.
+type round struct {
+	construction *chow.Construction
+	round        int
+}
+
+func (r round) Encrypt(dst, src []byte) {
+	copy(dst[0:16], src[0:16])
+
+	for pos := 0; pos < 16; pos += 4 {
+		stretched := r.construction.ExpandWord(r.construction.TBoxTyiTable[r.round][pos:pos+4], dst[pos:pos+4])
+		r.construction.SquashWords(r.construction.HighXORTable[r.round][2*pos:2*pos+8], stretched, dst[pos:pos+4])
+
+		stretched = r.construction.ExpandWord(r.construction.MBInverseTable[r.round][pos:pos+4], dst[pos:pos+4])
+		r.construction.SquashWords(r.construction.LowXORTable[r.round][2*pos:2*pos+8], stretched, dst[pos:pos+4])
+	}
 }
 
 // RecoverKey returns the AES key used to generate the given white-box construction.
 func RecoverKey(constr *chow.Construction) []byte {
-	temp := make([]encoding.Byte, 16)
+	round1, round2 := round{
+		construction: constr,
+		round:        1,
+	}, round{
+		construction: constr,
+		round:        2,
+	}
 
-	// Recover all output affine encodings for round 1.
+	// Decomposition Phase
+	constr1 := aspn.DecomposeSPN(round1, cspn.SAS)
+	constr2 := aspn.DecomposeSPN(round2, cspn.SAS)
+
+	var (
+		leading, middle, trailing SBoxLayer
+		left, right               = AffineLayer(constr1[1].(encoding.BlockAffine)), AffineLayer(constr2[1].(encoding.BlockAffine))
+	)
+
 	for pos := 0; pos < 16; pos++ {
-		temp[pos], _ = RecoverEncodings(constr, 1, pos)
-	}
-
-	// Recover all input affine encodings up to a key byte for round 2.
-	// Compose it with the above's output.
-	for col := 0; col < 4; col++ {
-		_, in := RecoverEncodings(constr, 2, 4*col)
-
-		for row := 0; row < 4; row++ {
-			backPos := common.UnShiftRows(4*col + row)
-			temp[backPos] = encoding.ComposedBytes{temp[backPos], in[row]}
+		leading[pos] = constr1[0].(encoding.ConcatenatedBlock)[pos]
+		middle[pos] = encoding.ComposedBytes{
+			constr1[2].(encoding.ConcatenatedBlock)[pos],
+			constr2[0].(encoding.ConcatenatedBlock)[common.ShiftRows(pos)],
 		}
+		trailing[pos] = constr2[2].(encoding.ConcatenatedBlock)[pos]
 	}
 
-	// Recover round key for round 2.
-	// The output encoding of round 1 composed with the approximate input encoding of round 2 should be an affine
-	// transformation with the identity matrix as the linear part and a key byte as the constant part.
-	roundKey := make([]byte, 16)
+	// Disambiguation Phase
+	// Disambiguate the affine layer.
+	lin, lout := left.Clean()
+	rin, rout := right.Clean()
+
+	leading.RightCompose(lin, common.NoShift)
+	middle.LeftCompose(lout, common.NoShift).RightCompose(rin, common.ShiftRows)
+	trailing.LeftCompose(rout, common.NoShift)
+
+	// The SPN decomposition naturally leaves the affine layers without a constant part.
+	// We would push it into the S-boxes here if that wasn't the case.
+
+	// Move the constant off of the input and output of the S-boxes.
+	mcin, mcout := middle.CleanConstant()
+	mcin, mcout = left.Decode(mcin), right.Encode(mcout)
+
+	leading.RightCompose(encoding.DecomposeConcatenatedBlock(encoding.BlockAdditive(mcin)), common.NoShift)
+	trailing.LeftCompose(encoding.DecomposeConcatenatedBlock(encoding.BlockAdditive(mcout)), common.NoShift)
+
+	// Move the multiplication off of the input and output of the middle S-boxes.
+	mlin, mlout := middle.CleanLinear()
+
+	leading.RightCompose(mlin, common.NoShift)
+	trailing.LeftCompose(mlout, common.NoShift)
+
+	// fmt.Println(encoding.ProbablyEquivalentBlocks(
+	// 	encoding.ComposedBlocks{aspn.Encoding{round1}, ShiftRows{}, aspn.Encoding{round2}},
+	// 	encoding.ComposedBlocks{leading, left, middle, ShiftRows{}, right, trailing},
+	// ))
+	// Output: true
+
+	// Extract the key from the leading S-boxes.
+	key := [16]byte{}
+
 	for pos := 0; pos < 16; pos++ {
-		roundKey[pos] = temp[pos].Encode(0)
-	}
-
-	// Recover the master key from the round key and return.
-	return BackOneRound(BackOneRound(roundKey, 2), 1)
-}
-
-// RecoverEncodings returns the full affine output encoding of affine-encoded f at the given position, as well as the
-// input affine encodings for all neighboring bytes up to a key byte.  Returns (out, []in)
-func RecoverEncodings(constr *chow.Construction, round, pos int) (encoding.ByteAffine, []encoding.ByteAffine) {
-	Ps := make([]encoding.ByteAffine, 4)  // Approximate input encodings.
-	Ds := make([]number.ByteFieldElem, 4) // Array of gamma * MC coefficient
-	q := byte(0x00)                       // The constant part of the output encoding.
-
-	L := RecoverL(constr, round, pos)
-	Atilde := FindAtilde(constr, L)
-	AtildeInv, _ := Atilde.Invert()
-
-	for i := 0; i < 4; i++ {
-		j := pos/4*4 + i
-
-		inEnc, _ := RecoverAffineEncoded(
-			constr, encoding.IdentityByte{}, round-1, common.UnShiftRows(j), common.UnShiftRows(j),
-		)
-		_, f := RecoverAffineEncoded(constr, inEnc, round, j, pos)
-
-		var c byte
-		Ds[i], c, Ps[i] = FindPartialEncoding(constr, f, L, AtildeInv)
-		q ^= c
-
-		if i == 0 {
-			q ^= f.Get(0x00)
-		}
-	}
-
-	dup := FindDuplicate(Ds).Invert()
-	DInv, _ := DecomposeAffineEncoding(encoding.ByteMultiplication{dup.Invert(), dup})
-	A := Atilde.Compose(DInv)
-	AInv, _ := A.Invert()
-
-	return encoding.ByteAffine{encoding.ByteLinear{A, AInv}, q}, Ps
-}
-
-// FindPartialEncoding takes an affine encoded F and finds the values that strip its output encoding.  It returns the
-// parameters it finds and the input encoding of f up to a key byte.
-func FindPartialEncoding(constr *chow.Construction, f table.Byte, L, AtildeInv matrix.Matrix) (number.ByteFieldElem, byte, encoding.ByteAffine) {
-	fInv := table.Invert(f)
-	id := encoding.ByteLinear{matrix.GenerateIdentity(8), nil}
-
-	SInv := table.InvertibleTable(common.InvTBox{saes.Construction{}, 0x00, 0x00})
-	S := table.Invert(SInv)
-
-	// Brute force the constant part of the output encoding and the beta in Atilde = A_i <- D(beta)
-	for c := 0; c < 256; c++ {
-		for d := 1; d < 256; d++ {
-			dNum := number.ByteFieldElem(d)
-
+		for guess := 0; guess < 256; guess++ {
 			cand := encoding.ComposedBytes{
-				TableAsEncoding{f, fInv},
-				encoding.ByteAffine{id, byte(c)},
-				encoding.ByteLinear{AtildeInv, nil},
-				encoding.ByteMultiplication{dNum, dNum.Invert()}, // D below
-				TableAsEncoding{SInv, S},
+				leading[pos], encoding.ByteAdditive(guess), encoding.InverseByte{sbox{}},
 			}
 
-			if isAffine(cand) {
-				a, b := DecomposeAffineEncoding(cand)
-				return number.ByteFieldElem(d), byte(c), encoding.ByteAffine{encoding.ByteLinear{a, nil}, byte(b)}
+			if isAS(cand) {
+				key[pos] = byte(guess)
+				break
 			}
 		}
 	}
 
-	panic("Failed to strip output encodings!")
-}
+	key = left.Encode(key)
 
-// FindAtilde calculates a non-trivial matrix Atilde s.t. L <- Atilde = Atilde <- D(beta), where
-// L = A_i <- D(beta) <- A_i^(-1)
-func FindAtilde(constr *chow.Construction, L matrix.Matrix) matrix.Matrix {
-	beta := CharToBeta[FindCharacteristic(L)]
-	D, _ := DecomposeAffineEncoding(encoding.ByteMultiplication{beta, beta.Invert()})
-
-	NS := L.RightStretch().Add(D.LeftStretch()).NullSpace()
-	x := NS[0]
-
-	m := matrix.Matrix(make([]matrix.Row, len(x)))
-	for i, e := range x {
-		m[i] = matrix.Row{e}
-	}
-
-	return m
-}
-
-// RecoverL recovers the matrix L = A_i <- D(beta) <- A_i^(-1) where A_i is the affine output mask at position i and
-// D(beta) is the matrix of multiplication by beta in GF(2^8).
-func RecoverL(constr *chow.Construction, round, pos int) matrix.Matrix {
-	inPos, outPos := pos/4*4, pos/4*4+(pos+1)%4
-
-	A := RecoverAffineRel(constr, round, inPos+0, outPos, pos)
-	B := RecoverAffineRel(constr, round, inPos+1, pos, outPos)
-
-	LEnc := encoding.ComposedBytes{A, B}
-	L, _ := DecomposeAffineEncoding(LEnc)
-
-	return L
-}
-
-// RecoverAffineRel returns the affine relationship that maps y_i to y_j (instances of F with affine output encodings),
-// both taking input in the (inPos)th position and outputting in the (outPos1)th and (outPos2)th position, respectively.
-func RecoverAffineRel(constr *chow.Construction, round, inPos, outPos1, outPos2 int) encoding.ByteAffine {
-	_, y_i := RecoverAffineEncoded(constr, encoding.IdentityByte{}, round, inPos, outPos1)
-	_, y_j := RecoverAffineEncoded(constr, encoding.IdentityByte{}, round, inPos, outPos2)
-
-	RelEnc := encoding.ComposedBytes{
-		TableAsEncoding{table.Invert(y_i), nil},
-		TableAsEncoding{y_j, nil},
-	}
-
-	L, c := DecomposeAffineEncoding(RelEnc)
-	return encoding.ByteAffine{encoding.ByteLinear{L, nil}, c}
-}
-
-// RecoverAffineEncoded reduces the output encodings of a function to affine transformations.
-func RecoverAffineEncoded(constr *chow.Construction, inputEnc encoding.Byte, round, inPos, outPos int) (encoding.Byte, table.InvertibleTable) {
-	S := GenerateS(constr, round, inPos/4*4, outPos)
-	_ = FindBasisAndSort(S)
-
-	qtilde := Qtilde{S}
-
-	outEnc := qtilde
-	outTable := encoding.ByteTable{
-		encoding.InverseByte{inputEnc},
-		encoding.InverseByte{qtilde},
-		F{constr, round, inPos, outPos, 0x00},
-	}
-
-	return outEnc, table.InvertibleTable(outTable)
-}
-
-// GenerateS creates the set of elements S, of the form fXX(f00^(-1)(x)) = Q(Q^(-1)(x) + b) for indeterminate x is
-// isomorphic to the additive group (GF(2)^8, xor) under composition.
-func GenerateS(constr *chow.Construction, round, inPos, outPos int) [][256]byte {
-	f00 := table.InvertibleTable(F{constr, round, inPos, outPos, 0x00})
-	f00Inv := table.Invert(f00)
-
-	S := make([][256]byte, 256)
-	for x := 0; x < 256; x++ {
-		copy(S[x][:], table.SerializeByte(table.ComposedBytes{
-			f00Inv,
-			F{constr, round, inPos, outPos, byte(x)},
-		}))
-	}
-
-	return S
-}
-
-// FindBasisAndSort finds 8 elements of S that act as a basis for S and build isomorphism psi.
-func FindBasisAndSort(S [][256]byte) (basis []table.Byte) {
-	for len(basis) < 8 { // Until we have a full basis.
-		basis = append(basis, table.ParsedByte(S[1<<uint(len(basis))][:])) // Add the first independent vector to the basis.
-
-		// Move all (now) dependent vectors from S into their correct position.
-		for i := 1 << uint(len(basis)-1); i < 1<<uint(len(basis)); i++ {
-			vect := [256]byte{}
-			copy(vect[:], table.SerializeByte(FunctionFromBasis(i, basis)))
-
-			// Move it to the correct position in S.
-			for j := i; j < len(S); j++ {
-				if vect == S[j] {
-					S[i], S[j] = S[j], S[i]
-					break
-				}
-			}
-		}
-	}
-
-	return
+	return backOneRound(backOneRound(key[:], 2), 1)
 }
