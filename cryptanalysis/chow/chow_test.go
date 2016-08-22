@@ -12,6 +12,7 @@ import (
 	"github.com/OpenWhiteBox/AES/primitives/table"
 
 	"github.com/OpenWhiteBox/AES/constructions/chow"
+	"github.com/OpenWhiteBox/AES/constructions/common"
 	"github.com/OpenWhiteBox/AES/constructions/saes"
 
 	test_vectors "github.com/OpenWhiteBox/AES/constructions/test"
@@ -25,7 +26,7 @@ var (
 func testConstruction() (*chow.Construction, []byte) {
 	key := test_vectors.AESVectors[50].Key
 	seed := test_vectors.AESVectors[51].Key
-	constr, _, _ := chow.GenerateEncryptionKeys(key, seed, chow.SameMasks(chow.IdentityMask))
+	constr, _, _ := chow.GenerateEncryptionKeys(key, seed, common.SameMasks(common.IdentityMask))
 
 	return &constr, key
 }
@@ -45,7 +46,7 @@ func fastTestConstruction() *chow.Construction {
 func exposeRound(constr *chow.Construction, round, inPos, outPos int) (encoding.Byte, encoding.Byte, table.InvertibleTable) {
 	// Actual input and output encoding for round 1 in position i.
 	in := constr.TBoxTyiTable[round][inPos].(encoding.WordTable).In
-	out := constr.TBoxTyiTable[round+1][shiftRows(outPos)].(encoding.WordTable).In
+	out := constr.TBoxTyiTable[round+1][common.ShiftRows(outPos)].(encoding.WordTable).In
 
 	f := F{constr, round, inPos, outPos, 0x00}
 
@@ -65,13 +66,14 @@ func getOutputAffineEncoding(constr, fastConstr *chow.Construction, round, pos i
 	outEncTilde, _ := RecoverAffineEncoded(fastConstr, encoding.IdentityByte{}, round, pos, pos)
 	outAff := encoding.ComposedBytes{out, encoding.InverseByte{outEncTilde}}
 	A, b := DecomposeAffineEncoding(outAff)
+	AInv, _ := A.Invert()
 
-	return encoding.ByteAffine{encoding.ByteLinear(A), b}
+	return encoding.ByteAffine{encoding.ByteLinear{A, AInv}, b}
 }
 
 func verifyIsAffine(t *testing.T, aff encoding.Byte, err string) {
 	m, c := DecomposeAffineEncoding(aff)
-	test := encoding.ByteAffine{encoding.ByteLinear(m), c}
+	test := encoding.ByteAffine{encoding.ByteLinear{m, nil}, c}
 
 	for i := 0; i < 256; i++ {
 		a, b := aff.Encode(byte(i)), test.Encode(byte(i))
@@ -137,7 +139,7 @@ func TestQtilde(t *testing.T) {
 
 func TestDecomposeAffineEncoding(t *testing.T) {
 	ae := encoding.ByteAffine{
-		encoding.ByteLinear(matrix.Matrix{
+		encoding.ByteLinear{matrix.Matrix{
 			matrix.Row{0xA4},
 			matrix.Row{0x49},
 			matrix.Row{0x92},
@@ -146,15 +148,15 @@ func TestDecomposeAffineEncoding(t *testing.T) {
 			matrix.Row{0x94},
 			matrix.Row{0x29},
 			matrix.Row{0x52},
-		}),
+		}, nil},
 		0x63,
 	}
 
 	m, c := DecomposeAffineEncoding(ae)
 
 	for i := 0; i < 8; i++ {
-		if ae.Linear[i][0] != m[i][0] {
-			t.Fatalf("Row %v in the linear part is wrong! %v != %v", i, ae.Linear[i][0], m[i][0])
+		if ae.Linear.Forwards[i][0] != m[i][0] {
+			t.Fatalf("Row %v in the linear part is wrong! %v != %v", i, ae.Linear.Forwards[i][0], m[i][0])
 		}
 	}
 
@@ -204,9 +206,9 @@ func TestFindCharacteristic(t *testing.T) {
 	AInv, _ := A.Invert()
 
 	N, _ := DecomposeAffineEncoding(encoding.ComposedBytes{
-		encoding.ByteLinear(A),
-		encoding.ByteLinear(M),
-		encoding.ByteLinear(AInv),
+		encoding.ByteLinear{A, nil},
+		encoding.ByteLinear{M, nil},
+		encoding.ByteLinear{AInv, nil},
 	})
 
 	if FindCharacteristic(M) != FindCharacteristic(N) {
@@ -232,7 +234,7 @@ func TestRecoverL(t *testing.T) {
 		// We strip the conjugation by A_i and check that D(beta) is multiplication by an element of GF(2^8).
 		DEnc := encoding.ComposedBytes{
 			outAff,
-			encoding.ByteLinear(L),
+			encoding.ByteLinear{L, nil},
 			encoding.InverseByte{outAff},
 		}
 		D, _ := DecomposeAffineEncoding(DEnc)
@@ -289,14 +291,14 @@ func TestRecoverEncodings(t *testing.T) {
 	// Verify that all Ps composed with their corresponding output encoding equals XOR by a key byte.
 	id := matrix.GenerateIdentity(8)
 	for pos, P := range Ps {
-		outAff := getOutputAffineEncoding(constr, fastConstr, 0, unshiftRows(pos))
+		outAff := getOutputAffineEncoding(constr, fastConstr, 0, common.UnShiftRows(pos))
 		A, b := DecomposeAffineEncoding(encoding.ComposedBytes{outAff, P})
 
 		if fmt.Sprintf("%x", id) != fmt.Sprintf("%x", A) {
 			t.Fatalf("Linear part of encoding was not identity!")
 		}
 
-		if roundKeys[1][unshiftRows(pos)] != b {
+		if roundKeys[1][common.UnShiftRows(pos)] != b {
 			t.Fatalf("Constant part of encoding was not key byte!")
 		}
 	}
@@ -347,7 +349,7 @@ func BenchmarkQtilde(b *testing.B) {
 
 func BenchmarkDecomposeAffineEncoding(b *testing.B) {
 	aff := encoding.ByteAffine{
-		encoding.ByteLinear(matrix.GenerateRandom(rand.Reader, 8)),
+		encoding.ByteLinear{matrix.GenerateRandom(rand.Reader, 8), nil},
 		0x60,
 	}
 	b.ResetTimer()

@@ -18,7 +18,7 @@ var (
 func main() {
 	flag.Parse()
 
-  key := []byte{106, 0x17, 138, 135, 69, 25, 230, 78, 153, 99, 121, 138, 80, 63, 29, 53}
+	key := []byte{106, 0x17, 138, 135, 69, 25, 230, 78, 153, 99, 121, 138, 80, 63, 29, 53}
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		panic("What could have possibly gone wrong already???")

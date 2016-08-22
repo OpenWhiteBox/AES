@@ -18,7 +18,10 @@ func TestShuffle(t *testing.T) {
 }
 
 func TestByteLinear(t *testing.T) {
-	m := ByteLinear(matrix.GenerateRandom(rand.Reader, 8))
+	M := matrix.GenerateRandom(rand.Reader, 8)
+	MInv, _ := M.Invert()
+
+	m := ByteLinear{M, MInv}
 
 	for i := byte(0); i < 250; i++ {
 		for j := byte(0); j < 250; j++ {

@@ -4,95 +4,9 @@ package chow
 import (
 	"github.com/OpenWhiteBox/AES/primitives/encoding"
 	"github.com/OpenWhiteBox/AES/primitives/matrix"
-	"github.com/OpenWhiteBox/AES/primitives/number"
 
-	"github.com/OpenWhiteBox/AES/constructions/saes"
+	"github.com/OpenWhiteBox/AES/constructions/common"
 )
-
-var (
-	encodingCache = make(map[[32]byte]encoding.Shuffle)
-	mbCache       = make(map[[32]byte]matrix.Matrix)
-)
-
-type MaskType int
-
-const (
-	RandomMask MaskType = iota
-	IdentityMask
-)
-
-// MaskTable maps one byte to a block, according to an input or output mask.
-type MaskTable struct {
-	Mask     matrix.Matrix
-	Position int
-}
-
-func (mt MaskTable) Get(i byte) (out [16]byte) {
-	r := make([]byte, 16)
-	r[mt.Position] = i
-
-	res := mt.Mask.Mul(matrix.Row(r))
-	copy(out[:], res)
-
-	return
-}
-
-// A T-Box computes the SubBytes and AddRoundKey steps.
-type TBox struct {
-	Constr   saes.Construction
-	KeyByte1 byte
-	KeyByte2 byte
-}
-
-func (tbox TBox) Get(i byte) byte {
-	return tbox.Constr.SubByte(i^tbox.KeyByte1) ^ tbox.KeyByte2
-}
-
-type InvTBox struct {
-	Constr saes.Construction
-	KeyByte1 byte
-	KeyByte2 byte
-}
-
-func (tbox InvTBox) Get(i byte) byte {
-	return tbox.Constr.UnSubByte(i^tbox.KeyByte1) ^ tbox.KeyByte2
-}
-
-// A Tyi Table computes the MixColumns step.
-type TyiTable uint
-
-func (tyi TyiTable) Get(i byte) (out [4]byte) {
-	// Calculate dot product of i and [0x02 0x01 0x01 0x03]
-	j := number.ByteFieldElem(i)
-
-	a := byte(number.ByteFieldElem(2).Mul(j))
-	b := byte(number.ByteFieldElem(1).Mul(j))
-	c := byte(number.ByteFieldElem(3).Mul(j))
-
-	// Merge into one output and rotate according to column.
-	res := [4]byte{a, b, b, c}
-	copy(out[:], append(res[(4-tyi):], res[0:(4-tyi)]...))
-
-	return
-}
-
-type InvTyiTable uint
-
-func (tyi InvTyiTable) Get(i byte) (out [4]byte) {
-	// Calculate dot product of i and []
-	j := number.ByteFieldElem(i)
-
-	a := byte(number.ByteFieldElem(0x0e).Mul(j))
-	b := byte(number.ByteFieldElem(0x09).Mul(j))
-	c := byte(number.ByteFieldElem(0x0d).Mul(j))
-	d := byte(number.ByteFieldElem(0x0b).Mul(j))
-
-	// Merge into one output and rotate according to column.
-	res := [4]byte{a, b, c, d}
-	copy(out[:], append(res[(4-tyi):], res[0:(4-tyi)]...))
-
-	return
-}
 
 // A MB^(-1) Table inverts the mixing bijection on the Tyi Table.
 type MBInverseTable struct {
@@ -110,68 +24,52 @@ func (mbinv MBInverseTable) Get(i byte) (out [4]byte) {
 	return
 }
 
-// An XOR Table computes the XOR of two nibbles.
-type XORTable struct{}
+// See constructions/common/keygen_tools.go
+func MaskEncoding(rs *common.RandomSource, surface common.Surface) func(int, int) encoding.Nibble {
+	return func(position, subPosition int) encoding.Nibble {
+		label := make([]byte, 16)
+		label[0], label[1], label[2], label[3], label[4] = 'M', 'E', byte(position), byte(subPosition), byte(surface)
 
-func (xor XORTable) Get(i byte) (out byte) {
-	return (i >> 4) ^ (i & 0xf)
-}
-
-// Generate byte/word mixing bijections.
-// TODO: Ensure that blocks are full-rank.
-func MixingBijection(seed []byte, size, round, position int) matrix.Matrix {
-	label := make([]byte, 16)
-	label[0], label[1], label[2], label[3], label[4] = 'M', 'B', byte(size), byte(round), byte(position)
-
-	key := [32]byte{}
-	copy(key[0:16], seed)
-	copy(key[16:32], label)
-
-	cached, ok := mbCache[key]
-
-	if ok {
-		return cached
-	} else {
-		mbCache[key] = matrix.GenerateRandom(generateStream(seed, label), size)
-		return mbCache[key]
+		return rs.Shuffle(label)
 	}
 }
 
-// Generate input and output masks.
-func GenerateMask(maskType MaskType, seed []byte, surface Surface) matrix.Matrix {
-	if maskType == RandomMask {
-		if surface == Inside {
-			return MixingBijection(seed, 128, 0, 0)
-		} else {
-			return MixingBijection(seed, 128, 10, 0)
-		}
-	} else { // Identity mask.
-		return matrix.GenerateIdentity(128)
+// See constructions/common/keygen_tools.go
+func XOREncoding(rs *common.RandomSource, round int, surface common.Surface) func(int, int) encoding.Nibble {
+	return func(position, gate int) encoding.Nibble {
+		label := make([]byte, 16)
+		label[0], label[1], label[2], label[3], label[4] = 'X', byte(round), byte(position), byte(gate), byte(surface)
+
+		return rs.Shuffle(label)
 	}
 }
 
-// Encodes the output of an input/output mask.
-//
-//    position: Position in the state array, counted in *bytes*.
-// subPosition: Position in the mask's output for this byte, counted in nibbles.
-func MaskEncoding(seed []byte, position, subPosition int, surface Surface) encoding.Nibble {
-	label := make([]byte, 16)
-	label[0], label[1], label[2], label[3], label[4] = 'M', 'E', byte(position), byte(subPosition), byte(surface)
+// See constructions/common/keygen_tools.go
+func RoundEncoding(rs *common.RandomSource, round int, surface common.Surface, shift func(int) int) func(int) encoding.Nibble {
+	return func(position int) encoding.Nibble {
+		position = 2*shift(position/2) + position%2
 
-	return getShuffle(seed, label)
+		label := make([]byte, 16)
+		label[0], label[1], label[2], label[3] = 'R', byte(round), byte(position), byte(surface)
+
+		return rs.Shuffle(label)
+	}
 }
 
-func BlockMaskEncoding(seed []byte, position int, surface Surface, shift func(int)int) encoding.Block {
+func BlockMaskEncoding(rs *common.RandomSource, position int, surface common.Surface, shift func(int) int) encoding.Block {
 	out := encoding.ConcatenatedBlock{}
 
 	for i := 0; i < 16; i++ {
 		out[i] = encoding.ConcatenatedByte{
-			MaskEncoding(seed, position, 2*i+0, surface),
-			MaskEncoding(seed, position, 2*i+1, surface),
+			MaskEncoding(rs, surface)(position, 2*i+0),
+			MaskEncoding(rs, surface)(position, 2*i+1),
 		}
 
-		if surface == Inside {
-			out[i] = encoding.ComposedBytes{encoding.ByteLinear(MixingBijection(seed, 8, -1, shift(i))), out[i]}
+		if surface == common.Inside {
+			out[i] = encoding.ComposedBytes{
+				encoding.ByteLinear{common.MixingBijection(rs, 8, -1, shift(i)), nil},
+				out[i],
+			}
 		}
 	}
 
@@ -179,21 +77,21 @@ func BlockMaskEncoding(seed []byte, position int, surface Surface, shift func(in
 }
 
 // Abstraction over the Tyi and MB^(-1) encodings, to match the pattern of the XOR and round encodings.
-func StepEncoding(seed []byte, round, position, subPosition int, surface Surface) encoding.Nibble {
-	if surface == Inside {
-		return TyiEncoding(seed, round, position, subPosition)
+func StepEncoding(rs *common.RandomSource, round, position, subPosition int, surface common.Surface) encoding.Nibble {
+	if surface == common.Inside {
+		return TyiEncoding(rs, round, position, subPosition)
 	} else {
-		return MBInverseEncoding(seed, round, position, subPosition)
+		return MBInverseEncoding(rs, round, position, subPosition)
 	}
 }
 
-func WordStepEncoding(seed []byte, round, position int, surface Surface) encoding.Word {
+func WordStepEncoding(rs *common.RandomSource, round, position int, surface common.Surface) encoding.Word {
 	out := encoding.ConcatenatedWord{}
 
 	for i := 0; i < 4; i++ {
 		out[i] = encoding.ConcatenatedByte{
-			StepEncoding(seed, round, position, 2*i+0, surface),
-			StepEncoding(seed, round, position, 2*i+1, surface),
+			StepEncoding(rs, round, position, 2*i+0, surface),
+			StepEncoding(rs, round, position, 2*i+1, surface),
 		}
 	}
 
@@ -204,50 +102,27 @@ func WordStepEncoding(seed []byte, round, position int, surface Surface) encodin
 //
 //    position: Position in the state array, counted in *bytes*.
 // subPosition: Position in the T-Box/Tyi Table's ouptput for this byte, counted in nibbles.
-func TyiEncoding(seed []byte, round, position, subPosition int) encoding.Nibble {
+func TyiEncoding(rs *common.RandomSource, round, position, subPosition int) encoding.Nibble {
 	label := make([]byte, 16)
 	label[0], label[1], label[2], label[3] = 'T', byte(round), byte(position), byte(subPosition)
 
-	return getShuffle(seed, label)
+	return rs.Shuffle(label)
 }
 
 // Encodes the output of a MB^(-1) Table / the input of an XOR Table.
 //
 //    position: Position in the state array, counted in *bytes*.
 // subPosition: Position in the MB^(-1) Table's ouptput for this byte, counted in nibbles.
-func MBInverseEncoding(seed []byte, round, position, subPosition int) encoding.Nibble {
+func MBInverseEncoding(rs *common.RandomSource, round, position, subPosition int) encoding.Nibble {
 	label := make([]byte, 16)
 	label[0], label[1], label[2], label[3], label[4] = 'M', 'I', byte(round), byte(position), byte(subPosition)
 
-	return getShuffle(seed, label)
+	return rs.Shuffle(label)
 }
 
-// Encodes intermediate results between each successive XOR.
-//
-// position: Position in the state array, counted in nibbles.
-//     gate: The gate number, or, the number of XORs we've computed so far.
-//  surface: Location relative to the round structure. Inside or Outside.
-func XOREncoding(seed []byte, round, position, gate int, surface Surface) encoding.Nibble {
-	label := make([]byte, 16)
-	label[0], label[1], label[2], label[3], label[4] = 'X', byte(round), byte(position), byte(gate), byte(surface)
-
-	return getShuffle(seed, label)
-}
-
-// Encodes the output of an Expand->Squash round. Two Expand->Squash rounds make up one AES round.
-//
-// position: Position in the state array, counted in nibbles.
-//  surface: Location relative to the AES round structure. Inside or Outside.
-func RoundEncoding(seed []byte, round, position int, surface Surface) encoding.Nibble {
-	label := make([]byte, 16)
-	label[0], label[1], label[2], label[3] = 'R', byte(round), byte(position), byte(surface)
-
-	return getShuffle(seed, label)
-}
-
-func ByteRoundEncoding(seed []byte, round, position int, surface Surface) encoding.Byte {
+func ByteRoundEncoding(rs *common.RandomSource, round, position int, surface common.Surface, shift func(int) int) encoding.Byte {
 	return encoding.ConcatenatedByte{
-		RoundEncoding(seed, round, 2*position+0, surface),
-		RoundEncoding(seed, round, 2*position+1, surface),
+		RoundEncoding(rs, round, surface, shift)(2*position + 0),
+		RoundEncoding(rs, round, surface, shift)(2*position + 1),
 	}
 }

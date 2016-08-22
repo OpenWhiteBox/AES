@@ -4,6 +4,8 @@ import (
 	"errors"
 
 	"github.com/OpenWhiteBox/AES/primitives/table"
+
+	"github.com/OpenWhiteBox/AES/constructions/common"
 )
 
 const (
@@ -18,8 +20,7 @@ func (constr *Construction) Serialize() []byte {
 	out, base := make([]byte, fullSize), 0
 
 	// Input Mask
-	base += serializeMaskTables(out[base:], constr.InputMask)
-	base += serializeLargeXORTables(out[base:], constr.InputXORTable)
+	base += common.SerializeBlockMatrix(out[base:], constr.InputMask, constr.InputXORTable)
 
 	// First half of round
 	base += serializeStepTables(out[base:], constr.TBoxTyiTable)
@@ -30,8 +31,7 @@ func (constr *Construction) Serialize() []byte {
 	base += serializeXORTables(out[base:], constr.LowXORTable)
 
 	// Output Mask
-	base += serializeMaskTables(out[base:], constr.TBoxOutputMask)
-	serializeLargeXORTables(out[base:], constr.OutputXORTable)
+	common.SerializeBlockMatrix(out[base:], constr.TBoxOutputMask, constr.OutputXORTable)
 
 	return out
 }
@@ -39,8 +39,7 @@ func (constr *Construction) Serialize() []byte {
 func Parse(in []byte) (constr Construction, err error) {
 	var rest []byte
 
-	constr.InputMask, rest = parseMaskTables(in)
-	constr.InputXORTable, rest = parseLargeXORTables(rest)
+	constr.InputMask, constr.InputXORTable, rest = common.ParseBlockMatrix(in)
 
 	constr.TBoxTyiTable, rest = parseStepTables(rest)
 	constr.HighXORTable, rest = parseXORTables(rest)
@@ -48,61 +47,13 @@ func Parse(in []byte) (constr Construction, err error) {
 	constr.MBInverseTable, rest = parseStepTables(rest)
 	constr.LowXORTable, rest = parseXORTables(rest)
 
-	constr.TBoxOutputMask, rest = parseMaskTables(rest)
-	constr.OutputXORTable, rest = parseLargeXORTables(rest)
+	constr.TBoxOutputMask, constr.OutputXORTable, rest = common.ParseBlockMatrix(rest)
 
 	if rest == nil {
-		err = errors.New("Parsing the table failed!")
+		err = errors.New("Parsing the key failed!")
 	}
 
 	return
-}
-
-func serializeMaskTables(dst []byte, t [16]table.Block) int {
-	base := 0
-	for _, mask := range t {
-		base += copy(dst[base:], table.SerializeBlock(mask))
-	}
-
-	return base
-}
-
-func parseMaskTables(in []byte) (out [16]table.Block, rest []byte) {
-	if in == nil || len(in) < maskTableSize*16 {
-		return
-	}
-
-	for i := 0; i < 16; i++ {
-		out[i] = table.ParsedBlock(in[maskTableSize*i : maskTableSize*(i+1)])
-	}
-
-	return out, in[maskTableSize*16:]
-}
-
-func serializeLargeXORTables(dst []byte, t [32][15]table.Nibble) int {
-	base := 0
-	for _, rack := range t {
-		for _, xorTable := range rack {
-			base += copy(dst[base:], table.SerializeNibble(xorTable))
-		}
-	}
-
-	return base
-}
-
-func parseLargeXORTables(in []byte) (out [32][15]table.Nibble, rest []byte) {
-	if in == nil || len(in) < xorTableSize*9*16 {
-		return
-	}
-
-	for i := 0; i < 32; i++ {
-		for j := 0; j < 15; j++ {
-			loc := 15*i + j
-			out[i][j] = table.ParsedNibble(in[xorTableSize*loc : xorTableSize*(loc+1)])
-		}
-	}
-
-	return out, in[xorTableSize*32*15:]
 }
 
 func serializeStepTables(dst []byte, t [9][16]table.Word) int {

@@ -7,6 +7,7 @@ import (
 	"github.com/OpenWhiteBox/AES/primitives/table"
 
 	"github.com/OpenWhiteBox/AES/constructions/chow"
+	"github.com/OpenWhiteBox/AES/constructions/common"
 	"github.com/OpenWhiteBox/AES/constructions/saes"
 )
 
@@ -75,7 +76,7 @@ func RecoverKey(constr *chow.Construction) []byte {
 		_, in := RecoverEncodings(constr, 2, 4*col)
 
 		for row := 0; row < 4; row++ {
-			backPos := unshiftRows(4*col + row)
+			backPos := common.UnShiftRows(4*col + row)
 			temp[backPos] = encoding.ComposedBytes{temp[backPos], in[row]}
 		}
 	}
@@ -106,7 +107,9 @@ func RecoverEncodings(constr *chow.Construction, round, pos int) (encoding.ByteA
 	for i := 0; i < 4; i++ {
 		j := pos/4*4 + i
 
-		inEnc, _ := RecoverAffineEncoded(constr, encoding.IdentityByte{}, round-1, unshiftRows(j), unshiftRows(j))
+		inEnc, _ := RecoverAffineEncoded(
+			constr, encoding.IdentityByte{}, round-1, common.UnShiftRows(j), common.UnShiftRows(j),
+		)
 		_, f := RecoverAffineEncoded(constr, inEnc, round, j, pos)
 
 		var c byte
@@ -120,17 +123,18 @@ func RecoverEncodings(constr *chow.Construction, round, pos int) (encoding.ByteA
 
 	DInv, _ := DecomposeAffineEncoding(encoding.ByteMultiplication(FindDuplicate(Ds).Invert()))
 	A := Atilde.Compose(DInv)
+	AInv, _ := A.Invert()
 
-	return encoding.ByteAffine{encoding.ByteLinear(A), q}, Ps
+	return encoding.ByteAffine{encoding.ByteLinear{A, AInv}, q}, Ps
 }
 
 // FindPartialEncoding takes an affine encoded F and finds the values that strip its output encoding.  It returns the
 // parameters it finds and the input encoding of f up to a key byte.
 func FindPartialEncoding(constr *chow.Construction, f table.Byte, L, AtildeInv matrix.Matrix) (number.ByteFieldElem, byte, encoding.ByteAffine) {
 	fInv := table.Invert(f)
-	id := encoding.ByteLinear(matrix.GenerateIdentity(8))
+	id := encoding.ByteLinear{matrix.GenerateIdentity(8), nil}
 
-	SInv := table.InvertibleTable(chow.InvTBox{saes.Construction{}, 0x00, 0x00})
+	SInv := table.InvertibleTable(common.InvTBox{saes.Construction{}, 0x00, 0x00})
 	S := table.Invert(SInv)
 
 	// Brute force the constant part of the output encoding and the beta in Atilde = A_i <- D(beta)
@@ -139,14 +143,14 @@ func FindPartialEncoding(constr *chow.Construction, f table.Byte, L, AtildeInv m
 			cand := encoding.ComposedBytes{
 				TableAsEncoding{f, fInv},
 				encoding.ByteAffine{id, byte(c)},
-				encoding.ByteLinear(AtildeInv),
+				encoding.ByteLinear{AtildeInv, nil},
 				encoding.ByteMultiplication(byte(d)), // D below
 				TableAsEncoding{SInv, S},
 			}
 
 			if isAffine(cand) {
 				a, b := DecomposeAffineEncoding(cand)
-				return number.ByteFieldElem(d), byte(c), encoding.ByteAffine{encoding.ByteLinear(a), byte(b)}
+				return number.ByteFieldElem(d), byte(c), encoding.ByteAffine{encoding.ByteLinear{a, nil}, byte(b)}
 			}
 		}
 	}
@@ -196,7 +200,7 @@ func RecoverAffineRel(constr *chow.Construction, round, inPos, outPos1, outPos2 
 	}
 
 	L, c := DecomposeAffineEncoding(RelEnc)
-	return encoding.ByteAffine{encoding.ByteLinear(L), c}
+	return encoding.ByteAffine{encoding.ByteLinear{L, nil}, c}
 }
 
 // RecoverAffineEncoded reduces the output encodings of a function to affine transformations.
