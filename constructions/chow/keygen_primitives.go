@@ -112,7 +112,7 @@ func blockMaskEncoding(rs *random.Source, position int, surface common.Surface, 
 
 // stepEncoding returns a TyiEncoding if surface = common.Inside and a MBInverseEncoding if surface = common.Outside.
 // It transparently swaps the two in the code that generates HighXORTable and LowXORTable.
-
+//
 // All randomness is derived from the random source. round is the current round; position is the byte-wise position in
 // the state matrix that's being stretched; subPosition is the nibble-wise position in the Word table's output.
 func stepEncoding(rs *random.Source, round, position, subPosition int, surface common.Surface) encoding.Nibble {

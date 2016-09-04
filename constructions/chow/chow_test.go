@@ -23,7 +23,7 @@ func TestShiftRows(t *testing.T) {
 	out := []byte{99, 83, 224, 140, 9, 96, 225, 4, 205, 112, 183, 81, 186, 202, 208, 231}
 
 	constr, _, _ := GenerateEncryptionKeys(key, key, common.SameMasks(common.IdentityMask))
-	constr.ShiftRows(in)
+	constr.shiftRows(in)
 
 	if !bytes.Equal(out, in) {
 		t.Fatalf("Real disagrees with result! %x != %x", out, in)
@@ -46,7 +46,7 @@ func TestUnmaskedEncrypt(t *testing.T) {
 	}
 }
 
-func TestMatchedEncrypt(t *testing.T) {
+func TestMaskedEncrypt(t *testing.T) {
 	cand, real := make([]byte, 16), make([]byte, 16)
 
 	// Calculate the candidate output.
@@ -124,6 +124,7 @@ func TestPersistence(t *testing.T) {
 
 	serialized := constr1.Serialize()
 	constr2, err := Parse(serialized)
+	t.Logf("Serialized white-box size: %v bytes", len(serialized))
 
 	if err != nil {
 		t.Fatalf("Parse returned error: %v", err)
@@ -172,66 +173,5 @@ func BenchmarkDeadEncrypt(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		constr2.Encrypt(out, input)
-	}
-}
-
-func BenchmarkShiftRows(b *testing.B) {
-	constr, _, _ := GenerateEncryptionKeys(key, seed, common.SameMasks(common.IdentityMask))
-
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		constr.ShiftRows(input)
-	}
-}
-
-func BenchmarkExpandWord(b *testing.B) {
-	constr1, _, _ := GenerateEncryptionKeys(key, seed, common.SameMasks(common.IdentityMask))
-
-	serialized := constr1.Serialize()
-	constr2, _ := Parse(serialized)
-
-	dst := make([]byte, 16)
-	copy(dst, input)
-
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		constr2.ExpandWord(constr2.TBoxTyiTable[0][0:4], dst[0:4])
-	}
-}
-
-func BenchmarkExpandBlock(b *testing.B) {
-	constr1, _, _ := GenerateEncryptionKeys(key, seed, common.IndependentMasks{common.RandomMask, common.RandomMask})
-
-	serialized := constr1.Serialize()
-	constr2, _ := Parse(serialized)
-
-	dst := make([]byte, 16)
-	copy(dst, input)
-
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		constr2.ExpandBlock(constr2.InputMask, dst)
-	}
-}
-
-func BenchmarkSquashWords(b *testing.B) {
-	constr1, _, _ := GenerateEncryptionKeys(key, seed, common.SameMasks(common.IdentityMask))
-
-	serialized := constr1.Serialize()
-	constr2, _ := Parse(serialized)
-
-	dst := make([]byte, 16)
-	copy(dst, input)
-
-	stretched := constr2.ExpandWord(constr2.TBoxTyiTable[0][0:4], dst[0:4])
-
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		constr2.SquashWords(constr2.HighXORTable[0][0:8], stretched, dst[0:4])
-		copy(dst[0:4], input)
 	}
 }
