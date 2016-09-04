@@ -61,14 +61,14 @@ func (constr *Construction) encrypt(in gfmatrix.Row) gfmatrix.Row {
 	state := in.Add(roundKeys[0])
 
 	for i := 1; i <= 9; i++ {
-		state = constr.SubBytes(state)
-		state = Round.Mul(state)
-		state = state.Add(RoundConst).Add(roundKeys[i])
+		state = constr.subBytes(state)
+		state = round.Mul(state)
+		state = state.Add(roundConst).Add(roundKeys[i])
 	}
 
-	state = constr.SubBytes(state)
-	state = LastRound.Mul(state)
-	state = state.Add(RoundConst).Add(roundKeys[10])
+	state = constr.subBytes(state)
+	state = lastRound.Mul(state)
+	state = state.Add(roundConst).Add(roundKeys[10])
 
 	return state
 }
@@ -76,14 +76,14 @@ func (constr *Construction) encrypt(in gfmatrix.Row) gfmatrix.Row {
 func (constr *Construction) decrypt(in gfmatrix.Row) gfmatrix.Row {
 	roundKeys := constr.StretchedKey()
 
-	state := in.Add(RoundConst).Add(roundKeys[10])
-	state = FirstRound.Mul(state)
-	state = constr.SubBytes(state)
+	state := in.Add(roundConst).Add(roundKeys[10])
+	state = firstRound.Mul(state)
+	state = constr.subBytes(state)
 
 	for i := 9; i >= 1; i-- {
-		state = state.Add(RoundConst).Add(roundKeys[i])
-		state = UnRound.Mul(state)
-		state = constr.SubBytes(state)
+		state = state.Add(roundConst).Add(roundKeys[i])
+		state = unRound.Mul(state)
+		state = constr.subBytes(state)
 	}
 
 	state = state.Add(roundKeys[0])
@@ -108,8 +108,8 @@ func (constr *Construction) StretchedKey() [11]gfmatrix.Row {
 
 		if (i % 4) == 0 {
 			temp = append(temp[8:], temp[:8]...)
-			temp = constr.SubBytes(temp)
-			temp = WordSubBytes.Mul(temp).Add(WordSubBytesConst)
+			temp = constr.subBytes(temp)
+			temp = wordSubBytes.Mul(temp).Add(wordSubBytesConst)
 			temp = temp.Add(Expand([]byte{powx[i/4-1], 0, 0, 0}))
 		}
 
@@ -127,8 +127,8 @@ func (constr *Construction) StretchedKey() [11]gfmatrix.Row {
 	return split
 }
 
-// SubBytes rewrites each byte of the state with the S-Box. UnSubBytes and SubBytes are the same.
-func (constr *Construction) SubBytes(in gfmatrix.Row) gfmatrix.Row {
+// subBytes rewrites each byte of the state with the S-Box. unSubBytes and subBytes are the same.
+func (constr *Construction) subBytes(in gfmatrix.Row) gfmatrix.Row {
 	out := gfmatrix.NewRow(in.Size())
 
 	for pos := 0; pos < in.Size(); pos++ {

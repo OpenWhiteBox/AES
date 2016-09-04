@@ -39,8 +39,7 @@ func TestSubBytes(t *testing.T) {
 	for pos := 0; pos < 128; pos++ {
 		cand[pos] = cand[pos].Invert()
 	}
-	cand = SubBytes.Mul(cand)
-	cand = cand.Add(SubBytesConst)
+	cand = subBytes.Mul(cand).Add(subBytesConst)
 
 	constr.SubBytes(real)
 
@@ -52,7 +51,7 @@ func TestSubBytes(t *testing.T) {
 func TestShiftRows(t *testing.T) {
 	cand, real, constr := testinit()
 
-	cand = ShiftRows.Mul(cand)
+	cand = shiftRows.Mul(cand)
 	constr.ShiftRows(real)
 
 	if !Expand(real).Equals(cand) {
@@ -63,7 +62,7 @@ func TestShiftRows(t *testing.T) {
 func TestMixColumns(t *testing.T) {
 	cand, real, constr := testinit()
 
-	cand = MixColumns.Mul(cand)
+	cand = mixColumns.Mul(cand)
 	constr.MixColumns(real)
 
 	if !Expand(real).Equals(cand) {

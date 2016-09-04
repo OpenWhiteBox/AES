@@ -52,12 +52,14 @@ func makeSubBytesConst(n int) gfmatrix.Row {
 	return Expand(out)
 }
 
-var SubBytes = makeSubBytes(16)
-var UnSubBytes, _ = SubBytes.Invert()
-var SubBytesConst = makeSubBytesConst(16)
+var (
+	subBytes = makeSubBytes(16)
+	unSubBytes, _ = subBytes.Invert()
+	subBytesConst = makeSubBytesConst(16)
 
-var WordSubBytes = makeSubBytes(4)
-var WordSubBytesConst = makeSubBytesConst(4)
+	wordSubBytes = makeSubBytes(4)
+	wordSubBytesConst = makeSubBytesConst(4)
+)
 
 func makeShiftRows() gfmatrix.Matrix {
 	out := gfmatrix.Matrix{}
@@ -76,8 +78,10 @@ func makeShiftRows() gfmatrix.Matrix {
 	return out
 }
 
-var ShiftRows = makeShiftRows()
-var UnShiftRows, _ = ShiftRows.Invert()
+var(
+	shiftRows = makeShiftRows()
+	unShiftRows, _ = shiftRows.Invert()
+)
 
 func makeOneMixColumns() gfmatrix.Matrix {
 	out := gfmatrix.Matrix{}
@@ -115,25 +119,29 @@ func makeMixColumns() gfmatrix.Matrix {
 	return out
 }
 
-var MixColumns = makeMixColumns()
-var UnMixColumns, _ = MixColumns.Invert()
+var(
+	mixColumns = makeMixColumns()
+	unMixColumns, _ = mixColumns.Invert()
+)
 
 func makeRound() gfmatrix.Matrix {
-	return MixColumns.Compose(ShiftRows).Compose(SubBytes)
+	return mixColumns.Compose(shiftRows).Compose(subBytes)
 }
 
 func makeRoundConst() gfmatrix.Row {
-	return MixColumns.Compose(ShiftRows).Mul(makeSubBytesConst(16))
+	return mixColumns.Compose(shiftRows).Mul(makeSubBytesConst(16))
 }
 
 func makeLastRound() gfmatrix.Matrix {
-	return ShiftRows.Compose(SubBytes)
+	return shiftRows.Compose(subBytes)
 }
 
-var Round = makeRound()
-var UnRound, _ = Round.Invert()
+var (
+	round = makeRound()
+	unRound, _ = round.Invert()
 
-var RoundConst = makeRoundConst()
+	roundConst = makeRoundConst()
 
-var LastRound = makeLastRound()
-var FirstRound, _ = LastRound.Invert()
+	lastRound = makeLastRound()
+	firstRound, _ = lastRound.Invert()
+)
