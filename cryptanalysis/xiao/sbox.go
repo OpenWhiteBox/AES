@@ -21,20 +21,20 @@ func (sbox sbox) Decode(in byte) byte {
 	return constr.UnSubByte(in)
 }
 
-// SBoxLayer implements methods for disambiguating an S-box layer of the SPN.
-type SBoxLayer encoding.ConcatenatedBlock
+// sboxLayer implements methods for disambiguating an S-box layer of the SPN.
+type sboxLayer encoding.ConcatenatedBlock
 
-func (sbl SBoxLayer) Encode(in [16]byte) [16]byte {
+func (sbl sboxLayer) Encode(in [16]byte) [16]byte {
 	return encoding.ConcatenatedBlock(sbl).Encode(in)
 }
 
-func (sbl SBoxLayer) Decode(in [16]byte) [16]byte {
+func (sbl sboxLayer) Decode(in [16]byte) [16]byte {
 	return encoding.ConcatenatedBlock(sbl).Decode(in)
 }
 
-// PermuteBy permutes the S-boxes according to the 128-by-128 permutation matrix perm. If forwards = true, the forwards
+// permuteBy permutes the S-boxes according to the 128-by-128 permutation matrix perm. If forwards = true, the forwards
 // permutation is used; else, the backwards permutation is used.
-func (sbl *SBoxLayer) PermuteBy(perm matrix.Matrix, forwards bool) {
+func (sbl *sboxLayer) permuteBy(perm matrix.Matrix, forwards bool) {
 	temp := encoding.ConcatenatedBlock{}
 	for row := 0; row < 16; row++ {
 		col := perm[8*row].Height() / 8
@@ -46,11 +46,11 @@ func (sbl *SBoxLayer) PermuteBy(perm matrix.Matrix, forwards bool) {
 		}
 	}
 
-	*sbl = SBoxLayer(temp)
+	*sbl = sboxLayer(temp)
 }
 
-// Whiten puts an xor-mask on the input to each S-box so that S(0x00) = 0x00.
-func (sbl *SBoxLayer) Whiten() (mask [16]byte) {
+// whiten puts an xor-mask on the input to each S-box so that S(0x00) = 0x00.
+func (sbl *sboxLayer) whiten() (mask [16]byte) {
 	for pos := 0; pos < 16; pos++ {
 		m := (*sbl)[pos].Decode(0x00)
 
@@ -64,9 +64,9 @@ func (sbl *SBoxLayer) Whiten() (mask [16]byte) {
 	return
 }
 
-// CleanLinear finds the linear error on the input and output of each middle S-box. It removes it from the S-box and
+// cleanLinear finds the linear error on the input and output of each middle S-box. It removes it from the S-box and
 // returns it. After this function is applied, all S-boxes will be equal to the whitened standard S-box, Sbar.
-func (sbl *SBoxLayer) CleanLinear() (in, out encoding.ConcatenatedBlock) {
+func (sbl *sboxLayer) cleanLinear() (in, out encoding.ConcatenatedBlock) {
 	Sbar := encoding.ComposedBytes{encoding.ByteAdditive(0x52), sbox{}}
 
 	for pos := 0; pos < 16; pos++ {

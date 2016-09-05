@@ -43,22 +43,22 @@ func (constr *Construction) crypt(dst, src []byte) {
 
 		// Apply T-Boxes and MixColumns
 		for pos := 0; pos < 16; pos += 4 {
-			stretched := constr.expandWord(constr.TBoxMixCol[round][pos/2:(pos+4)/2], dst[pos:pos+4])
-			constr.squashWords(stretched, dst[pos:pos+4])
+			stretched := constr.ExpandWord(constr.TBoxMixCol[round][pos/2:(pos+4)/2], dst[pos:pos+4])
+			constr.SquashWords(stretched, dst[pos:pos+4])
 		}
 	}
 
 	copy(dst, constr.FinalMask.Mul(matrix.Row(dst)))
 }
 
-func (constr *Construction) expandWord(tmc []table.DoubleToWord, word []byte) [2][4]byte {
+func (constr *Construction) ExpandWord(tmc []table.DoubleToWord, word []byte) [2][4]byte {
 	return [2][4]byte{
 		tmc[0].Get([2]byte{word[0], word[1]}),
 		tmc[1].Get([2]byte{word[2], word[3]}),
 	}
 }
 
-func (constr *Construction) squashWords(words [2][4]byte, dst []byte) {
+func (constr *Construction) SquashWords(words [2][4]byte, dst []byte) {
 	for i := 0; i < 4; i++ {
 		dst[i] = words[0][i] ^ words[1][i]
 	}

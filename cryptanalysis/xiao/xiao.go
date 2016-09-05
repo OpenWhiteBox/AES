@@ -84,8 +84,8 @@ func RecoverKey(constr *xiao.Construction) []byte {
 	constr1 := aspn.DecomposeSPN(round1, cspn.ASA)
 
 	var (
-		first, last = AffineLayer(constr1[0].(encoding.BlockAffine)), AffineLayer(constr1[2].(encoding.BlockAffine))
-		middle      = SBoxLayer(constr1[1].(encoding.ConcatenatedBlock))
+		first, last = affineLayer(constr1[0].(encoding.BlockAffine)), affineLayer(constr1[2].(encoding.BlockAffine))
+		middle      = sboxLayer(constr1[1].(encoding.ConcatenatedBlock))
 	)
 
 	// Disambiguation Phase
@@ -93,33 +93,33 @@ func RecoverKey(constr *xiao.Construction) []byte {
 	// middle S-boxes if that wasn't the case.
 
 	// Put the affine layers in diagonal form.
-	perm := first.FindPermutation()
+	perm := first.findPermutation()
 	permEnc := encoding.NewBlockLinear(perm)
 
-	first.RightCompose(encoding.InverseBlock{permEnc})
-	middle.PermuteBy(perm, false)
-	last.LeftCompose(permEnc)
+	first.rightCompose(encoding.InverseBlock{permEnc})
+	middle.permuteBy(perm, false)
+	last.leftCompose(permEnc)
 
 	// Whiten the S-boxes so that they are linearly equivalent to Sbar.
-	mask := middle.Whiten()
+	mask := middle.whiten()
 	encoding.XOR(first.BlockAdditive[:], first.BlockAdditive[:], mask[:])
 
 	// Fix the S-boxes so that they are equal to Sbar.
-	in, out := middle.CleanLinear()
+	in, out := middle.cleanLinear()
 
-	first.RightCompose(in)
-	last.LeftCompose(out)
+	first.rightCompose(in)
+	last.leftCompose(out)
 
 	// Add ShiftRows matrix to make search possible.
-	last.RightCompose(encoding.NewBlockLinear(constr.ShiftRows[2]))
+	last.rightCompose(encoding.NewBlockLinear(constr.ShiftRows[2]))
 
 	// Clean off remaining noise from self-equivalences of Sbar.
-	left := last.CleanLeft()
+	left := last.cleanLeft()
 	right := encoding.ComposedBlocks{
 		middle, left, encoding.InverseBlock{middle},
 	}
 
-	first.RightCompose(right)
+	first.rightCompose(right)
 
 	// Convert Sbar back to AES's "standard" S-box.
 	for pos := 0; pos < 16; pos++ {

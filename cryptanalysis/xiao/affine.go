@@ -34,38 +34,38 @@ func blockOfInverse(swap [2]int, eqs [4]int) matrix.Matrix {
 	return noise.Compose(unmixcol)
 }
 
-// AffineLayer implements methods for disambiguating an affine layer of the SPN.
-type AffineLayer encoding.BlockAffine
+// affineLayer implements methods for disambiguating an affine layer of the SPN.
+type affineLayer encoding.BlockAffine
 
-func (al AffineLayer) Encode(in [16]byte) [16]byte {
+func (al affineLayer) Encode(in [16]byte) [16]byte {
 	return encoding.BlockAffine(al).Encode(in)
 }
 
-func (al AffineLayer) Decode(in [16]byte) [16]byte {
+func (al affineLayer) Decode(in [16]byte) [16]byte {
 	return encoding.BlockAffine(al).Decode(in)
 }
 
-// LeftCompose composes a Block encoding on the left.
-func (al *AffineLayer) LeftCompose(left encoding.Block) {
+// leftCompose composes a Block encoding on the left.
+func (al *affineLayer) leftCompose(left encoding.Block) {
 	temp, _ := encoding.DecomposeBlockAffine(encoding.ComposedBlocks{
 		left, encoding.BlockAffine(*al),
 	})
 
-	*al = AffineLayer(temp)
+	*al = affineLayer(temp)
 }
 
-// RightCompose composes a Block encoding on the right.
-func (al *AffineLayer) RightCompose(right encoding.Block) {
+// rightCompose composes a Block encoding on the right.
+func (al *affineLayer) rightCompose(right encoding.Block) {
 	temp, _ := encoding.DecomposeBlockAffine(encoding.ComposedBlocks{
 		encoding.BlockAffine(*al), right,
 	})
 
-	*al = AffineLayer(temp)
+	*al = affineLayer(temp)
 }
 
 // FindPermutation is called on the first affine layer. It returns the permutation matrix corresponding to the row
 // permutation that has occured to the first layer.
-func (al *AffineLayer) FindPermutation() matrix.Matrix {
+func (al *affineLayer) findPermutation() matrix.Matrix {
 	permed := (*al).BlockLinear.Forwards
 	unpermed := matrix.Matrix{}
 
@@ -83,9 +83,9 @@ func (al *AffineLayer) FindPermutation() matrix.Matrix {
 	return perm
 }
 
-// CleanLeft gets the last affine layer back to a matrix with 16-by-16 blocks along the diagonal, times ShiftRows, times
+// cleanLeft gets the last affine layer back to a matrix with 16-by-16 blocks along the diagonal, times ShiftRows, times
 // MixColumns and returns the matrix on the input encoding that it used to do this.
-func (al *AffineLayer) CleanLeft() encoding.Block {
+func (al *affineLayer) cleanLeft() encoding.Block {
 	inverse := matrix.GenerateEmpty(128, 128)
 	mixcols := matrix.GenerateEmpty(128, 128)
 
@@ -101,13 +101,13 @@ func (al *AffineLayer) CleanLeft() encoding.Block {
 	}
 
 	out := encoding.NewBlockLinear(inverse.Compose(mixcols))
-	al.LeftCompose(out)
+	al.leftCompose(out)
 	return encoding.InverseBlock{out}
 }
 
 // findBlockOfInverse finds any S-box transpositions or self-equivalence noise that may be hiding in the given block of
 // the last affine layer and returns them.
-func (al *AffineLayer) findBlockOfInverse(block int) matrix.Matrix {
+func (al *affineLayer) findBlockOfInverse(block int) matrix.Matrix {
 	for swap1 := 0; swap1 < 2; swap1++ {
 		for swap2 := 0; swap2 < 2; swap2++ {
 			for p1 := 0; p1 < 8; p1++ {
@@ -131,7 +131,7 @@ func (al *AffineLayer) findBlockOfInverse(block int) matrix.Matrix {
 
 // isBlockOfInverse takes a candidate solution for the given block of the matrix and returns true if it is valid and
 // false if it isn't.
-func (al *AffineLayer) isBlockOfInverse(block int, cand matrix.Matrix) bool {
+func (al *affineLayer) isBlockOfInverse(block int, cand matrix.Matrix) bool {
 	// Pad matrix.
 	inv := matrix.GenerateEmpty(32*block, 32)
 	for _, row := range cand {
@@ -160,7 +160,7 @@ func (al *AffineLayer) isBlockOfInverse(block int, cand matrix.Matrix) bool {
 }
 
 // getBlock returns the 8-by-8 block of the affine layer at the given position.
-func (al *AffineLayer) getBlock(row, col int) matrix.Matrix {
+func (al *affineLayer) getBlock(row, col int) matrix.Matrix {
 	out := matrix.Matrix{}
 
 	for i := 0; i < 8; i++ {

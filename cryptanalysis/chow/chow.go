@@ -83,8 +83,8 @@ func RecoverKey(constr *chow.Construction) []byte {
 	constr2 := aspn.DecomposeSPN(round2, cspn.SAS)
 
 	var (
-		leading, middle, trailing SBoxLayer
-		left, right               = AffineLayer(constr1[1].(encoding.BlockAffine)), AffineLayer(constr2[1].(encoding.BlockAffine))
+		leading, middle, trailing sboxLayer
+		left, right               = affineLayer(constr1[1].(encoding.BlockAffine)), affineLayer(constr2[1].(encoding.BlockAffine))
 	)
 
 	for pos := 0; pos < 16; pos++ {
@@ -98,28 +98,28 @@ func RecoverKey(constr *chow.Construction) []byte {
 
 	// Disambiguation Phase
 	// Disambiguate the affine layer.
-	lin, lout := left.Clean()
-	rin, rout := right.Clean()
+	lin, lout := left.clean()
+	rin, rout := right.clean()
 
-	leading.RightCompose(lin, common.NoShift)
-	middle.LeftCompose(lout, common.NoShift).RightCompose(rin, common.ShiftRows)
-	trailing.LeftCompose(rout, common.NoShift)
+	leading.rightCompose(lin, common.NoShift)
+	middle.leftCompose(lout, common.NoShift).rightCompose(rin, common.ShiftRows)
+	trailing.leftCompose(rout, common.NoShift)
 
 	// The SPN decomposition naturally leaves the affine layers without a constant part.
 	// We would push it into the S-boxes here if that wasn't the case.
 
 	// Move the constant off of the input and output of the S-boxes.
-	mcin, mcout := middle.CleanConstant()
+	mcin, mcout := middle.cleanConstant()
 	mcin, mcout = left.Decode(mcin), right.Encode(mcout)
 
-	leading.RightCompose(encoding.DecomposeConcatenatedBlock(encoding.BlockAdditive(mcin)), common.NoShift)
-	trailing.LeftCompose(encoding.DecomposeConcatenatedBlock(encoding.BlockAdditive(mcout)), common.NoShift)
+	leading.rightCompose(encoding.DecomposeConcatenatedBlock(encoding.BlockAdditive(mcin)), common.NoShift)
+	trailing.leftCompose(encoding.DecomposeConcatenatedBlock(encoding.BlockAdditive(mcout)), common.NoShift)
 
 	// Move the multiplication off of the input and output of the middle S-boxes.
-	mlin, mlout := middle.CleanLinear()
+	mlin, mlout := middle.cleanLinear()
 
-	leading.RightCompose(mlin, common.NoShift)
-	trailing.LeftCompose(mlout, common.NoShift)
+	leading.rightCompose(mlin, common.NoShift)
+	trailing.leftCompose(mlout, common.NoShift)
 
 	// fmt.Println(encoding.ProbablyEquivalentBlocks(
 	// 	encoding.ComposedBlocks{aspn.Encoding{round1}, ShiftRows{}, aspn.Encoding{round2}},

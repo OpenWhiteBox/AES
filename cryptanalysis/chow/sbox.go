@@ -33,20 +33,20 @@ func (inv invert) Decode(in byte) byte {
 	return byte(number.ByteFieldElem(in).Invert())
 }
 
-// SBoxLayer implements methods for disambiguating an S-box layer of the SPN.
-type SBoxLayer encoding.ConcatenatedBlock
+// sboxLayer implements methods for disambiguating an S-box layer of the SPN.
+type sboxLayer encoding.ConcatenatedBlock
 
-func (sbl SBoxLayer) Encode(in [16]byte) [16]byte {
+func (sbl sboxLayer) Encode(in [16]byte) [16]byte {
 	return encoding.ConcatenatedBlock(sbl).Encode(in)
 }
 
-func (sbl SBoxLayer) Decode(in [16]byte) [16]byte {
+func (sbl sboxLayer) Decode(in [16]byte) [16]byte {
 	return encoding.ConcatenatedBlock(sbl).Decode(in)
 }
 
-// LeftCompose component-wise composes this SBox layer with a concatenated block encoding on the left (input). A shift
+// reftCompose component-wise composes this SBox layer with a concatenated block encoding on the left (input). A shift
 // to apply can be specified.
-func (sbl *SBoxLayer) LeftCompose(left encoding.ConcatenatedBlock, shift func(int) int) *SBoxLayer {
+func (sbl *sboxLayer) leftCompose(left encoding.ConcatenatedBlock, shift func(int) int) *sboxLayer {
 	for pos := 0; pos < 16; pos++ {
 		(*sbl)[pos] = encoding.ComposedBytes{left[shift(pos)], sbl[pos]}
 	}
@@ -54,9 +54,9 @@ func (sbl *SBoxLayer) LeftCompose(left encoding.ConcatenatedBlock, shift func(in
 	return sbl
 }
 
-// RightCompose component-wise composes this SBox layer with a concatenated block encoding on the right (output). A
+// rightCompose component-wise composes this SBox layer with a concatenated block encoding on the right (output). A
 // shift to apply can be specified.
-func (sbl *SBoxLayer) RightCompose(right encoding.ConcatenatedBlock, shift func(int) int) *SBoxLayer {
+func (sbl *sboxLayer) rightCompose(right encoding.ConcatenatedBlock, shift func(int) int) *sboxLayer {
 	for pos := 0; pos < 16; pos++ {
 		(*sbl)[pos] = encoding.ComposedBytes{sbl[pos], right[shift(pos)]}
 	}
@@ -64,11 +64,11 @@ func (sbl *SBoxLayer) RightCompose(right encoding.ConcatenatedBlock, shift func(
 	return sbl
 }
 
-// CleanConstant finds the constant error on the input and output of each middle S-box. It removes it from the S-box and
+// cleanConstant finds the constant error on the input and output of each middle S-box. It removes it from the S-box and
 // returns it.
 //
 // Note: This function will also strip the final addition of 0x63 from AES's "standard" S-box.
-func (sbl *SBoxLayer) CleanConstant() (input, output [16]byte) {
+func (sbl *sboxLayer) cleanConstant() (input, output [16]byte) {
 	for pos := 0; pos < 16; pos++ {
 		in, out := sbl.findConstant(pos)
 
@@ -81,10 +81,10 @@ func (sbl *SBoxLayer) CleanConstant() (input, output [16]byte) {
 	return
 }
 
-// CleanLinear finds the linear error on the input and output of each middle S-box (after the constant error has been
+// cleanLinear finds the linear error on the input and output of each middle S-box (after the constant error has been
 // removed). It removes it from the S-box (leaving AES's "standard" S-box, without the 0x63 constant addition) and
 // returns it.
-func (sbl *SBoxLayer) CleanLinear() (input, output encoding.ConcatenatedBlock) {
+func (sbl *sboxLayer) cleanLinear() (input, output encoding.ConcatenatedBlock) {
 	for pos := 0; pos < 16; pos += 4 {
 		in, out := sbl.findLinear(pos)
 
@@ -103,7 +103,7 @@ func (sbl *SBoxLayer) CleanLinear() (input, output encoding.ConcatenatedBlock) {
 }
 
 // findConstant returns the constant error on the input and output of the middle S-box at position pos.
-func (sbl *SBoxLayer) findConstant(pos int) (byte, byte) {
+func (sbl *sboxLayer) findConstant(pos int) (byte, byte) {
 	for b := 0; b < 256; b++ { // Try to guess the constant on the input.
 		correction := encoding.ByteAdditive(b)
 		vec := encoding.ComposedBytes{invert{}, correction, sbl[pos]}
@@ -123,7 +123,7 @@ func (sbl *SBoxLayer) findConstant(pos int) (byte, byte) {
 
 // findLinear returns the linear error on the input and output of the mmiddle S-box at position pos (once the constant
 // error has been removed). The function is a simple brute force attack.
-func (sbl *SBoxLayer) findLinear(pos int) (encoding.ByteMultiplication, encoding.ByteMultiplication) {
+func (sbl *sboxLayer) findLinear(pos int) (encoding.ByteMultiplication, encoding.ByteMultiplication) {
 	subBytes := encoding.NewByteLinear(matrix.Matrix{
 		matrix.Row{0xF1},
 		matrix.Row{0xE3},

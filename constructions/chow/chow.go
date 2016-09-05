@@ -54,11 +54,11 @@ func (constr Construction) crypt(dst, src []byte, shift func([]byte)) {
 
 		// Apply the T-Boxes and Tyi Tables to each column of the state matrix.
 		for pos := 0; pos < 16; pos += 4 {
-			stretched := constr.expandWord(constr.TBoxTyiTable[round][pos:pos+4], dst[pos:pos+4])
-			constr.squashWords(constr.HighXORTable[round][2*pos:2*pos+8], stretched, dst[pos:pos+4])
+			stretched := constr.ExpandWord(constr.TBoxTyiTable[round][pos:pos+4], dst[pos:pos+4])
+			constr.SquashWords(constr.HighXORTable[round][2*pos:2*pos+8], stretched, dst[pos:pos+4])
 
-			stretched = constr.expandWord(constr.MBInverseTable[round][pos:pos+4], dst[pos:pos+4])
-			constr.squashWords(constr.LowXORTable[round][2*pos:2*pos+8], stretched, dst[pos:pos+4])
+			stretched = constr.ExpandWord(constr.MBInverseTable[round][pos:pos+4], dst[pos:pos+4])
+			constr.SquashWords(constr.LowXORTable[round][2*pos:2*pos+8], stretched, dst[pos:pos+4])
 		}
 	}
 
@@ -85,14 +85,14 @@ func (constr *Construction) unShiftRows(block []byte) {
 	})
 }
 
-// expandWord expands one word of the state matrix with the T-Boxes composed with Tyi Tables.
-func (constr *Construction) expandWord(tboxtyi []table.Word, word []byte) [4][4]byte {
+// ExpandWord expands one word of the state matrix with the T-Boxes composed with Tyi Tables.
+func (constr *Construction) ExpandWord(tboxtyi []table.Word, word []byte) [4][4]byte {
 	return [4][4]byte{tboxtyi[0].Get(word[0]), tboxtyi[1].Get(word[1]), tboxtyi[2].Get(word[2]), tboxtyi[3].Get(word[3])}
 }
 
-// squashWords squashes an expanded word back into one word with 3 pairwise XORs (calc'd one nibble at a time):
+// SquashWords squashes an expanded word back into one word with 3 pairwise XORs (calc'd one nibble at a time):
 //   (((a ^ b) ^ c) ^ d)
-func (constr *Construction) squashWords(xorTable [][3]table.Nibble, words [4][4]byte, dst []byte) {
+func (constr *Construction) SquashWords(xorTable [][3]table.Nibble, words [4][4]byte, dst []byte) {
 	copy(dst, words[0][:])
 
 	for i := 1; i < 4; i++ {
@@ -105,7 +105,7 @@ func (constr *Construction) squashWords(xorTable [][3]table.Nibble, words [4][4]
 	}
 }
 
-// expandBlock expands the entire state matrix into sixteen blocks.
+// ExpandBlock expands the entire state matrix into sixteen blocks.
 func (constr *Construction) expandBlock(mask [16]table.Block, block []byte) (out [16][16]byte) {
 	for i := 0; i < 16; i++ {
 		out[i] = mask[i].Get(block[i])

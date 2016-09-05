@@ -30,19 +30,19 @@ func findMatrix(basis []matrix.Row) matrix.Matrix {
 	panic("Couldn't find an invertible matrix in the given basis!")
 }
 
-// AffineLayer implements methods for disambiguating an affine layer of the SPN.
-type AffineLayer encoding.BlockAffine
+// affineLayer implements methods for disambiguating an affine layer of the SPN.
+type affineLayer encoding.BlockAffine
 
-func (al AffineLayer) Encode(in [16]byte) [16]byte {
+func (al affineLayer) Encode(in [16]byte) [16]byte {
 	return encoding.BlockAffine(al).Encode(in)
 }
 
-func (al AffineLayer) Decode(in [16]byte) [16]byte {
+func (al affineLayer) Decode(in [16]byte) [16]byte {
 	return encoding.BlockAffine(al).Decode(in)
 }
 
-// Clean gets the affine layer back to MixColumns and returns the input and output parasites.
-func (al *AffineLayer) Clean() (input, output encoding.ConcatenatedBlock) {
+// clean gets the affine layer back to MixColumns and returns the input and output parasites.
+func (al *affineLayer) clean() (input, output encoding.ConcatenatedBlock) {
 	// Clean off the non-GF(2^8) noise.
 	for pos := 0; pos < 16; pos++ {
 		input[pos] = al.inputParasite(pos)
@@ -64,18 +64,18 @@ func (al *AffineLayer) Clean() (input, output encoding.ConcatenatedBlock) {
 }
 
 // adjust fixes the affine layer for two concatenated block encodings which will be moved into the S-box layer.
-func (al *AffineLayer) adjust(input, output encoding.ConcatenatedBlock) {
+func (al *affineLayer) adjust(input, output encoding.ConcatenatedBlock) {
 	temp, _ := encoding.DecomposeBlockAffine(encoding.ComposedBlocks{
 		encoding.InverseBlock{input},
 		encoding.BlockAffine(*al),
 		encoding.InverseBlock{output},
 	})
 
-	*al = AffineLayer(temp)
+	*al = affineLayer(temp)
 }
 
 // inputParasite returns the non-GF(2^8) part of the parasite on the output at position col.
-func (al *AffineLayer) inputParasite(col int) encoding.Byte {
+func (al *affineLayer) inputParasite(col int) encoding.Byte {
 	block := col / 4
 	row := 4 * (col / 4)
 
@@ -100,7 +100,7 @@ func (al *AffineLayer) inputParasite(col int) encoding.Byte {
 }
 
 // outputParasite returns the non-GF(2^8) part of the parasite on the output at position row.
-func (al *AffineLayer) outputParasite(row int) encoding.Byte {
+func (al *affineLayer) outputParasite(row int) encoding.Byte {
 	block := row / 4
 	col := 4 * (row / 4)
 
@@ -124,9 +124,9 @@ func (al *AffineLayer) outputParasite(row int) encoding.Byte {
 	))
 }
 
-//stripScalars gets rid of unknown scalars in each block of the affine layer. It leaves it exactly equal to MixColumns,
+// stripScalars gets rid of unknown scalars in each block of the affine layer. It leaves it exactly equal to MixColumns,
 // but there is an unknown scalar in each block that will move into the S-box layers.
-func (al *AffineLayer) stripScalars() (encoding.ConcatenatedBlock, encoding.ConcatenatedBlock) {
+func (al *affineLayer) stripScalars() (encoding.ConcatenatedBlock, encoding.ConcatenatedBlock) {
 	input, output := [16]encoding.ByteLinear{}, [16]encoding.ByteLinear{}
 
 	for pos := 0; pos < 16; pos += 4 {
@@ -180,7 +180,7 @@ func (al *AffineLayer) stripScalars() (encoding.ConcatenatedBlock, encoding.Conc
 }
 
 // getBlock returns the 8-by-8 block of the affine layer at the given position.
-func (al *AffineLayer) getBlock(row, col int) matrix.Matrix {
+func (al *affineLayer) getBlock(row, col int) matrix.Matrix {
 	out := matrix.Matrix{}
 
 	for i := 0; i < 8; i++ {

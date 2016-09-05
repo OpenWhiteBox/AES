@@ -10,7 +10,7 @@ import (
 	"github.com/OpenWhiteBox/AES/constructions/common"
 )
 
-func TestTemp(t *testing.T) {
+func TestRecoverKey(t *testing.T) {
 	key := make([]byte, 16)
 	rand.Read(key)
 
