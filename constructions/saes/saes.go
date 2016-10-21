@@ -197,10 +197,10 @@ func (constr *Construction) UnMixColumns(block []byte) {
 
 // MixColumn multiplies the first four bytes of slice by a fixed element of GF(2^32).
 func (constr *Construction) MixColumn(slice []byte) {
-	column := number.ArrayFieldElem{
+	column := number.ArrayRingElem{
 		number.ByteFieldElem(slice[0]), number.ByteFieldElem(slice[1]),
 		number.ByteFieldElem(slice[2]), number.ByteFieldElem(slice[3]),
-	}.Mul(number.ArrayFieldElem{
+	}.Mul(number.ArrayRingElem{
 		number.ByteFieldElem(0x02), number.ByteFieldElem(0x01),
 		number.ByteFieldElem(0x01), number.ByteFieldElem(0x03),
 	})
@@ -216,10 +216,10 @@ func (constr *Construction) MixColumn(slice []byte) {
 
 // UnMixColumn is the inverse of MixColumn.
 func (constr *Construction) UnMixColumn(slice []byte) {
-	column := number.ArrayFieldElem{
+	column := number.ArrayRingElem{
 		number.ByteFieldElem(slice[0]), number.ByteFieldElem(slice[1]),
 		number.ByteFieldElem(slice[2]), number.ByteFieldElem(slice[3]),
-	}.Mul(number.ArrayFieldElem{
+	}.Mul(number.ArrayRingElem{
 		number.ByteFieldElem(0x0e), number.ByteFieldElem(0x09),
 		number.ByteFieldElem(0x0d), number.ByteFieldElem(0x0b),
 	})
