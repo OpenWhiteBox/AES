@@ -6,16 +6,12 @@ import (
 
 	"github.com/OpenWhiteBox/primitives/matrix"
 
-	"github.com/OpenWhiteBox/AES/constructions/common"
-
 	test_vectors "github.com/OpenWhiteBox/AES/constructions/test"
 )
 
 func TestEncrypt(t *testing.T) {
 	for n, vec := range test_vectors.GetAESVectors(testing.Short()) {
-		constr, inputMask, outputMask := GenerateKeys(
-			vec.Key, vec.Key, common.IndependentMasks{common.RandomMask, common.RandomMask},
-		)
+		constr, inputMask, outputMask := GenerateKeys(vec.Key, vec.Key)
 
 		in, out := [16]byte{}, [16]byte{}
 
@@ -34,9 +30,7 @@ func TestEncrypt(t *testing.T) {
 
 func TestDecrypt(t *testing.T) {
 	for n, vec := range test_vectors.GetAESVectors(testing.Short()) {
-		constr, inputMask, outputMask := GenerateKeys(
-			vec.Key, vec.Key, common.IndependentMasks{common.RandomMask, common.RandomMask},
-		)
+		constr, inputMask, outputMask := GenerateKeys(vec.Key, vec.Key)
 
 		in, out := [16]byte{}, [16]byte{}
 

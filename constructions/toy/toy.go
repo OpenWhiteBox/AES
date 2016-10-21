@@ -1,4 +1,6 @@
 // Package toy implements the toy white-box AES construction, based on simple SPN disambiguation.
+//
+// Source paper to be added.
 package toy
 
 import (
