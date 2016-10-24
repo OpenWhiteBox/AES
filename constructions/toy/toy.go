@@ -48,3 +48,5 @@ func (constr Construction) Decrypt(dst, src []byte) {
 
 	copy(dst[:], state[:])
 }
+
+// TODO(brendan): Implement Parse and Serialize.
