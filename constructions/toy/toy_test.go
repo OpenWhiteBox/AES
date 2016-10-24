@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/OpenWhiteBox/primitives/matrix"
-
 	test_vectors "github.com/OpenWhiteBox/AES/constructions/test"
 )
 
@@ -15,7 +13,7 @@ func TestEncrypt(t *testing.T) {
 
 		in, out := [16]byte{}, [16]byte{}
 
-		copy(in[:], matrix.Row(vec.In))
+		copy(in[:], vec.In)
 		in = inputMask.Decode(in) // Apply input encoding.
 
 		constr.Encrypt(out[:], in[:])
@@ -34,7 +32,7 @@ func TestDecrypt(t *testing.T) {
 
 		in, out := [16]byte{}, [16]byte{}
 
-		copy(in[:], matrix.Row(vec.Out))
+		copy(in[:], vec.Out)
 		in = outputMask.Encode(in) // Apply output encoding.
 
 		constr.Decrypt(out[:], in[:])

@@ -1,7 +1,6 @@
 package toy
 
 import (
-	"crypto/rand"
 	"io"
 
 	"github.com/OpenWhiteBox/primitives/encoding"
@@ -74,7 +73,7 @@ func (f frobenius) Decode(in byte) (out byte) {
 // generateSelfEquivalence returns a random self-equivalence of the S-box layer, so that \zeta(x) = bInv(\zeta(a(x))).
 func generateSelfEquivalence(r io.Reader) (a, bInv encoding.Block) {
 	// Sample a byte-wise permutation to apply to the input.
-	p := &permutation{encoding.GenerateShuffle(rand.Reader)}
+	p := &permutation{encoding.GenerateShuffle(r)}
 
 	// Sample one non-zero scalar for each byte. Each byte of the input is multiplied by this scalar.
 	buff := make([]byte, 1)
@@ -137,8 +136,12 @@ func GenerateKeys(key, seed []byte) (out Construction, inputMask, outputMask enc
 	out[10], _ = encoding.DecomposeBlockAffine(encoding.ComposedBlocks{out[10], outputMask})
 
 	// Sample a self-equivalences of the S-box layer and mix them into adjacent affine layers.
+	label := make([]byte, 16)
+	copy(label, []byte("Self-Eq"))
+	r := rs.Stream(label)
+
 	for i := 1; i < 11; i++ {
-		a, bInv := generateSelfEquivalence(rand.Reader)
+		a, bInv := generateSelfEquivalence(r)
 		out[i-1], _ = encoding.DecomposeBlockAffine(encoding.ComposedBlocks{out[i-1], a})
 		out[i], _ = encoding.DecomposeBlockAffine(encoding.ComposedBlocks{bInv, out[i]})
 	}
