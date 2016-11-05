@@ -90,7 +90,7 @@ func GenerateKeys(key, seed []byte) (out Construction, inputMask, outputMask enc
 		constant: matrix.Row(roundKeys[10]).Add(subBytesConst),
 	}).compose(out[40])
 
-	// Sample a self-equivalences of the S-box layer and mix them into adjacent affine layers.
+	// Sample self-equivalences of the S-box layer and mix them into adjacent affine layers.
 	label := make([]byte, 16)
 	copy(label, []byte("Self-Eq"))
 	r := rs.Stream(label)

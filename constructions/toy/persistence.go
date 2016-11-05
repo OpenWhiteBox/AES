@@ -23,7 +23,7 @@ func (constr *Construction) Serialize() []byte {
 	return out
 }
 
-// Parse parses a byte array into a white-box construction. It returns an error if the byte array isn't long enough.
+// Parse parses a byte array into a white-box construction. It returns an error if the byte slice isn't long enough.
 func Parse(in []byte) (constr Construction, err error) {
 	if len(in) != fullSize {
 		err = errors.New("Parsing the key failed.")

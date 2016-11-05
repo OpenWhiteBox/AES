@@ -57,9 +57,9 @@ func (constr Construction) Encrypt(dst, src []byte) {
 
 	for i, m := range constr[:len(constr)-1] {
 		temp := m.transform(state)
+		state = make([]byte, stateSize[i%4])
 
 		cs := compressSize[i%4]
-		state = make([]byte, stateSize[i%4])
 		compress(state[:cs], temp[:2*cs])
 		copy(state[cs:], temp[2*cs:])
 	}

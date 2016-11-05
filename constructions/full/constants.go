@@ -5,10 +5,10 @@ import (
 )
 
 var (
-	// stateSize is how much memory will be needed after applying the S-box on round i mod 4.
+	// stateSize is how much memory will be needed after applying the S-box, on round i mod 4.
 	stateSize = [...]int{56, 36, 32, 64}
 
-	// compressSize is (half of) how many bytes to apply the S-box to on round i mod 4.
+	// compressSize is (half of) how many bytes to apply the S-box to, on round i mod 4.
 	compressSize = [...]int{32, 8, 16, 64}
 )
 
