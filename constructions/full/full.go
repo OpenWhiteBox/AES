@@ -13,6 +13,21 @@ type blockAffine struct {
 	constant matrix.Row
 }
 
+func parseBlockAffine(in []byte) (*blockAffine, []byte) {
+	out := &blockAffine{linear: matrix.Matrix{}}
+
+	h, w := 8*int(in[0]), int(in[1])
+	in = in[2:]
+	for i := 0; i < h; i++ {
+		out.linear = append(out.linear, matrix.Row(in[:w]))
+		in = in[w:]
+	}
+	out.constant = matrix.Row(in[:(h / 8)])
+	in = in[(h / 8):]
+
+	return out, in
+}
+
 func (ba *blockAffine) compose(in *blockAffine) *blockAffine {
 	return &blockAffine{
 		linear:   ba.linear.Compose(in.linear),
@@ -34,6 +49,16 @@ func (ba *blockAffine) BlockAffine() encoding.BlockAffine {
 	copy(out.BlockAdditive[:], ba.constant)
 
 	return out
+}
+
+func (ba *blockAffine) serialize(out *[]byte) {
+	h, w := ba.linear.Size()
+	*out = append(*out, byte(h/8), byte(w/8))
+
+	for _, row := range ba.linear {
+		*out = append(*out, row...)
+	}
+	*out = append(*out, ba.constant...)
 }
 
 // compress compute the AND of neighboring bits in src and stores the result in dst.
@@ -70,5 +95,3 @@ func (constr Construction) Encrypt(dst, src []byte) {
 
 // Decrypt is not implemented.
 func (constr Construction) Decrypt(_, _ []byte) {}
-
-// TODO(brendan): Implement Parse and Serialize.
