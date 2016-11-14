@@ -1,7 +1,9 @@
 package full
 
 import (
+	"crypto/rand"
 	"io"
+	"math/big"
 
 	"github.com/OpenWhiteBox/primitives/encoding"
 	"github.com/OpenWhiteBox/primitives/matrix"
@@ -28,6 +30,44 @@ func generateAffineMasks(rs *random.Source) (inputMask, outputMask *blockAffine)
 	return
 }
 
+// generatePermutation returns a randomly chosen permutation of [0, n) and its inverse.
+func generatePermutation(r io.Reader, max int) (forwards, backwards []int) {
+	forwards = make([]int, max)
+	for i := 0; i < max; i++ {
+		forwards[i] = i
+	}
+	for i := max - 1; i > 0; i-- {
+		J, _ := rand.Int(r, big.NewInt(int64(i+1)))
+		j := int(J.Int64())
+
+		forwards[i], forwards[j] = forwards[j], forwards[i]
+	}
+
+	backwards = make([]int, max)
+	for i := 0; i < max; i++ {
+		backwards[forwards[i]] = i
+	}
+
+	return
+}
+
+// generateSboxSelfEq returns a randomly chosen affine self-equivalence of the AND gate. This information is packed into
+// a [6]bool. The first pair of bools is the first row of the linear part, the second pair of bools is the second row,
+// and the third pair is the constant part.
+func generateSboxSelfEq(r io.Reader) [6]bool {
+	var selfEqs = [...][6]bool{
+		[6]bool{true, false, false, true, false, false},
+		[6]bool{false, true, true, false, false, false},
+		[6]bool{true, true, false, true, true, false},
+		[6]bool{false, true, true, true, false, true},
+		[6]bool{true, true, true, false, true, false},
+		[6]bool{true, false, true, true, false, true},
+	}
+
+	J, _ := rand.Int(r, big.NewInt(6))
+	return selfEqs[J.Int64()]
+}
+
 // generateSelfEquivalence returns a random self-equivalence of the S-box layer, defined by stateSize and compressSize.
 func generateSelfEquivalence(r io.Reader, stateSize, compressSize int) (a, bInv *blockAffine) {
 	inSize, outSize := 8*(stateSize+compressSize), 8*stateSize
@@ -40,12 +80,21 @@ func generateSelfEquivalence(r io.Reader, stateSize, compressSize int) (a, bInv 
 		constant: matrix.NewRow(outSize),
 	}
 
-	// The S-box portion of the self-equivalence. Set as the identity for now.
-	// TODO(brendan): Implement me.
+	// The S-box portion of the self-equivalence.
+	forwards, backwards := generatePermutation(r, 8*compressSize)
+
 	for i := 0; i < 8*compressSize; i++ {
-		in.linear[2*i+0].SetBit(2*i+0, true)
-		in.linear[2*i+1].SetBit(2*i+1, true)
-		out.linear[i].SetBit(i, true)
+		selfEq := generateSboxSelfEq(r)
+
+		in.linear[2*forwards[i]+0].SetBit(2*i+0, selfEq[0])
+		in.linear[2*forwards[i]+0].SetBit(2*i+1, selfEq[1])
+		in.linear[2*forwards[i]+1].SetBit(2*i+0, selfEq[2])
+		in.linear[2*forwards[i]+1].SetBit(2*i+1, selfEq[3])
+
+		in.constant.SetBit(2*forwards[i]+0, selfEq[4])
+		in.constant.SetBit(2*forwards[i]+1, selfEq[5])
+
+		out.linear[backwards[i]].SetBit(i, true)
 	}
 
 	// The open portion of the self-equivalence. Fill it with a random, invertible matrix.
