@@ -1,5 +1,7 @@
 // Package full implements the full white-box AES construction, with decomposed S-boxes. An attack on this construction
 // is not implemented.
+//
+// http://dl.acm.org/citation.cfm?id=2995314
 package full
 
 import (

@@ -14,3 +14,6 @@ documentation is in godocs:
   - [chow/](https://godoc.org/github.com/OpenWhiteBox/AES/cryptanalysis/chow) Cryptanalysis of Chow et al.'s construction.
   - [toy/](https://godoc.org/github.com/OpenWhiteBox/AES/cryptanalysis/toy) Cryptanalysis of toy construction.
   - [xiao/](https://godoc.org/github.com/OpenWhiteBox/AES/cryptanalysis/xiao) Cryptanalysis of Xiao and Lai's construction.
+
+The "full" construction is the only white-box construction which does not have a corresponding cryptanalysis implemented
+(though that doesn't mean it's secure). See example/ for code and instructions on how to use the "full" construction.

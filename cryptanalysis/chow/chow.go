@@ -2,7 +2,7 @@
 //
 // It is built on top of the SAS cryptanalysis in Generic/cryptanalysis/spn.
 //
-// Source paper to be added.
+// http://dl.acm.org/citation.cfm?id=2995314
 package chow
 
 import (

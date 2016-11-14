@@ -1,4 +1,6 @@
 // Package chow implements a cryptanalysis of the toy white-box AES construction.
+//
+// http://dl.acm.org/citation.cfm?id=2995314
 package toy
 
 import (
